@@ -10,6 +10,8 @@ import Players from './pages/players';
 import Games from './pages/games';
 import Statistics from './pages/statistics';
 import Analysis from './pages/analysis';
+import AnalysisImport from './pages/analysis-import';
+import OpponentAnalysis from './pages/opponent-analysis';
 import Settings from './pages/settings';
 import Institutions from './pages/institutions';
 import Leagues from './pages/leagues';
@@ -98,6 +100,10 @@ function App() {
   }, [mode]);
 
   useEffect(() => {
+    window.localStorage.setItem('courtiq-reports', JSON.stringify(reports));
+  }, [reports]);
+
+  useEffect(() => {
     window.localStorage.setItem('courtiq-team', selectedTeam);
   }, [selectedTeam]);
 
@@ -160,6 +166,8 @@ function App() {
           <Route path="/games" element={<ProtectedRoute allowedPath="/games"><Games mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedSeason={selectedSeason} role={role || currentUser?.role || 'Statistician'} reports={reports} logout={logout} /></ProtectedRoute>} />
           <Route path="/statistics" element={<ProtectedRoute allowedPath="/statistics"><Statistics mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedInstitution={selectedInstitution} selectedLeague={selectedLeague} selectedSeason={selectedSeason} selectedGame={selectedGame} onGameChange={setSelectedGame} role={role || currentUser?.role || 'Statistician'} logout={logout} /></ProtectedRoute>} />
           <Route path="/analysis" element={<ProtectedRoute allowedPath="/analysis"><Analysis mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedSeason={selectedSeason} role={role || currentUser?.role || 'Statistician'} logout={logout} /></ProtectedRoute>} />
+          <Route path="/analysis-import" element={<ProtectedRoute allowedPath="/analysis-import"><AnalysisImport mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedSeason={selectedSeason} role={role || currentUser?.role || 'Statistician'} logout={logout} /></ProtectedRoute>} />
+          <Route path="/opponent-analysis" element={<ProtectedRoute allowedPath="/opponent-analysis"><OpponentAnalysis mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedSeason={selectedSeason} role={role || currentUser?.role || 'Statistician'} logout={logout} /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute allowedPath="/settings"><Settings mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} logout={logout} /></ProtectedRoute>} />
           <Route path="/institutions" element={<ProtectedRoute allowedPath="/institutions"><Institutions mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} institutions={institutions} setInstitutions={setInstitutions} logout={logout} /></ProtectedRoute>} />
           <Route path="/leagues" element={<ProtectedRoute allowedPath="/leagues"><Leagues mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} leagues={leagues} setLeagues={setLeagues} logout={logout} /></ProtectedRoute>} />

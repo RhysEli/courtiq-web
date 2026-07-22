@@ -21,6 +21,8 @@ const navItems = [
   { label: 'Games', path: '/games', icon: SportsBasketballRoundedIcon },
   { label: 'Statistics', path: '/statistics', icon: BarChartRoundedIcon },
   { label: 'AI Analysis', path: '/analysis', icon: AutoAwesomeRoundedIcon },
+  { label: 'Analysis Import', path: '/analysis-import', icon: ArticleRoundedIcon },
+  { label: 'Opponent Analysis', path: '/opponent-analysis', icon: BarChartRoundedIcon },
   { label: 'Institutions', path: '/institutions', icon: BusinessRoundedIcon },
   { label: 'Leagues', path: '/leagues', icon: SchoolRoundedIcon },
   { label: 'Seasons', path: '/seasons', icon: CalendarMonthRoundedIcon },

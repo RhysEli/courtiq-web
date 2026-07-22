@@ -1,11 +1,11 @@
 import { Box, Button, Card, CardContent, Chip, Grid, Stack, Typography } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Layout from '../components/Layout';
 
 function Reports({ mode, toggleTheme, selectedTeam, onTeamChange, role, reports, setReports, selectedSeason, logout }) {
   const [uploading, setUploading] = useState(false);
-  const canManage = role === 'Administrator' || role === 'Statistician' || role === 'Coach';
+  const canManage = role === 'Administrator' || role === 'Statistician' || role === 'Team Manager';
 
   const uploadReport = () => {
     if (!canManage) return;
@@ -16,7 +16,20 @@ function Reports({ mode, toggleTheme, selectedTeam, onTeamChange, role, reports,
         { id: prev.length + 1, name: `FIBA Report ${prev.length + 1}.pdf`, type: 'FIBA Report', uploadedAt: 'Just now' },
       ]);
       setUploading(false);
-    }, 900);
+    }, 600);
+  };
+
+  const latestReports = useMemo(() => [...reports].slice(-4).reverse(), [reports]);
+
+  const downloadReport = (type) => {
+    const content = `${type}\n\nGenerated from CourtIQ analysis workflow for ${selectedTeam || 'current team'}.`;
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${type.toLowerCase().replace(/\s+/g, '-')}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -49,7 +62,7 @@ function Reports({ mode, toggleTheme, selectedTeam, onTeamChange, role, reports,
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={2}>Recent uploads</Typography>
               <Stack spacing={2}>
-                {reports.map((report) => (
+                {latestReports.map((report) => (
                   <Box key={report.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Box>
                       <Typography fontWeight={700}>{report.name}</Typography>
@@ -57,6 +70,11 @@ function Reports({ mode, toggleTheme, selectedTeam, onTeamChange, role, reports,
                     </Box>
                     <Chip label="Ready for AI" color="primary" size="small" />
                   </Box>
+                ))}
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 3 }}>
+                {['Coach Report', 'Match Analysis Report', 'Opponent Scouting Report', 'Player Development Report', 'Season Summary Report'].map((item) => (
+                  <Button key={item} variant="outlined" onClick={() => downloadReport(item)}>{item}</Button>
                 ))}
               </Stack>
             </CardContent>
