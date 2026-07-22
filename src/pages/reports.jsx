@@ -3,7 +3,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useState } from 'react';
 import Layout from '../components/Layout';
 
-function Reports({ mode, toggleTheme, selectedTeam, onTeamChange, role, reports, setReports }) {
+function Reports({ mode, toggleTheme, selectedTeam, onTeamChange, role, reports, setReports, selectedSeason, logout }) {
   const [uploading, setUploading] = useState(false);
   const canManage = role === 'Administrator' || role === 'Statistician' || role === 'Coach';
 
@@ -20,7 +20,7 @@ function Reports({ mode, toggleTheme, selectedTeam, onTeamChange, role, reports,
   };
 
   return (
-    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange}>
+    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant="h4" fontWeight={700}>FIBA reports</Typography>

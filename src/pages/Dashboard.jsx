@@ -3,11 +3,11 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import Layout from '../components/Layout';
 import { getTeamData } from '../data/mockData';
 
-export default function Dashboard({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason }) {
+export default function Dashboard({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const data = getTeamData(selectedTeam);
 
   return (
-    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange}>
+    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Card sx={{ p: 1 }}>
           <CardContent>

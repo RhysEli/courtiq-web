@@ -1,9 +1,9 @@
 import { Box, Grid, Card, CardContent, Typography, Switch, FormControlLabel, TextField, Button, Stack } from '@mui/material';
 import Layout from '../components/Layout';
 
-function Settings({ mode, toggleTheme, selectedTeam, onTeamChange, role }) {
+function Settings({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   return (
-    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role}>
+    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <Card>

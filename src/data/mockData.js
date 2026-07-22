@@ -5,6 +5,13 @@ export const teamOptions = [
   { value: 'usiu-premier', label: 'USIU Tigers Premier League' },
 ];
 
+export const mockUsers = [
+  { id: 'manager-1', name: 'Asha Wanjiru', email: 'manager@courtiq.com', password: 'demo123', role: 'Team Manager' },
+  { id: 'statistician-1', name: 'Rhys Cole', email: 'statistician@courtiq.com', password: 'demo123', role: 'Statistician' },
+  { id: 'coach-1', name: 'Njeri Mugo', email: 'coach@courtiq.com', password: 'demo123', role: 'Coach' },
+  { id: 'athlete-1', name: 'Mina Kibet', email: 'athlete@courtiq.com', password: 'demo123', role: 'Athlete' },
+];
+
 const teamData = {
   'usiu-men': {
     profile: {

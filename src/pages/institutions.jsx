@@ -1,37 +1,44 @@
-import { Box, Button, Card, CardContent, Chip, Grid, Stack, TextField, Typography } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { Box, Button, Card, CardContent, Chip, Grid, Stack, TextField, Typography, Alert } from '@mui/material';
+import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/Layout';
+import { createInstitution, getInstitutions } from '../services/managementService';
 
-function Institutions({ mode, toggleTheme, selectedTeam, onTeamChange, role, institutions, setInstitutions }) {
+function Institutions({ mode, toggleTheme, selectedTeam, onTeamChange, role, institutions, setInstitutions, selectedSeason, logout }) {
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [teams, setTeams] = useState('');
+  const [notice, setNotice] = useState('');
 
-  const canManage = role === 'Administrator' || role === 'Coach';
+  const canManage = role === 'Statistician' || role === 'Team Manager';
 
-  const institutionList = useMemo(() => institutions, [institutions]);
+  const institutionList = useMemo(() => institutions ?? [], [institutions]);
+
+  useEffect(() => {
+    const storedInstitutions = getInstitutions();
+    if (setInstitutions && storedInstitutions.length) {
+      setInstitutions(storedInstitutions);
+    }
+  }, [setInstitutions]);
 
   const addInstitution = () => {
     if (!name.trim()) return;
-    setInstitutions((prev) => [
-      ...prev,
-      { id: `${name.toLowerCase().replace(/\s+/g, '-')}`, name, location, teams: teams.split(',').filter(Boolean) },
-    ]);
+    const institution = createInstitution({ name, location, teams: teams.split(',').map((entry) => entry.trim()).filter(Boolean) });
+    if (setInstitutions) {
+      setInstitutions((prev) => [...prev, institution]);
+    }
     setName('');
     setLocation('');
     setTeams('');
+    setNotice(`Saved ${institution.name}`);
   };
 
   return (
-    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange}>
+    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant="h4" fontWeight={700}>Institution management</Typography>
           <Typography color="text.secondary">Manage the organizations, clubs, and campus programs behind each team.</Typography>
         </Box>
-        {canManage && (
-          <Button variant="contained" color="primary">Create institution</Button>
-        )}
       </Box>
 
       <Grid container spacing={3}>
@@ -63,6 +70,7 @@ function Institutions({ mode, toggleTheme, selectedTeam, onTeamChange, role, ins
                 <TextField label="Location" value={location} onChange={(event) => setLocation(event.target.value)} fullWidth />
                 <TextField label="Teams (comma separated)" value={teams} onChange={(event) => setTeams(event.target.value)} fullWidth />
                 <Button variant="contained" color="primary" onClick={addInstitution} disabled={!canManage}>Save institution</Button>
+                {notice && <Alert severity="success">{notice}</Alert>}
               </Stack>
             </CardContent>
           </Card>

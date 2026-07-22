@@ -2,11 +2,11 @@ import { Box, Grid, Card, CardContent, Typography, Chip, Stack, Divider } from '
 import Layout from '../components/Layout';
 import { getTeamData } from '../data/mockData';
 
-function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange }) {
+function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const data = getTeamData(selectedTeam);
 
   return (
-    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange}>
+    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <Card>

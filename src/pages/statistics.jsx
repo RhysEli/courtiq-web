@@ -10,11 +10,11 @@ const pieData = [
 
 const colors = ['#ff7a1a', '#38bdf8'];
 
-function Statistics({ mode, toggleTheme, selectedTeam, onTeamChange }) {
+function Statistics({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const data = getTeamData(selectedTeam);
 
   return (
-    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange}>
+    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Card>
           <CardContent>

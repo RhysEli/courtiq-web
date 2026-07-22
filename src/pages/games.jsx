@@ -2,12 +2,12 @@ import { Box, Grid, Card, CardContent, Typography, Button, Chip, Stack, Divider,
 import Layout from '../components/Layout';
 import { getTeamData } from '../data/mockData';
 
-function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason }) {
+function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const data = getTeamData(selectedTeam);
   const canManage = role === 'Administrator' || role === 'Statistician' || role === 'Coach';
 
   return (
-    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason}>
+    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
         <Button variant="contained" disabled={!canManage}>Create Game</Button>
         <Button variant="outlined" disabled={!canManage}>Upload Statistics</Button>

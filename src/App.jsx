@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 
+import { useAuth } from './contexts/AuthContext';
 import Login from './pages/login';
 import Dashboard from './pages/Dashboard';
 import Teams from './pages/teams';
@@ -14,6 +15,14 @@ import Institutions from './pages/institutions';
 import Leagues from './pages/leagues';
 import Seasons from './pages/seasons';
 import Reports from './pages/reports';
+import Account from './pages/account';
+import Users from './pages/users';
+import Organizations from './pages/organizations';
+import LeaguesManagement from './pages/leagues-management';
+import SeasonsManagement from './pages/seasons-management';
+import TeamsManagement from './pages/teams-management';
+import PlayersManagement from './pages/players-management';
+import { isRouteAllowed } from './auth/roleAccess';
 
 const initialInstitutions = [
   { id: 'usiu', name: 'USIU', location: 'Nairobi, Kenya', teams: ['USIU Tigers (Men)', 'USIU Flames (Women)'] },
@@ -33,9 +42,23 @@ const initialReports = [
   { id: 1, name: 'USIU vs Strathmore Box Score.pdf', type: 'Box Score', uploadedAt: 'Today • 08:40' },
 ];
 
+function ProtectedRoute({ children, allowedPath }) {
+  const { isAuthenticated, role } = useAuth();
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace state={{ from: location }} />;
+  }
+
+  if (allowedPath && !isRouteAllowed(role, allowedPath)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+}
+
 function App() {
   const [mode, setMode] = useState('dark');
-  const [userRole, setUserRole] = useState('Statistician');
   const [selectedTeam, setSelectedTeam] = useState('usiu-men');
   const [selectedInstitution, setSelectedInstitution] = useState('usiu');
   const [selectedLeague, setSelectedLeague] = useState('Nairobi Basketball League');
@@ -45,6 +68,7 @@ function App() {
   const [leagues, setLeagues] = useState(initialLeagues);
   const [seasons, setSeasons] = useState(initialSeasons);
   const [reports, setReports] = useState(initialReports);
+  const { role, currentUser, logout } = useAuth();
 
   useEffect(() => {
     const savedMode = window.localStorage.getItem('courtiq-theme');
@@ -67,10 +91,6 @@ function App() {
     if (savedSeason) {
       setSelectedSeason(savedSeason);
     }
-    const savedRole = window.localStorage.getItem('courtiq-role');
-    if (savedRole) {
-      setUserRole(savedRole);
-    }
   }, []);
 
   useEffect(() => {
@@ -92,10 +112,6 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem('courtiq-season', selectedSeason);
   }, [selectedSeason]);
-
-  useEffect(() => {
-    window.localStorage.setItem('courtiq-role', userRole);
-  }, [userRole]);
 
   const theme = useMemo(
     () =>
@@ -137,18 +153,25 @@ function App() {
       <CssBaseline />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Login onLogin={setUserRole} />} />
-          <Route path="/dashboard" element={<Dashboard mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedInstitution={selectedInstitution} onInstitutionChange={setSelectedInstitution} selectedLeague={selectedLeague} onLeagueChange={setSelectedLeague} selectedSeason={selectedSeason} onSeasonChange={setSelectedSeason} role={userRole} />} />
-          <Route path="/teams" element={<Teams mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedInstitution={selectedInstitution} onInstitutionChange={setSelectedInstitution} selectedSeason={selectedSeason} onSeasonChange={setSelectedSeason} role={userRole} institutions={institutions} setInstitutions={setInstitutions} />} />
-          <Route path="/players" element={<Players mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedSeason={selectedSeason} role={userRole} />} />
-          <Route path="/games" element={<Games mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedSeason={selectedSeason} role={userRole} reports={reports} />} />
-          <Route path="/statistics" element={<Statistics mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedInstitution={selectedInstitution} selectedLeague={selectedLeague} selectedSeason={selectedSeason} selectedGame={selectedGame} onGameChange={setSelectedGame} role={userRole} />} />
-          <Route path="/analysis" element={<Analysis mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedSeason={selectedSeason} role={userRole} />} />
-          <Route path="/settings" element={<Settings mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={userRole} />} />
-          <Route path="/institutions" element={<Institutions mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={userRole} institutions={institutions} setInstitutions={setInstitutions} />} />
-          <Route path="/leagues" element={<Leagues mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={userRole} leagues={leagues} setLeagues={setLeagues} />} />
-          <Route path="/seasons" element={<Seasons mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={userRole} seasons={seasons} setSeasons={setSeasons} selectedSeason={selectedSeason} onSeasonChange={setSelectedSeason} />} />
-          <Route path="/reports" element={<Reports mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={userRole} reports={reports} setReports={setReports} />} />
+          <Route path="/" element={<Login />} />
+          <Route path="/dashboard" element={<ProtectedRoute allowedPath="/dashboard"><Dashboard mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedInstitution={selectedInstitution} onInstitutionChange={setSelectedInstitution} selectedLeague={selectedLeague} onLeagueChange={setSelectedLeague} selectedSeason={selectedSeason} onSeasonChange={setSelectedSeason} role={role || currentUser?.role || 'Statistician'} logout={logout} /></ProtectedRoute>} />
+          <Route path="/teams" element={<ProtectedRoute allowedPath="/teams"><Teams mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedInstitution={selectedInstitution} onInstitutionChange={setSelectedInstitution} selectedSeason={selectedSeason} onSeasonChange={setSelectedSeason} role={role || currentUser?.role || 'Statistician'} institutions={institutions} setInstitutions={setInstitutions} logout={logout} /></ProtectedRoute>} />
+          <Route path="/players" element={<ProtectedRoute allowedPath="/players"><Players mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedSeason={selectedSeason} role={role || currentUser?.role || 'Statistician'} logout={logout} /></ProtectedRoute>} />
+          <Route path="/games" element={<ProtectedRoute allowedPath="/games"><Games mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedSeason={selectedSeason} role={role || currentUser?.role || 'Statistician'} reports={reports} logout={logout} /></ProtectedRoute>} />
+          <Route path="/statistics" element={<ProtectedRoute allowedPath="/statistics"><Statistics mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedInstitution={selectedInstitution} selectedLeague={selectedLeague} selectedSeason={selectedSeason} selectedGame={selectedGame} onGameChange={setSelectedGame} role={role || currentUser?.role || 'Statistician'} logout={logout} /></ProtectedRoute>} />
+          <Route path="/analysis" element={<ProtectedRoute allowedPath="/analysis"><Analysis mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} selectedSeason={selectedSeason} role={role || currentUser?.role || 'Statistician'} logout={logout} /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute allowedPath="/settings"><Settings mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} logout={logout} /></ProtectedRoute>} />
+          <Route path="/institutions" element={<ProtectedRoute allowedPath="/institutions"><Institutions mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} institutions={institutions} setInstitutions={setInstitutions} logout={logout} /></ProtectedRoute>} />
+          <Route path="/leagues" element={<ProtectedRoute allowedPath="/leagues"><Leagues mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} leagues={leagues} setLeagues={setLeagues} logout={logout} /></ProtectedRoute>} />
+          <Route path="/seasons" element={<ProtectedRoute allowedPath="/seasons"><Seasons mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} seasons={seasons} setSeasons={setSeasons} selectedSeason={selectedSeason} onSeasonChange={setSelectedSeason} logout={logout} /></ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute allowedPath="/reports"><Reports mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} reports={reports} setReports={setReports} logout={logout} /></ProtectedRoute>} />
+          <Route path="/account" element={<Account mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} selectedSeason={selectedSeason} logout={logout} />} />
+          <Route path="/users" element={<ProtectedRoute allowedPath="/users"><Users mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} selectedSeason={selectedSeason} logout={logout} /></ProtectedRoute>} />
+          <Route path="/organizations" element={<ProtectedRoute allowedPath="/organizations"><Organizations mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} selectedSeason={selectedSeason} logout={logout} /></ProtectedRoute>} />
+          <Route path="/leagues-management" element={<ProtectedRoute allowedPath="/leagues-management"><LeaguesManagement mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} selectedSeason={selectedSeason} logout={logout} /></ProtectedRoute>} />
+          <Route path="/seasons-management" element={<ProtectedRoute allowedPath="/seasons-management"><SeasonsManagement mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} selectedSeason={selectedSeason} logout={logout} /></ProtectedRoute>} />
+          <Route path="/teams-management" element={<ProtectedRoute allowedPath="/teams-management"><TeamsManagement mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} selectedSeason={selectedSeason} logout={logout} /></ProtectedRoute>} />
+          <Route path="/players-management" element={<ProtectedRoute allowedPath="/players-management"><PlayersManagement mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={setSelectedTeam} role={role || currentUser?.role || 'Statistician'} selectedSeason={selectedSeason} logout={logout} /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>
