@@ -1,6 +1,6 @@
 import { Box, Button, Card, CardContent, Chip, Grid, MenuItem, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 import { createInvite, getAccessRequests, resetPassword, updateInviteStatus, updateUserInstitution, updateUserRole, updateUserStatus, updateUserTeam } from '../services/accountService';
 
 function Users({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {

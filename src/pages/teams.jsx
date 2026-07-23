@@ -1,6 +1,6 @@
 import { Box, Grid, Card, CardContent, Typography, TextField, Button, Chip, Stack, Avatar, Divider, Alert } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 import { createTeam, getTeams, updateTeam } from '../services/managementService';
 
 function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {

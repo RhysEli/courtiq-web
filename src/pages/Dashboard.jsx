@@ -1,7 +1,7 @@
 import { Box, Typography, Grid, Card, CardContent, Stack, Chip, Table, TableBody, TableCell, TableHead, TableRow, Divider, Alert } from '@mui/material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useEffect, useMemo, useState } from 'react';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 import { getTeamData } from '../data/mockData';
 import { getMatches } from '../services/matchService';
 import { getAnalysisEntries, getImportedReports } from '../services/analysisService';

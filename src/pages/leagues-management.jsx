@@ -1,6 +1,6 @@
 import { Box, Button, Card, CardContent, Chip, Grid, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 
 function LeaguesManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const [form, setForm] = useState({ name: '', country: '', level: '', season: '2026/27', status: 'active' });

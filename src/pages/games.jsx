@@ -1,10 +1,11 @@
 import { Box, Grid, Card, CardContent, Typography, Button, Chip, Stack, Divider, List, ListItem, ListItemText, TextField, MenuItem, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import Layout from '../components/Layout';
+import { Link, useNavigate } from 'react-router-dom';
+import Layout from '../components/layout';
 import { archiveMatch, createMatch, deleteMatch, duplicateMatch, getMatches, saveMatchRoster, setLiveMatchState, updateMatch } from '../services/matchService';
 
 function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
+  const navigate = useNavigate();
   const [matches, setMatches] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -141,6 +142,10 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
     setNotice('Live state updated.');
   };
 
+  const goToUpload = () => {
+    navigate('/analysis-import');
+  };
+
   const seasons = useMemo(() => Array.from(new Set(matches.map((match) => match.season).filter(Boolean))), [matches]);
   const leagues = useMemo(() => Array.from(new Set(matches.map((match) => match.league).filter(Boolean))), [matches]);
 
@@ -148,8 +153,8 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
     <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
         <Button variant="contained" onClick={() => { resetForm(); setEditingMatchId(null); setDialogOpen(true); }} disabled={!canManage}>Create Match</Button>
-        <Button variant="outlined" disabled={!canView}>View Live</Button>
-        <Button variant="outlined" disabled={!canManage}>Upload Statistics</Button>
+        <Button variant="outlined" disabled title="Live in-game tracking is not built yet">View Live (Coming Soon)</Button>
+        <Button variant="outlined" onClick={goToUpload} disabled={!canManage}>Upload Statistics</Button>
       </Stack>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -179,6 +184,7 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
                           {canManage && <Button size="small" variant="outlined" onClick={() => saveRoster(match.id)}>Roster</Button>}
                           {canManage && <Button size="small" variant="outlined" onClick={() => startMatch(match.id)}>Start</Button>}
                           {canManage && <Button size="small" variant="outlined" onClick={() => duplicate(match.id)}>Copy</Button>}
+                          {canManage && <Button size="small" variant="outlined" color="error" onClick={() => { if (window.confirm(`Delete ${match.homeTeam} vs ${match.awayTeam}? This cannot be undone.`)) removeMatch(match.id); }}>Delete</Button>}
                         </Stack>
                       </Stack>
                     </ListItem>

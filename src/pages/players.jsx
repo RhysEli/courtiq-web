@@ -1,6 +1,6 @@
 import { Box, Grid, Card, CardContent, Typography, TextField, Table, TableBody, TableCell, TableHead, TableRow, Chip, Button, Alert, Stack } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 import { createPlayer, deletePlayer, getPlayers, updatePlayer } from '../services/managementService';
 
 function Players({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
