@@ -1,13 +1,16 @@
-import { Box, Button, Card, CardContent, Chip, Grid, MenuItem, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Chip, Grid, MenuItem, Snackbar, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 import Layout from '../components/layout';
 import { createInvite, getAccessRequests, resetPassword, updateInviteStatus, updateUserInstitution, updateUserRole, updateUserStatus, updateUserTeam } from '../services/accountService';
+import { backendApi } from '../api/client';
 
 function Users({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState('All');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('Coach');
+  const [inviteStatus, setInviteStatus] = useState({ open: false, message: '', severity: 'success' });
+  const [sendingInvite, setSendingInvite] = useState(false);
   const [inviteInstitution, setInviteInstitution] = useState('USIU');
   const [inviteTeam, setInviteTeam] = useState('USIU Tigers Men');
   const [refreshToken, setRefreshToken] = useState(0);
@@ -25,10 +28,29 @@ function Users({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
   const invites = useMemo(() => JSON.parse(window.localStorage.getItem('courtiq-invites') || '[]'), [refreshToken]);
   const requests = useMemo(() => JSON.parse(window.localStorage.getItem('courtiq-access-requests') || '[]'), [refreshToken]);
 
-  const createInviteCode = () => {
-    createInvite({ email: inviteEmail, institution: inviteInstitution, team: inviteTeam, role: inviteRole, status: 'pending' });
-    setInviteEmail('');
+  const createInviteCode = async () => {
+    const invite = createInvite({ email: inviteEmail, institution: inviteInstitution, team: inviteTeam, role: inviteRole, status: 'pending' });
     setRefreshToken((prev) => prev + 1);
+
+    setSendingInvite(true);
+    try {
+      await backendApi.sendInviteEmail({
+        toEmail: invite.email,
+        inviteCode: invite.code,
+        role: invite.role,
+        institution: invite.institution,
+        team: invite.team,
+        appUrl: window.location.origin,
+      });
+      setInviteStatus({ open: true, message: `Invite email sent to ${invite.email} (code ${invite.code}).`, severity: 'success' });
+      setInviteEmail('');
+    } catch (err) {
+      // The invite code still exists in the table below even if the email failed to send —
+      // it can be copied and shared manually as a fallback.
+      setInviteStatus({ open: true, message: `Invite created (code ${invite.code}), but the email failed to send: ${err.message}`, severity: 'warning' });
+    } finally {
+      setSendingInvite(false);
+    }
   };
 
   const toggleUserStatus = (userId, status) => {
@@ -94,7 +116,9 @@ function Users({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
               <Grid item xs={12} md={3}><TextField fullWidth label="Institution" value={inviteInstitution} onChange={(event) => setInviteInstitution(event.target.value)} /></Grid>
               <Grid item xs={12} md={3}><TextField fullWidth label="Team" value={inviteTeam} onChange={(event) => setInviteTeam(event.target.value)} /></Grid>
             </Grid>
-            <Button variant="contained" sx={{ mt: 2 }} onClick={createInviteCode}>Create invite</Button>
+            <Button variant="contained" sx={{ mt: 2 }} onClick={createInviteCode} disabled={sendingInvite || !inviteEmail}>
+              {sendingInvite ? 'Sending invite email…' : 'Create invite & send email'}
+            </Button>
           </CardContent>
         </Card>
 
@@ -186,6 +210,12 @@ function Users({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
           </CardContent>
         </Card>
       </Box>
+
+      <Snackbar open={inviteStatus.open} autoHideDuration={6000} onClose={() => setInviteStatus((prev) => ({ ...prev, open: false }))}>
+        <Alert severity={inviteStatus.severity} onClose={() => setInviteStatus((prev) => ({ ...prev, open: false }))}>
+          {inviteStatus.message}
+        </Alert>
+      </Snackbar>
     </Layout>
   );
 }

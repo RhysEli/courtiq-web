@@ -86,4 +86,5 @@ export const backendApi = {
   },
   computeMetrics: (gameId) => request(`/analysis/games/${gameId}/compute`, { method: 'POST' }),
   generateNarrative: (gameId) => request(`/analysis/games/${gameId}/narrative`, { method: 'POST' }),
+  sendInviteEmail: (payload) => request('/invites/send', { method: 'POST', body: payload }),
 };

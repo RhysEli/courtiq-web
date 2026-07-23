@@ -13,6 +13,7 @@ import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
+import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded';
 
 const navItems = [
   { label: 'Dashboard', path: '/dashboard', icon: DashboardRoundedIcon },
@@ -24,6 +25,7 @@ const navItems = [
   { label: 'Analysis Import', path: '/analysis-import', icon: ArticleRoundedIcon },
   { label: 'Bulk Import', path: '/bulk-import', icon: ArticleRoundedIcon },
   { label: 'Opponent Analysis', path: '/opponent-analysis', icon: BarChartRoundedIcon },
+  { label: 'Users', path: '/users', icon: ManageAccountsRoundedIcon },
   { label: 'Institutions', path: '/institutions', icon: BusinessRoundedIcon },
   { label: 'Leagues', path: '/leagues', icon: SchoolRoundedIcon },
   { label: 'Seasons', path: '/seasons', icon: CalendarMonthRoundedIcon },
