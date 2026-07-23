@@ -11,7 +11,7 @@ const GAME_MAP_KEY = 'courtiq-backend-game-map';
 const ANALYSIS_STORAGE_KEY = 'courtiq-analysis';
 const REPORT_STORAGE_KEY = 'courtiq-imported-reports';
 
-function readGameMap() {
+export function readGameMap() {
   try {
     return JSON.parse(window.localStorage.getItem(GAME_MAP_KEY) || '{}');
   } catch {
@@ -19,7 +19,7 @@ function readGameMap() {
   }
 }
 
-function writeGameMap(map) {
+export function writeGameMap(map) {
   window.localStorage.setItem(GAME_MAP_KEY, JSON.stringify(map));
 }
 
@@ -48,7 +48,7 @@ function matchPlayerName(extractedName, rosterPlayers) {
 // Convert the backend's real metrics payload into the same shape
 // analysisService.createAnalysisForMatch() already produces, so existing
 // pages don't need rewriting.
-function buildAnalysisFromRealMetrics({ matchId, metrics, insightTags, narrative, players, reportMeta }) {
+export function buildAnalysisFromRealMetrics({ matchId, metrics, insightTags, narrative, players, reportMeta }) {
   const home = metrics.home;
 
   const teamSummary = {

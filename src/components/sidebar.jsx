@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+﻿import { NavLink, useLocation } from 'react-router-dom';
 import { Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography, Divider, Avatar, useTheme, Button } from '@mui/material';
 import { isRouteAllowed } from '../auth/roleAccess';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
@@ -22,6 +22,7 @@ const navItems = [
   { label: 'Statistics', path: '/statistics', icon: BarChartRoundedIcon },
   { label: 'AI Analysis', path: '/analysis', icon: AutoAwesomeRoundedIcon },
   { label: 'Analysis Import', path: '/analysis-import', icon: ArticleRoundedIcon },
+  { label: 'Bulk Import', path: '/bulk-import', icon: ArticleRoundedIcon },
   { label: 'Opponent Analysis', path: '/opponent-analysis', icon: BarChartRoundedIcon },
   { label: 'Institutions', path: '/institutions', icon: BusinessRoundedIcon },
   { label: 'Leagues', path: '/leagues', icon: SchoolRoundedIcon },

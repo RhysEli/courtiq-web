@@ -71,6 +71,13 @@ async function request(path, { method = 'GET', body, isForm = false } = {}) {
 export const backendApi = {
   createGame: (payload) => request('/games', { method: 'POST', body: payload }),
   getGame: (id) => request(`/games/${id}`),
+  bulkImport: (files, { seasonId, leagueId } = {}) => {
+    const form = new FormData();
+    files.forEach((file) => form.append('files', file));
+    if (seasonId) form.append('seasonId', seasonId);
+    if (leagueId) form.append('leagueId', leagueId);
+    return request('/games/bulk-import', { method: 'POST', body: form, isForm: true });
+  },
   uploadReport: (gameId, reportType, file) => {
     const form = new FormData();
     form.append('reportType', reportType);
