@@ -1,0 +1,32 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+
+const authRoutes = require('./routes/auth');
+const gameRoutes = require('./routes/games');
+const reportRoutes = require('./routes/reports');
+const analysisRoutes = require('./routes/analysis');
+const bulkImportRoutes = require('./routes/bulkImport');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+app.use('/api/auth', authRoutes);
+app.use('/api/games', gameRoutes);
+app.use('/api', reportRoutes);       // /api/games/:gameId/reports
+app.use('/api/analysis', analysisRoutes);
+app.use('/api', bulkImportRoutes); 
+
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: err.message || 'Internal server error' });
+});
+
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`CourtIQ backend listening on http://localhost:${PORT}`);
+});
