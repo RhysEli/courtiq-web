@@ -1,6 +1,6 @@
 import { Box, Button, Card, CardContent, Chip, Grid, Stack, TextField, Typography, Alert } from '@mui/material';
 import { useEffect, useState } from 'react';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 import { archiveSeason, createSeason, getSeasons, setActiveSeason } from '../services/managementService';
 
 function Seasons({ mode, toggleTheme, selectedTeam, onTeamChange, role, seasons, setSeasons, selectedSeason, onSeasonChange, logout }) {

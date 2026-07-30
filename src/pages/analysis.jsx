@@ -1,6 +1,6 @@
 import { Box, Grid, Card, CardContent, Typography, Chip, Stack, Divider, Alert } from '@mui/material';
 import { useEffect, useState } from 'react';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 import { getAnalysisEntries } from '../services/analysisService';
 
 function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
@@ -19,6 +19,21 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
         <Alert severity="info">Upload a report and run analysis to populate this view.</Alert>
       ) : (
         <Grid container spacing={3}>
+          {analysisEntry.isRealExtraction && (
+            <Grid item xs={12}>
+              <Chip label="Real extraction — computed from an uploaded FIBA Box Score PDF" color="success" />
+            </Grid>
+          )}
+          {analysisEntry.narrative && (
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" fontWeight={700}>AI-generated narrative</Typography>
+                  <Typography sx={{ mt: 2, whiteSpace: 'pre-line' }}>{analysisEntry.narrative}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
           <Grid item xs={12} md={6}>
             <Card>
               <CardContent>

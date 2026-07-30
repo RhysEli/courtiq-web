@@ -1,6 +1,6 @@
 import { Box, Button, Card, CardContent, Chip, Grid, Stack, TextField, Typography, Alert } from '@mui/material';
 import { useEffect, useState } from 'react';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 import { archiveLeague, createLeague, deleteLeague, getLeagues, updateLeague } from '../services/managementService';
 
 function Leagues({ mode, toggleTheme, selectedTeam, onTeamChange, role, leagues, setLeagues, selectedSeason, logout }) {

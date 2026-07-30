@@ -1,5 +1,5 @@
 import { Box, Grid, Card, CardContent, Typography, Switch, FormControlLabel, TextField, Button, Stack } from '@mui/material';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 
 function Settings({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   return (

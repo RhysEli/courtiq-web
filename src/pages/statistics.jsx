@@ -1,6 +1,6 @@
 import { Box, Grid, Card, CardContent, Typography, TextField, MenuItem, Table, TableBody, TableCell, TableHead, TableRow, Stack } from '@mui/material';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 import { getTeamData } from '../data/mockData';
 
 const pieData = [

@@ -1,7 +1,7 @@
 import { Box, Button, Card, CardContent, Grid, MenuItem, Stack, TextField, Typography, Snackbar, Alert } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 import { createUserAccount, createOrganization, createInvite, createAccessRequest } from '../services/accountService';
 import { useAuth } from '../contexts/AuthContext';
 

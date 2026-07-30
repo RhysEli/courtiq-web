@@ -1,6 +1,6 @@
 import { Box, Button, Card, CardContent, Chip, Grid, Stack, TextField, Typography, Alert } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 import { createInstitution, getInstitutions } from '../services/managementService';
 
 function Institutions({ mode, toggleTheme, selectedTeam, onTeamChange, role, institutions, setInstitutions, selectedSeason, logout }) {

@@ -1,6 +1,6 @@
 import { Box, Button, Card, CardContent, Grid, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 import { createOrganization, getOrganizations } from '../services/accountService';
 
 function Organizations({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {

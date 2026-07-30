@@ -1,7 +1,7 @@
 import { Box, Button, Card, CardContent, Chip, Grid, Stack, Typography } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useMemo, useState } from 'react';
-import Layout from '../components/Layout';
+import Layout from '../components/layout';
 
 function Reports({ mode, toggleTheme, selectedTeam, onTeamChange, role, reports, setReports, selectedSeason, logout }) {
   const [uploading, setUploading] = useState(false);
