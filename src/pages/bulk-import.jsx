@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Card, CardContent, Chip, LinearProgress, Stack, Typography } from '@mui/material';
+﻿import { Alert, Box, Button, Card, CardContent, Chip, LinearProgress, Stack, Typography } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useState } from 'react';
 import Layout from '../components/layout';
@@ -102,6 +102,22 @@ function BulkImport({ mode, toggleTheme, selectedTeam, onTeamChange, role, selec
                           {o.analyzed ? ' • analysis computed' : ' • analysis failed'}
                           {o.narrativeGenerated ? ' • AI narrative generated' : ''}
                         </Typography>
+                        {o.additionalReports && (
+                          <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }} useFlexGap>
+                            {o.additionalReports.quarter && (
+                              <Chip size="small" variant="outlined" label={`Quarter — ${o.additionalReports.quarter.teams.reduce((n, t) => n + t.players.length, 0)} players`} />
+                            )}
+                            {o.additionalReports.plusMinus && (
+                              <Chip size="small" variant="outlined" label={`Plus/Minus — ${o.additionalReports.plusMinus.teams.reduce((n, t) => n + t.players.length, 0)} players`} />
+                            )}
+                            {o.additionalReports.lineupAnalysis && (
+                              <Chip size="small" variant="outlined" label={`Lineup Analysis — ${o.additionalReports.lineupAnalysis.teams.reduce((n, t) => n + t.lineups.length, 0)} lineups`} />
+                            )}
+                            {o.additionalReports.rotationsSummary && (
+                              <Chip size="small" variant="outlined" label={`Rotations Summary — ${o.additionalReports.rotationsSummary.teams.reduce((n, t) => n + t.stints.length, 0)} stints`} />
+                            )}
+                          </Stack>
+                        )}
                       </>
                     ) : (
                       <Typography color="error">{o.error}</Typography>

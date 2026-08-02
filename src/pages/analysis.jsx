@@ -1,4 +1,4 @@
-import { Box, Grid, Card, CardContent, Typography, Chip, Stack, Divider, Alert } from '@mui/material';
+import { Box, Grid, Card, CardContent, Typography, Chip, Stack, Divider, Alert, Table, TableHead, TableBody, TableRow, TableCell } from '@mui/material';
 import { useEffect, useState } from 'react';
 import Layout from '../components/layout';
 import { getAnalysisEntries } from '../services/analysisService';
@@ -32,6 +32,61 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
                   <Typography sx={{ mt: 2, whiteSpace: 'pre-line' }}>{analysisEntry.narrative}</Typography>
                 </CardContent>
               </Card>
+            </Grid>
+          )}
+          {analysisEntry.additionalReports?.quarter && (
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" fontWeight={700}>Quarter-by-quarter</Typography>
+                  <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>
+                    From the uploaded Quarter report — real per-team scoring by quarter.
+                  </Typography>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Team</TableCell>
+                        <TableCell align="right">Q1</TableCell>
+                        <TableCell align="right">Q2</TableCell>
+                        <TableCell align="right">Q3</TableCell>
+                        <TableCell align="right">Q4</TableCell>
+                        <TableCell align="right">Total</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {analysisEntry.additionalReports.quarter.teams.map((team) => (
+                        <TableRow key={team.team_name}>
+                          <TableCell>{team.team_name}</TableCell>
+                          <TableCell align="right">{team.quarterTotals?.q1}</TableCell>
+                          <TableCell align="right">{team.quarterTotals?.q2}</TableCell>
+                          <TableCell align="right">{team.quarterTotals?.q3}</TableCell>
+                          <TableCell align="right">{team.quarterTotals?.q4}</TableCell>
+                          <TableCell align="right"><strong>{team.final_score}</strong></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+          {(analysisEntry.additionalReports?.plusMinus || analysisEntry.additionalReports?.lineupAnalysis || analysisEntry.additionalReports?.rotationsSummary) && (
+            <Grid item xs={12}>
+              <Alert severity="info">
+                Additional real data extracted from this upload:
+                <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }} useFlexGap>
+                  {analysisEntry.additionalReports?.plusMinus && (
+                    <Chip size="small" label={`Plus/Minus — ${analysisEntry.additionalReports.plusMinus.teams.reduce((n, t) => n + t.players.length, 0)} players`} />
+                  )}
+                  {analysisEntry.additionalReports?.lineupAnalysis && (
+                    <Chip size="small" label={`Lineup Analysis — ${analysisEntry.additionalReports.lineupAnalysis.teams.reduce((n, t) => n + t.lineups.length, 0)} lineups`} />
+                  )}
+                  {analysisEntry.additionalReports?.rotationsSummary && (
+                    <Chip size="small" label={`Rotations Summary — ${analysisEntry.additionalReports.rotationsSummary.teams.reduce((n, t) => n + t.stints.length, 0)} stints`} />
+                  )}
+                </Stack>
+                {' '}Dedicated views for these are coming — the raw data is already stored with this analysis.
+              </Alert>
             </Grid>
           )}
           <Grid item xs={12} md={6}>

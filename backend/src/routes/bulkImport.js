@@ -5,6 +5,14 @@ const fs = require('fs');
 const db = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { extractBoxScore } = require('../services/pdfExtraction');
+const {
+  extractQuarterReport,
+  extractPlusMinusSummary,
+  extractLineupAnalysis,
+  extractRotationsSummary,
+  extractPlayByPlay,
+} = require('../services/reportExtractors');
+const { extractScoreSheet } = require('../services/parseScoreSheet');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -33,6 +41,21 @@ const insertStatStmt = db.prepare(`
      ftm, fta, oreb, dreb, reb, assists, steals, blocks, turnovers, fouls, plus_minus, raw_extraction)
   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `);
+
+// Extractors for the additional FIBA LiveStats report types, beyond the
+// Box Score. Each one is called independently against the same merged
+// PDF -- if a given report type isn't present in a particular export, or
+// its regex doesn't match this file's exact formatting, that single
+// extractor fails without blocking the Box Score import that already
+// succeeded, or the other extractors.
+const extraExtractors = {
+  quarter: extractQuarterReport,
+  plusMinus: extractPlusMinusSummary,
+  lineupAnalysis: extractLineupAnalysis,
+  rotationsSummary: extractRotationsSummary,
+  playByPlay: extractPlayByPlay,
+  scoreSheet: extractScoreSheet,
+};
 
 // Bulk-import Box Score PDFs (standalone or merged 10-report exports --
 // both work, since only the Box Score's own pages carry the
@@ -67,6 +90,19 @@ router.post(
             + 'It may not be a FIBA Box Score report, or the header layout is different from what this parser expects.';
           results.push(entry);
           continue;
+        }
+
+        // Run the additional report-type extractors against this same
+        // file. This does NOT write anything to the database yet -- the
+        // results are only attached to the API response so they can be
+        // inspected and verified before we wire them into storage.
+        entry.additionalReports = {};
+        for (const [key, extractorFn] of Object.entries(extraExtractors)) {
+          try {
+            entry.additionalReports[key] = await extractorFn(file.path);
+          } catch (extraErr) {
+            entry.additionalReports[key] = { error: extraErr.message, code: extraErr.code };
+          }
         }
 
         const homeTeamId = gameInfo.homeTeam;

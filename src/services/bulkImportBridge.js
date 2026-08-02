@@ -17,6 +17,11 @@ function findMatchByBackendGameId(gameId) {
   return getMatches().find((match) => match.id === matchId) || null;
 }
 
+// Runs after bulk-import: for each successfully imported/matched backend
+// game, ensure a local match exists (create one if this game was newly
+// discovered from a PDF), then compute real metrics and, best-effort,
+// an AI narrative, writing an analysis entry in the same shape the rest
+// of the UI already expects.
 export async function reconcileBulkImportResults(results, { withNarrative = true } = {}) {
   const outcomes = [];
 
@@ -47,7 +52,7 @@ export async function reconcileBulkImportResults(results, { withNarrative = true
           const narrativeResult = await backendApi.generateNarrative(entry.gameId);
           narrative = narrativeResult.narrative;
         } catch {
-          narrative = null;
+          narrative = null; // best-effort — missing API key etc. shouldn't block the metrics
         }
       }
 
@@ -58,6 +63,7 @@ export async function reconcileBulkImportResults(results, { withNarrative = true
         narrative,
         players: null,
         reportMeta: { name: entry.filename, type: 'Box Score', playersExtracted: entry.playersExtracted },
+        additionalReports: entry.additionalReports || null,
       });
 
       updateMatch(match.id, {

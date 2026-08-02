@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const db = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { computeTeamMetrics, computePlayerMetrics, tagInsights } = require('../services/metrics');
@@ -37,12 +37,16 @@ router.post('/games/:gameId/compute', requireRole('Administrator', 'Statistician
   const homeTotals = aggregateTeamTotals(homeRows);
   const oppTotals = aggregateTeamTotals(oppRows);
 
-const homeMetrics = { ...computeTeamMetrics(homeTotals, oppTotals), raw: homeTotals };
-  const oppMetrics = { ...computeTeamMetrics(oppTotals, homeTotals), raw: oppTotals };
+  const homeMetrics = computeTeamMetrics(homeTotals, oppTotals);
+  const oppMetrics = computeTeamMetrics(oppTotals, homeTotals);
   const insightTags = tagInsights(homeMetrics, oppMetrics, homeRows, oppRows);
   const playerMetrics = playerRows.map(computePlayerMetrics);
 
-  const metricsPayload = { home: homeMetrics, opponent: oppMetrics, players: playerMetrics };
+  const metricsPayload = {
+    home: { ...homeMetrics, raw: homeTotals },
+    opponent: { ...oppMetrics, raw: oppTotals },
+    players: playerMetrics,
+  };
 
   db.prepare(`
     INSERT INTO game_metrics (game_id, metrics_json, insight_tags_json)

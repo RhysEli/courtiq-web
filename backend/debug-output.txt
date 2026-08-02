@@ -1,0 +1,2031 @@
+0	USIU CNS
+1	Points from Turnovers 26 8
+2	Points in the Paint 44 (22/31) 71.0 16 (8/29) 27.6
+3	Second Chance Points 11 6
+4	Fast Break Points 25 14
+5	Fast Break Points from Turnovers 12 6
+6	Bench Points 23 14
+7	USIU CNS
+8	Biggest Lead 51 (83-32) 0 (0-0)
+9	Biggest Scoring Run 17 (45-17) 4 (56-22)
+10	Points per Possession 0.94 0.39
+11	Lead Changes 1
+12	Times Tied 1
+13	Time with Lead 39:22 00:00
+14	No
+15	DR
+16	BS
+17	EF
+18	Playing Number
+19	Defensive Rebounds
+20	Blocked Shots
+21	Efficiency
+22	Min
+23	TOT
+24	BA
+25	PTS
+26	Minutes Played
+27	Total Rebounds
+28	Blocks Against
+29	Points
+30	M/A
+31	AS
+32	PF
+33	*
+34	Made Attempts
+35	Assists
+36	Personal Fouls
+37	Game Starters
+38	%
+39	TO
+40	FD
+41	(c)
+42	Shooting Percentage
+43	Turnovers
+44	Fouls Drawn
+45	Captain
+46	OR
+47	ST
+48	+/-
+49	DNP
+50	Offensive Rebounds
+51	Steals
+52	Plus / Minus
+53	Did Not Play
+54	Legend
+55	Coach: ANCET WAFULA
+56	USIU TIGERS (USIU) Assistant Coach(es):
+57	No Name Min Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls +/- EF PTS
+58	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+59	9 AMOS KIM 11:58 2/2 100.0 2/2 100.0 0/0 0.0 1/2 50.0 0 2 2 1 1 0 0 2 1 6 6 5
+60	*10 VITUMBIKO MPONELA 17:25 4/10 40.0 1/5 20.0 3/5 60.0 2/2 100.0 0 1 1 6 2 3 0 0 2 35 15 13
+61	11 DARLINGTON KISIVULI 19:57 3/7 42.9 2/3 66.7 1/4 25.0 1/6 16.7 0 0 0 1 3 0 0 2 3 6 -3 8
+62	12 HAWI WENWA 09:55 1/2 50.0 1/1 100.0 0/1 0.0 0/0 0.0 1 1 2 0 0 0 0 1 0 6 3 2
+63	13 ALLAN JUMA 11:24 2/3 66.7 1/1 100.0 1/2 50.0 1/2 50.0 0 3 3 1 3 0 0 0 1 -1 5 6
+64	14 AUSTIN MURIUKI 14:34 0/0 0.0 0/0 0.0 0/0 0.0 0/4 0.0 1 2 3 1 1 2 1 3 2 14 2 0
+65	16 TITUS WAIBALE 14:57 0/2 0.0 0/2 0.0 0/0 0.0 0/0 0.0 2 1 3 1 2 3 0 0 0 5 3 0
+66	*17 PATRICK OTANGO 20:46 2/7 28.6 0/1 0.0 2/6 33.3 0/0 0.0 0 8 8 3 2 0 0 2 0 38 10 6
+67	18 GLENN MORANGI 12:09 1/4 25.0 1/2 50.0 0/2 0.0 0/0 0.0 1 0 1 0 2 1 0 1 3 10 -1 2
+68	*20 MOSES GICHANA (C) 21:49 3/3 100.0 3/3 100.0 0/0 0.0 3/3 100.0 4 13 17 1 2 1 0 3 3 44 26 9
+69	*21 JOSHUA ATHIAN 28:22 13/23 56.5 11/13 84.6 2/10 20.0 4/5 80.0 3 7 10 2 5 1 0 2 4 49 29 32
+70	*22 ELTON MINEENE 16:44 0/3 0.0 0/0 0.0 0/3 0.0 0/0 0.0 1 0 1 4 2 1 0 1 0 33 1 0
+71	Team/Coach 0 3 3 0 0
+72	Totals 200:00 31/66 47.0 22/33 66.7 9/33 27.3 12/24 50.0 13 41 54 21 25 12 1 17 19 49 99 83
+73	Coach: WALUCHO E
+74	CONGO NETS (CNS) Assistant Coach(es):
+75	No Name Min Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls +/- EF PTS
+76	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+77	*5 EVANS AMAYAI (C) 31:57 0/9 0.0 0/6 0.0 0/3 0.0 0/0 0.0 1 2 3 1 6 4 0 3 2 -41 -7 0
+78	*6 JOHN NGALA 14:22 3/9 33.3 2/3 66.7 1/6 16.7 0/0 0.0 0 2 2 2 6 1 0 2 0 -22 0 7
+79	7 NICK KHADHIANG 05:24 1/1 100.0 1/1 100.0 0/0 0.0 0/0 0.0 1 1 2 0 2 0 0 3 1 -3 2 2
+80	*8 BILLY NYONGESA 14:57 1/4 25.0 1/4 25.0 0/0 0.0 0/0 0.0 0 0 0 0 4 1 0 0 0 -13 -4 2
+81	*9 ISAAC OKUMU 29:22 3/8 37.5 3/8 37.5 0/0 0.0 1/2 50.0 1 1 2 0 4 3 0 0 2 -25 2 7
+82	11 ALEX CHOMBA 27:21 1/7 14.3 1/2 50.0 0/5 0.0 0/0 0.0 0 3 3 1 2 0 0 4 1 -43 -2 2
+83	12 VINCE LICHINA 19:24 0/9 0.0 0/8 0.0 0/1 0.0 6/10 60.0 1 4 5 0 0 2 0 0 5 -14 0 6
+84	13 ABDUL KADIR 22:08 1/6 16.7 1/5 20.0 0/1 0.0 2/4 50.0 2 2 4 0 2 0 0 4 2 -34 -1 4
+85	14 ERIC OTIENO 15:20 0/1 0.0 0/1 0.0 0/0 0.0 0/0 0.0 1 4 5 0 3 0 0 1 0 -23 1 0
+86	*18 JOASH OKWEMBA 19:45 1/4 25.0 1/4 25.0 0/0 0.0 2/6 33.3 1 2 3 0 1 0 0 2 4 -27 -1 4
+87	Team/Coach 2 7 9 0 0
+88	Totals 200:00 11/58 19.0 10/42 23.8 1/16 6.2 11/22 50.0 10 28 38 4 30 11 0 19 17 -49 -1 34
+89	DIVISION 1
+90	USIU, Sun 26 Jul 2026 Start time: 15:42
+91	FIBA Box Score
+92	USIU TIGERS 83 – 34 CONGO NETS
+93	(26-16, 17-1, 18-7, 22-10)
+94	Scoring by 5 Minute intervals USIU
+95	CNS
+96	Q1
+97	13 26
+98	6 16
+99	Q2
+100	34 43
+101	17 17
+102	Q3
+103	56 61
+104	18 24
+105	Q4
+106	65 83
+107	31 34
+108	Game No.: 212
+109	Attendance: 100
+110	Game Duration: 01:40
+111	Report Generated: Sun 26 Jul 2026 17:46
+112	-- 1 of 36 --
+113	CONGO NETS
+114	Lineup Time Score Score Diff Pts/Min Reb Stl Tov Ass
+115	5- AMAYAI E/ 6- NGALA J/ 8- NYONGESA B/ 9- OKUMU I/ 18- OKWEMBA J/ 04:56 6-13 -7 1.2162 5 1 4 1
+116	5- AMAYAI E/ 9- OKUMU I/ 11- CHOMBA A/ 12- LICHINA V/ 13- KADIR A/ 04:31 4-8 -4 0.8856 3 2 5 0
+117	5- AMAYAI E/ 8- NYONGESA B/ 9- OKUMU I/ 11- CHOMBA A/ 13- KADIR A/ 04:13 1-8 -7 0.2372 4 2 3 0
+118	5- AMAYAI E/ 8- NYONGESA B/ 9- OKUMU I/ 12- LICHINA V/ 18- OKWEMBA J/ 03:59 5-2 3 1.2552 3 2 1 0
+119	6- NGALA J/ 11- CHOMBA A/ 13- KADIR A/ 14- OTIENO E/ 18- OKWEMBA J/ 03:41 0-8 -8 0.0000 3 0 4 0
+120	5- AMAYAI E/ 11- CHOMBA A/ 12- LICHINA V/ 14- OTIENO E/ 18- OKWEMBA J/ 02:54 0-8 -8 0.0000 3 1 2 0
+121	5- AMAYAI E/ 9- OKUMU I/ 11- CHOMBA A/ 13- KADIR A/ 18- OKWEMBA J/ 02:45 0-7 -7 0.0000 1 1 1 0
+122	5- AMAYAI E/ 11- CHOMBA A/ 12- LICHINA V/ 13- KADIR A/ 14- OTIENO E/ 02:28 3-10 -7 1.2162 2 0 1 0
+123	5- AMAYAI E/ 6- NGALA J/ 7- KHADHIANG N/ 8- NYONGESA B/ 9- OKUMU I/ 01:49 3-5 -2 1.6514 0 1 1 1
+124	9- OKUMU I/ 11- CHOMBA A/ 12- LICHINA V/ 13- KADIR A/ 14- OTIENO E/ 01:39 0-0 0 0.0000 4 0 2 0
+125	5- AMAYAI E/ 6- NGALA J/ 7- KHADHIANG N/ 9- OKUMU I/ 11- CHOMBA A/ 01:36 4-6 -2 2.5000 2 0 2 2
+126	5- AMAYAI E/ 9- OKUMU I/ 12- LICHINA V/ 13- KADIR A/ 14- OTIENO E/ 01:16 2-2 0 1.5789 1 0 1 0
+127	7- KHADHIANG N/ 9- OKUMU I/ 11- CHOMBA A/ 12- LICHINA V/ 14- OTIENO E/ 01:13 3-0 3 2.4423 1 1 0 0
+128	5- AMAYAI E/ 6- NGALA J/ 11- CHOMBA A/ 13- KADIR A/ 18- OKWEMBA J/ 00:51 0-0 0 0.0000 1 0 0 0
+129	6- NGALA J/ 7- KHADHIANG N/ 9- OKUMU I/ 11- CHOMBA A/ 14- OTIENO E/ 00:45 0-2 -2 0.0000 0 0 1 0
+130	6- NGALA J/ 11- CHOMBA A/ 12- LICHINA V/ 13- KADIR A/ 14- OTIENO E/ 00:44 1-2 -1 1.3636 1 0 1 0
+131	5- AMAYAI E/ 9- OKUMU I/ 12- LICHINA V/ 14- OTIENO E/ 18- OKWEMBA J/ 00:39 2-2 0 3.0769 4 0 1 0
+132	DIVISION 1
+133	USIU, Sun 26 Jul 2026 Start time: 15:42
+134	Line Up Analysis
+135	USIU TIGERS 83 – 34 CONGO NETS
+136	(26-16, 17-1, 18-7, 22-10)
+137	Scoring by 5 Minute intervals USIU
+138	CNS
+139	Q1
+140	13 26
+141	6 16
+142	Q2
+143	34 43
+144	17 17
+145	Q3
+146	56 61
+147	18 24
+148	Q4
+149	65 83
+150	31 34
+151	Game No.: 212
+152	Attendance: 100
+153	Game Duration: 01:40
+154	Report Generated: Sun 26 Jul 2026 17:49
+155	-- 2 of 36 --
+156	USIU TIGERS
+157	Lineup Time Score Score Diff Pts/Min Reb Stl Tov Ass
+158	10- MPONELA V/ 17- OTANGO P/ 20- GICHANA M/ 21- ATHIAN J/ 22- MINEENE E/ 09:34 29-6 23 3.0314 17 3 5 7
+159	9- KIM A/ 11- KISIVULI D/ 13- JUMA A/ 16- WAIBALE T/ 18- MORANGI G/ 04:31 3-6 -3 0.6620 5 2 6 1
+160	11- KISIVULI D/ 17- OTANGO P/ 18- MORANGI G/ 20- GICHANA M/ 21- ATHIAN J/ 03:32 8-1 7 2.2642 4 0 2 2
+161	9- KIM A/ 11- KISIVULI D/ 13- JUMA A/ 14- MURIUKI A/ 16- WAIBALE T/ 03:26 9-7 2 2.6214 2 2 1 3
+162	10- MPONELA V/ 14- MURIUKI A/ 20- GICHANA M/ 21- ATHIAN J/ 22- MINEENE E/ 03:01 11-0 11 3.6464 4 1 2 3
+163	11- KISIVULI D/ 12- WENWA H/ 14- MURIUKI A/ 16- WAIBALE T/ 22- MINEENE E/ 01:53 2-1 1 1.0619 1 0 1 1
+164	12- WENWA H/ 17- OTANGO P/ 18- MORANGI G/ 20- GICHANA M/ 21- ATHIAN J/ 01:50 2-0 2 1.0909 5 2 1 0
+165	9- KIM A/ 12- WENWA H/ 17- OTANGO P/ 18- MORANGI G/ 21- ATHIAN J/ 01:38 2-0 2 1.2245 3 0 1 0
+166	10- MPONELA V/ 11- KISIVULI D/ 17- OTANGO P/ 20- GICHANA M/ 21- ATHIAN J/ 01:37 4-5 -1 2.4742 3 0 1 0
+167	10- MPONELA V/ 12- WENWA H/ 14- MURIUKI A/ 21- ATHIAN J/ 22- MINEENE E/ 01:25 2-2 0 1.4118 2 1 0 1
+168	9- KIM A/ 12- WENWA H/ 16- WAIBALE T/ 17- OTANGO P/ 21- ATHIAN J/ 01:21 5-0 5 3.7037 2 0 1 2
+169	11- KISIVULI D/ 13- JUMA A/ 14- MURIUKI A/ 16- WAIBALE T/ 21- ATHIAN J/ 01:18 0-0 0 0.0000 2 1 1 0
+170	11- KISIVULI D/ 12- WENWA H/ 13- JUMA A/ 14- MURIUKI A/ 16- WAIBALE T/ 01:10 0-2 -2 0.0000 1 0 2 0
+171	9- KIM A/ 10- MPONELA V/ 17- OTANGO P/ 20- GICHANA M/ 21- ATHIAN J/ 01:01 2-2 0 1.9672 0 0 0 1
+172	11- KISIVULI D/ 12- WENWA H/ 14- MURIUKI A/ 21- ATHIAN J/ 22- MINEENE E/ 00:38 0-2 -2 0.0000 0 0 0 0
+173	11- KISIVULI D/ 13- JUMA A/ 14- MURIUKI A/ 16- WAIBALE T/ 18- MORANGI G/ 00:37 2-0 2 3.2345 1 0 0 0
+174	10- MPONELA V/ 11- KISIVULI D/ 14- MURIUKI A/ 20- GICHANA M/ 21- ATHIAN J/ 00:34 2-0 2 3.5294 1 0 0 0
+175	11- KISIVULI D/ 13- JUMA A/ 16- WAIBALE T/ 20- GICHANA M/ 21- ATHIAN J/ 00:21 0-0 0 0.0000 1 0 0 0
+176	11- KISIVULI D/ 14- MURIUKI A/ 16- WAIBALE T/ 20- GICHANA M/ 21- ATHIAN J/ 00:19 0-0 0 0.0000 0 0 1 0
+177	10- MPONELA V/ 14- MURIUKI A/ 17- OTANGO P/ 21- ATHIAN J/ 22- MINEENE E/ 00:13 0-0 0 0.0000 0 0 0 0
+178	DIVISION 1
+179	USIU, Sun 26 Jul 2026 Start time: 15:42
+180	Line Up Analysis
+181	USIU TIGERS 83 – 34 CONGO NETS
+182	(26-16, 17-1, 18-7, 22-10)
+183	Scoring by 5 Minute intervals USIU
+184	CNS
+185	Q1
+186	13 26
+187	6 16
+188	Q2
+189	34 43
+190	17 17
+191	Q3
+192	56 61
+193	18 24
+194	Q4
+195	65 83
+196	31 34
+197	Game No.: 212
+198	Attendance: 100
+199	Game Duration: 01:40
+200	Report Generated: Sun 26 Jul 2026 17:49
+201	-- 3 of 36 --
+202	Quarter Starters:
+203	Quarter 1
+204	USIU 10 MPONELA V 17 OTANGO P 20 GICHANA M 21 ATHIAN J 22 MINEENE E
+205	CNS 5 AMAYAI E 6 NGALA J 8 NYONGESA B 9 OKUMU I 18 OKWEMBA J
+206	Game Time USIU Score Diff CNS
+207	09:59 20 GICHANA M jumpball won
+208	09:59 18 OKWEMBA J jumpball lost
+209	09:41 18 OKWEMBA J foul shooting (1 - 1)
+210	09:41 21 ATHIAN J foul received (1)
+211	09:41 21 ATHIAN J free throw 1 - 2 made (1) 1-0 1
+212	09:41 21 ATHIAN J free throw 2 - 2 made (2) 2-0 2
+213	09:29 20 GICHANA M foul personal (1 - 1)
+214	09:29 18 OKWEMBA J foul received (1)
+215	09:22 6 NGALA J 3pt FG , jump shot missed
+216	09:20 21 ATHIAN J defensive rebound (1)
+217	09:12 21 ATHIAN J 3pt FG , jump shot missed
+218	09:08 18 OKWEMBA J defensive rebound (1)
+219	08:56 6 NGALA J turnover travel (1)
+220	08:41 22 MINEENE E 3pt FG from turnover, jump shot missed
+221	08:36 5 AMAYAI E defensive rebound (1)
+222	08:27 21 ATHIAN J foul personal (1 - 2)
+223	08:27 9 OKUMU I foul received (1)
+224	08:22 6 NGALA J 2pt FG in the paint, layup missed
+225	08:20 17 OTANGO P defensive rebound (1)
+226	08:08 10 MPONELA V 2pt FG outside the paint, jump shot missed
+227	08:06 6 NGALA J defensive rebound (1)
+228	08:03 2-2 0 6 NGALA J 2pt FG fast break in the paint, driving layup
+229	made (2)
+230	07:44 21 ATHIAN J 2pt FG in the paint, driving layup made (4) 4-2 2
+231	07:44 17 OTANGO P assist (1)
+232	07:34 6 NGALA J turnover travel (2)
+233	07:22 17 OTANGO P 3pt FG from turnover, jump shot made (3) 7-2 5
+234	07:22 21 ATHIAN J assist (1)
+235	07:07 8 NYONGESA B turnover travel (1)
+236	06:53 6 NGALA J foul shooting (1 - 2)
+237	06:53 10 MPONELA V foul received (1)
+238	06:53 10 MPONELA V free throw 1 - 2 made (1) 8-2 6
+239	06:53 10 MPONELA V free throw 2 - 2 made (2) 9-2 7
+240	06:53 Timeout Full
+241	06:53 9-4 5 8 NYONGESA B 2pt FG fast break in the paint, driving layup
+242	made (2)
+243	06:53 6 NGALA J assist (1)
+244	06:39 10 MPONELA V 2pt FG in the paint, driving layup missed
+245	06:37 18 OKWEMBA J defensive rebound (2)
+246	06:33 6 NGALA J turnover ball handling (3)
+247	DIVISION 1
+248	USIU, Sun 26 Jul 2026 Start time: 15:42
+249	Play by Play
+250	USIU TIGERS 83 – 34 CONGO NETS
+251	(26-16, 17-1, 18-7, 22-10)
+252	Scoring by 5 Minute intervals USIU
+253	CNS
+254	Q1
+255	13 26
+256	6 16
+257	Q2
+258	34 43
+259	17 17
+260	Q3
+261	56 61
+262	18 24
+263	Q4
+264	65 83
+265	31 34
+266	Game No.: 212
+267	Attendance: 100
+268	Game Duration: 01:40
+269	Report Generated: Sun 26 Jul 2026 17:47
+270	-- 4 of 36 --
+271	06:33 22 MINEENE E steal (1)
+272	06:26 21 ATHIAN J 2pt FG fast break from turnover in the paint,
+273	driving layup made (6) 11-4 7
+274	06:15 8 NYONGESA B 2pt FG outside the paint, jump shot
+275	missed
+276	06:12 21 ATHIAN J defensive rebound (2)
+277	05:59 10 MPONELA V turnover travel (1)
+278	05:56 22 MINEENE E substitution out
+279	05:56 11 KISIVULI D substitution in
+280	05:46 5 AMAYAI E 2pt FG from turnover in the paint, layup missed
+281	05:44 5 AMAYAI E offensive rebound (2)
+282	05:42 18 OKWEMBA J 2pt FG from turnover second chance in the
+283	paint, layup missed
+284	05:40 20 GICHANA M defensive rebound (1)
+285	05:29 21 ATHIAN J turnover ball handling (1)
+286	05:29 6 NGALA J steal (1)
+287	05:24 11-6 5 6 NGALA J 2pt FG fast break from turnover in the paint,
+288	driving layup made (4)
+289	05:08 18 OKWEMBA J foul shooting (2 - 3)
+290	05:08 21 ATHIAN J foul received (2)
+291	05:08 21 ATHIAN J free throw 1 - 2 made (7) 12-6 6
+292	05:08 21 ATHIAN J free throw 2 - 2 made (8) 13-6 7
+293	05:04 18 OKWEMBA J substitution out
+294	05:04 7 KHADHIANG N substitution in
+295	04:55 13-9 4 6 NGALA J 3pt FG , jump shot made (7)
+296	04:55 5 AMAYAI E assist (1)
+297	04:37 11 KISIVULI D 2pt FG in the paint, driving layup missed
+298	04:33 21 ATHIAN J offensive rebound (3)
+299	04:33 21 ATHIAN J 2pt FG second chance in the paint, tip-in layup
+300	made (10) 15-9 6
+301	04:22 6 NGALA J 3pt FG , jump shot missed
+302	04:22 17 OTANGO P defensive rebound (2)
+303	04:19 7 KHADHIANG N foul personal (1 - 4)
+304	04:19 21 ATHIAN J foul received (3)
+305	04:19 17 OTANGO P substitution out
+306	04:19 14 MURIUKI A substitution in
+307	04:05 10 MPONELA V 2pt FG in the paint, jump shot missed
+308	04:02 20 GICHANA M offensive rebound (2)
+309	04:02 20 GICHANA M 2pt FG second chance in the paint, tip-in
+310	layup made (2) 17-9 8
+311	03:48 8 NYONGESA B turnover bad pass (2)
+312	03:45 10 MPONELA V substitution out
+313	03:45 16 WAIBALE T substitution in
+314	03:34 21 ATHIAN J turnover bad pass (2)
+315	03:34 9 OKUMU I steal (1)
+316	03:26 20 GICHANA M substitution out
+317	03:26 21 ATHIAN J substitution out
+318	03:26 9 KIM A substitution in
+319	Game Time USIU Score Diff CNS
+320	DIVISION 1
+321	USIU, Sun 26 Jul 2026 Start time: 15:42
+322	Play by Play
+323	USIU TIGERS 83 – 34 CONGO NETS
+324	(26-16, 17-1, 18-7, 22-10)
+325	Scoring by 5 Minute intervals USIU
+326	CNS
+327	Q1
+328	13 26
+329	6 16
+330	Q2
+331	34 43
+332	17 17
+333	Q3
+334	56 61
+335	18 24
+336	Q4
+337	65 83
+338	31 34
+339	Game No.: 212
+340	Attendance: 100
+341	Game Duration: 01:40
+342	Report Generated: Sun 26 Jul 2026 17:47
+343	-- 5 of 36 --
+344	03:26 13 JUMA A substitution in
+345	03:15 5 AMAYAI E 2pt FG from turnover in the paint, jump shot
+346	missed
+347	03:15 9 KIM A defensive rebound (1)
+348	03:15 7 KHADHIANG N foul personal (2 - 5)
+349	03:15 9 KIM A foul received (1)
+350	03:15 9 KIM A free throw fast break 1 - 2 missed
+351	03:15 9 KIM A free throw fast break 2 - 2 made (1) 18-9 9
+352	03:15 8 NYONGESA B substitution out
+353	03:15 11 CHOMBA A substitution in
+354	03:10 11 CHOMBA A turnover bad pass (1)
+355	03:03 13 JUMA A 3pt FG fast break from turnover, jump shot made
+356	(3) 21-9 12
+357	03:03 11 KISIVULI D assist (1)
+358	02:50 9 OKUMU I 2pt FG outside the paint, jump shot missed
+359	02:50 7 KHADHIANG N offensive rebound (1)
+360	02:50 9 KIM A foul personal (1 - 3)
+361	02:50 7 KHADHIANG N foul received (1)
+362	02:50 21-11 10 7 KHADHIANG N 2pt FG second chance outside the paint,
+363	jump shot made (2)
+364	02:50 6 NGALA J assist (2)
+365	02:35 9 KIM A 2pt FG in the paint, turnaround jump shot made (3) 23-11 12
+366	02:35 14 MURIUKI A assist (1)
+367	02:07 23-13 10 9 OKUMU I 2pt FG outside the paint, jump shot made (2)
+368	02:07 11 CHOMBA A assist (1)
+369	01:49 Timeout Full
+370	01:49 11 CHOMBA A foul personal (1 - 6)
+371	01:49 11 KISIVULI D foul received (1)
+372	01:49 11 KISIVULI D free throw 1 - 2 missed
+373	01:49 11 KISIVULI D free throw 2 - 2 missed
+374	01:49 7 KHADHIANG N defensive rebound (2)
+375	01:43 7 KHADHIANG N turnover bad pass (1)
+376	01:43 14 MURIUKI A steal (1)
+377	01:39 11 CHOMBA A foul shooting (2 - 7)
+378	01:39 13 JUMA A foul received (1)
+379	01:39 13 JUMA A free throw fast break 1 - 2 missed
+380	01:39 13 JUMA A free throw fast break 2 - 2 made (4) 24-13 11
+381	01:39 5 AMAYAI E substitution out
+382	01:39 14 OTIENO E substitution in
+383	01:20 7 KHADHIANG N turnover ball handling (2)
+384	01:20 14 MURIUKI A steal (2)
+385	01:16 11 KISIVULI D 2pt FG fast break from turnover in the paint,
+386	driving layup made (2) 26-13 13
+387	01:16 13 JUMA A assist (1)
+388	00:53 6 NGALA J substitution out
+389	00:53 12 LICHINA V substitution in
+390	00:53 11 KISIVULI D foul shooting (1 - 4)
+391	Game Time USIU Score Diff CNS
+392	DIVISION 1
+393	USIU, Sun 26 Jul 2026 Start time: 15:42
+394	Play by Play
+395	USIU TIGERS 83 – 34 CONGO NETS
+396	(26-16, 17-1, 18-7, 22-10)
+397	Scoring by 5 Minute intervals USIU
+398	CNS
+399	Q1
+400	13 26
+401	6 16
+402	Q2
+403	34 43
+404	17 17
+405	Q3
+406	56 61
+407	18 24
+408	Q4
+409	65 83
+410	31 34
+411	Game No.: 212
+412	Attendance: 100
+413	Game Duration: 01:40
+414	Report Generated: Sun 26 Jul 2026 17:47
+415	-- 6 of 36 --
+416	00:53 12 LICHINA V foul received (1)
+417	00:53 26-14 12 12 LICHINA V free throw 1 - 2 made (1)
+418	00:53 26-15 11 12 LICHINA V free throw 2 - 2 made (2)
+419	00:43 16 WAIBALE T turnover ball handling (1)
+420	00:43 12 LICHINA V steal (1)
+421	00:32 12 LICHINA V 2pt FG from turnover outside the paint, jump
+422	shot missed
+423	00:32 defensive rebound (9)
+424	00:26 7 KHADHIANG N foul shooting (3 - 8)
+425	00:26 14 MURIUKI A foul received (1)
+426	00:26 14 MURIUKI A free throw fast break 1 - 2 missed
+427	00:26 14 MURIUKI A free throw fast break 2 - 2 missed
+428	00:26 12 LICHINA V defensive rebound (1)
+429	00:25 9 KIM A foul personal (2 - 5)
+430	00:25 12 LICHINA V foul received (2)
+431	00:17 12 LICHINA V free throw fast break 1 - 2 missed
+432	00:17 26-16 10 12 LICHINA V free throw fast break 2 - 2 made (3)
+433	Game Time USIU Score Diff CNS
+434	DIVISION 1
+435	USIU, Sun 26 Jul 2026 Start time: 15:42
+436	Play by Play
+437	USIU TIGERS 83 – 34 CONGO NETS
+438	(26-16, 17-1, 18-7, 22-10)
+439	Scoring by 5 Minute intervals USIU
+440	CNS
+441	Q1
+442	13 26
+443	6 16
+444	Q2
+445	34 43
+446	17 17
+447	Q3
+448	56 61
+449	18 24
+450	Q4
+451	65 83
+452	31 34
+453	Game No.: 212
+454	Attendance: 100
+455	Game Duration: 01:40
+456	Report Generated: Sun 26 Jul 2026 17:47
+457	-- 7 of 36 --
+458	Quarter Starters:
+459	Quarter 2
+460	USIU 11 KISIVULI D 13 JUMA A 14 MURIUKI A 16 WAIBALE T 21 ATHIAN J
+461	CNS 7 KHADHIANG N 9 OKUMU I 11 CHOMBA A 12 LICHINA V 14 OTIENO E
+462	Game Time USIU Score Diff CNS
+463	10:00 9 KIM A substitution out
+464	10:00 21 ATHIAN J substitution in
+465	09:57 12 LICHINA V 2pt FG in the paint, jump shot missed
+466	09:55 21 ATHIAN J defensive rebound (4)
+467	09:43 11 KISIVULI D 3pt FG , jump shot missed
+468	09:40 14 MURIUKI A offensive rebound (1)
+469	09:40 14 OTIENO E foul shooting (1 - 1)
+470	09:40 14 MURIUKI A foul received (2)
+471	09:40 7 KHADHIANG N substitution out
+472	09:40 13 KADIR A substitution in
+473	09:40 14 MURIUKI A free throw 1 - 2 missed
+474	09:40 14 MURIUKI A free throw 2 - 2 missed
+475	09:40 13 KADIR A defensive rebound (1)
+476	09:24 9 OKUMU I turnover ball handling (1)
+477	09:24 16 WAIBALE T steal (1)
+478	09:17 21 ATHIAN J turnover bad pass (3)
+479	09:04 9 OKUMU I turnover bad pass (2)
+480	08:46 21 ATHIAN J 3pt FG from turnover, jump shot missed
+481	08:42 defensive rebound (10)
+482	08:42 14 MURIUKI A substitution out
+483	08:42 20 GICHANA M substitution in
+484	08:31 13 KADIR A 3pt FG , jump shot missed
+485	08:29 13 JUMA A defensive rebound (1)
+486	08:23 13 JUMA A 3pt FG , jump shot missed
+487	08:21 defensive rebound (11)
+488	08:21 13 JUMA A substitution out
+489	08:21 16 WAIBALE T substitution out
+490	08:21 17 OTANGO P substitution in
+491	08:21 18 MORANGI G substitution in
+492	08:06 11 CHOMBA A 3pt FG , jump shot missed
+493	08:02 9 OKUMU I offensive rebound (1)
+494	08:01 18 MORANGI G foul shooting (1 - 1)
+495	08:01 12 LICHINA V foul received (3)
+496	08:01 9 OKUMU I substitution out
+497	08:01 6 NGALA J substitution in
+498	08:01 12 LICHINA V free throw 1 - 2 missed
+499	08:01 12 LICHINA V free throw 2 - 2 missed
+500	08:01 17 OTANGO P defensive rebound (3)
+501	07:54 21 ATHIAN J 2pt FG fast break in the paint, driving layup
+502	made (12) 28-16 12
+503	DIVISION 1
+504	USIU, Sun 26 Jul 2026 Start time: 15:42
+505	Play by Play
+506	USIU TIGERS 83 – 34 CONGO NETS
+507	(26-16, 17-1, 18-7, 22-10)
+508	Scoring by 5 Minute intervals USIU
+509	CNS
+510	Q1
+511	13 26
+512	6 16
+513	Q2
+514	34 43
+515	17 17
+516	Q3
+517	56 61
+518	18 24
+519	Q4
+520	65 83
+521	31 34
+522	Game No.: 212
+523	Attendance: 100
+524	Game Duration: 01:40
+525	Report Generated: Sun 26 Jul 2026 17:47
+526	-- 8 of 36 --
+527	07:39 6 NGALA J turnover travel (4)
+528	07:33 6 NGALA J foul personal (2 - 2)
+529	07:33 18 MORANGI G foul received (1)
+530	07:25 21 ATHIAN J 2pt FG from turnover in the paint, driving layup
+531	missed
+532	07:21 14 OTIENO E defensive rebound (1)
+533	07:21 17 OTANGO P foul shooting (1 - 2)
+534	07:21 13 KADIR A foul received (1)
+535	07:21 13 KADIR A free throw fast break 1 - 2 missed
+536	07:21 28-17 11 13 KADIR A free throw fast break 2 - 2 made (1)
+537	07:17 12 LICHINA V substitution out
+538	07:17 18 OKWEMBA J substitution in
+539	07:12 17 OTANGO P 3pt FG , jump shot made (6) 31-17 14
+540	07:12 21 ATHIAN J assist (2)
+541	07:02 6 NGALA J turnover travel (5)
+542	06:42 11 KISIVULI D 3pt FG from turnover, jump shot made (5) 34-17 17
+543	06:42 17 OTANGO P assist (2)
+544	06:27 13 KADIR A turnover travel (1)
+545	06:25 Timeout Full
+546	05:52 21 ATHIAN J turnover travel (4)
+547	05:40 6 NGALA J 3pt FG from turnover, jump shot missed
+548	05:37 20 GICHANA M defensive rebound (3)
+549	05:29 17 OTANGO P 3pt FG , jump shot missed
+550	05:26 20 GICHANA M offensive rebound (4)
+551	05:19 11 KISIVULI D 3pt FG second chance, jump shot missed
+552	05:16 14 OTIENO E defensive rebound (2)
+553	05:01 6 NGALA J 3pt FG , jump shot missed
+554	04:58 21 ATHIAN J defensive rebound (5)
+555	04:49 11 KISIVULI D turnover bad pass (1)
+556	04:49 11 KISIVULI D substitution out
+557	04:49 12 WENWA H substitution in
+558	04:45 11 CHOMBA A 3pt FG from turnover, jump shot missed
+559	04:43 17 OTANGO P defensive rebound (4)
+560	04:35 12 WENWA H 2pt FG in the paint, reverse layup made (2) 36-17 19
+561	04:21 6 NGALA J 3pt FG , jump shot missed
+562	04:19 20 GICHANA M defensive rebound (5)
+563	04:12 12 WENWA H 3pt FG , jump shot missed
+564	04:10 21 ATHIAN J offensive rebound (6)
+565	04:08 18 MORANGI G 3pt FG second chance, jump shot missed
+566	04:05 11 CHOMBA A defensive rebound (1)
+567	04:02 14 OTIENO E turnover ball handling (1)
+568	04:02 18 MORANGI G steal (1)
+569	03:45 21 ATHIAN J 3pt FG from turnover, jump shot missed
+570	03:42 6 NGALA J defensive rebound (2)
+571	03:40 6 NGALA J turnover ball handling (6)
+572	03:40 21 ATHIAN J steal (1)
+573	03:36 17 OTANGO P turnover travel (1)
+574	Game Time USIU Score Diff CNS
+575	DIVISION 1
+576	USIU, Sun 26 Jul 2026 Start time: 15:42
+577	Play by Play
+578	USIU TIGERS 83 – 34 CONGO NETS
+579	(26-16, 17-1, 18-7, 22-10)
+580	Scoring by 5 Minute intervals USIU
+581	CNS
+582	Q1
+583	13 26
+584	6 16
+585	Q2
+586	34 43
+587	17 17
+588	Q3
+589	56 61
+590	18 24
+591	Q4
+592	65 83
+593	31 34
+594	Game No.: 212
+595	Attendance: 100
+596	Game Duration: 01:40
+597	Report Generated: Sun 26 Jul 2026 17:47
+598	-- 9 of 36 --
+599	03:36 14 OTIENO E substitution out
+600	03:36 5 AMAYAI E substitution in
+601	03:34 18 OKWEMBA J 2pt FG from turnover in the paint, driving
+602	layup missed
+603	03:32 20 GICHANA M defensive rebound (6)
+604	03:14 21 ATHIAN J 3pt FG , jump shot missed
+605	03:11 12 WENWA H offensive rebound (1)
+606	03:10 jump ball situation
+607	03:10 Timeout Full
+608	03:02 17 OTANGO P 3pt FG second chance, jump shot missed
+609	03:00 5 AMAYAI E defensive rebound (3)
+610	02:59 20 GICHANA M foul personal (2 - 3)
+611	02:59 11 CHOMBA A foul received (1)
+612	02:59 20 GICHANA M substitution out
+613	02:59 9 KIM A substitution in
+614	02:45 6 NGALA J substitution out
+615	02:45 9 OKUMU I substitution in
+616	02:43 9 OKUMU I 2pt FG in the paint, jump shot missed
+617	02:41 21 ATHIAN J defensive rebound (7)
+618	02:39 21 ATHIAN J 2pt FG fast break in the paint, step back jump
+619	shot made (14) 38-17 21
+620	02:15 18 OKWEMBA J 2pt FG in the paint, jump shot missed
+621	02:11 9 KIM A defensive rebound (2)
+622	01:56 17 OTANGO P 3pt FG , jump shot missed
+623	01:54 defensive rebound (18)
+624	01:37 13 KADIR A 2pt FG outside the paint, jump shot missed
+625	01:34 12 WENWA H defensive rebound (2)
+626	01:23 18 MORANGI G turnover travel (1)
+627	01:21 18 MORANGI G substitution out
+628	01:21 16 WAIBALE T substitution in
+629	01:08 5 AMAYAI E 2pt FG from turnover in the paint, layup missed
+630	01:08 defensive rebound (25)
+631	00:55 21 ATHIAN J 3pt FG , jump shot made (17) 41-17 24
+632	00:55 16 WAIBALE T assist (1)
+633	00:37 13 KADIR A turnover travel (2)
+634	00:17 17 OTANGO P turnover bad pass (2)
+635	00:17 5 AMAYAI E steal (1)
+636	00:09 5 AMAYAI E 3pt FG from turnover, jump shot missed
+637	00:07 17 OTANGO P defensive rebound (5)
+638	00:03 21 ATHIAN J 2pt FG fast break in the paint, dunk, made (19) 43-17 26
+639	00:03 17 OTANGO P assist (3)
+640	Game Time USIU Score Diff CNS
+641	DIVISION 1
+642	USIU, Sun 26 Jul 2026 Start time: 15:42
+643	Play by Play
+644	USIU TIGERS 83 – 34 CONGO NETS
+645	(26-16, 17-1, 18-7, 22-10)
+646	Scoring by 5 Minute intervals USIU
+647	CNS
+648	Q1
+649	13 26
+650	6 16
+651	Q2
+652	34 43
+653	17 17
+654	Q3
+655	56 61
+656	18 24
+657	Q4
+658	65 83
+659	31 34
+660	Game No.: 212
+661	Attendance: 100
+662	Game Duration: 01:40
+663	Report Generated: Sun 26 Jul 2026 17:47
+664	-- 10 of 36 --
+665	Quarter Starters:
+666	Quarter 3
+667	USIU 10 MPONELA V 17 OTANGO P 20 GICHANA M 21 ATHIAN J 22 MINEENE E
+668	CNS 5 AMAYAI E 8 NYONGESA B 9 OKUMU I 11 CHOMBA A 13 KADIR A
+669	Game Time USIU Score Diff CNS
+670	10:00 9 KIM A substitution out
+671	10:00 12 WENWA H substitution out
+672	10:00 16 WAIBALE T substitution out
+673	10:00 10 MPONELA V substitution in
+674	10:00 20 GICHANA M substitution in
+675	10:00 22 MINEENE E substitution in
+676	10:00 18 OKWEMBA J substitution out
+677	10:00 8 NYONGESA B substitution in
+678	09:50 5 AMAYAI E 3pt FG , jump shot missed
+679	09:47 21 ATHIAN J defensive rebound (8)
+680	09:40 21 ATHIAN J 2pt FG in the paint, dunk, made (21) 45-17 28
+681	09:40 10 MPONELA V assist (1)
+682	09:28 8 NYONGESA B turnover travel (3)
+683	09:14 10 MPONELA V turnover travel (2)
+684	08:52 17 OTANGO P foul shooting (2 - 1)
+685	08:52 9 OKUMU I foul received (2)
+686	08:52 9 OKUMU I free throw 1 - 2 missed
+687	08:52 45-18 27 9 OKUMU I free throw 2 - 2 made (3)
+688	08:34 22 MINEENE E turnover ball handling (1)
+689	08:34 9 OKUMU I steal (2)
+690	08:34 11 CHOMBA A 3pt FG from turnover, jump shot missed
+691	08:34 20 GICHANA M defensive rebound (7)
+692	08:19 22 MINEENE E 3pt FG , jump shot missed
+693	08:12 11 CHOMBA A defensive rebound (2)
+694	08:10 8 NYONGESA B 2pt FG in the paint, layup missed
+695	08:10 13 KADIR A offensive rebound (2)
+696	08:10 13 KADIR A 2pt FG second chance in the paint, tip-in layup
+697	missed
+698	08:10 20 GICHANA M defensive rebound (8)
+699	08:10 17 OTANGO P substitution out
+700	08:10 14 MURIUKI A substitution in
+701	07:56 21 ATHIAN J 3pt FG , jump shot made (24) 48-18 30
+702	07:56 10 MPONELA V assist (2)
+703	07:43 9 OKUMU I 2pt FG outside the paint, jump shot blocked
+704	07:43 14 MURIUKI A block (1)
+705	07:42 offensive rebound (21)
+706	07:34 9 OKUMU I turnover ball handling (3)
+707	07:17 21 ATHIAN J 3pt FG from turnover, jump shot missed
+708	07:11 defensive rebound (22)
+709	07:04 9 OKUMU I 2pt FG outside the paint, jump shot missed
+710	DIVISION 1
+711	USIU, Sun 26 Jul 2026 Start time: 15:42
+712	Play by Play
+713	USIU TIGERS 83 – 34 CONGO NETS
+714	(26-16, 17-1, 18-7, 22-10)
+715	Scoring by 5 Minute intervals USIU
+716	CNS
+717	Q1
+718	13 26
+719	6 16
+720	Q2
+721	34 43
+722	17 17
+723	Q3
+724	56 61
+725	18 24
+726	Q4
+727	65 83
+728	31 34
+729	Game No.: 212
+730	Attendance: 100
+731	Game Duration: 01:40
+732	Report Generated: Sun 26 Jul 2026 17:47
+733	-- 11 of 36 --
+734	07:01 20 GICHANA M defensive rebound (9)
+735	07:00 20 GICHANA M turnover bad pass (1)
+736	07:00 8 NYONGESA B steal (1)
+737	06:50 5 AMAYAI E 2pt FG from turnover in the paint, layup missed
+738	06:48 20 GICHANA M defensive rebound (10)
+739	06:32 10 MPONELA V 3pt FG , jump shot made (5) 51-18 33
+740	06:32 22 MINEENE E assist (1)
+741	06:19 8 NYONGESA B turnover bad pass (4)
+742	05:58 10 MPONELA V 3pt FG from turnover, jump shot missed
+743	05:56 22 MINEENE E offensive rebound (1)
+744	05:50 20 GICHANA M turnover travel (2)
+745	05:47 Timeout Full
+746	05:47 8 NYONGESA B substitution out
+747	05:47 12 LICHINA V substitution in
+748	05:36 11 CHOMBA A 2pt FG from turnover in the paint, layup
+749	missed
+750	05:34 14 MURIUKI A defensive rebound (2)
+751	05:27 10 MPONELA V 3pt FG , jump shot made (8) 54-18 36
+752	05:27 22 MINEENE E assist (2)
+753	05:14 9 OKUMU I turnover ball handling (4)
+754	05:14 20 GICHANA M steal (1)
+755	05:09 5 AMAYAI E foul shooting (1 - 1)
+756	05:09 20 GICHANA M foul received (1)
+757	05:09 20 GICHANA M free throw 1 - 2 made (3) 55-18 37
+758	05:09 20 GICHANA M free throw 2 - 2 made (4) 56-18 38
+759	05:09 5 AMAYAI E turnover ball handling (1)
+760	05:09 10 MPONELA V substitution out
+761	05:09 14 MURIUKI A substitution out
+762	05:09 20 GICHANA M substitution out
+763	05:09 21 ATHIAN J substitution out
+764	05:09 22 MINEENE E substitution out
+765	05:09 9 KIM A substitution in
+766	05:09 11 KISIVULI D substitution in
+767	05:09 13 JUMA A substitution in
+768	05:09 16 WAIBALE T substitution in
+769	05:09 18 MORANGI G substitution in
+770	05:09 11 KISIVULI D turnover ball handling (2)
+771	05:02 5 AMAYAI E turnover ball handling (2)
+772	05:02 16 WAIBALE T steal (2)
+773	04:56 18 MORANGI G 2pt FG from turnover in the paint, layup
+774	missed
+775	04:52 12 LICHINA V defensive rebound (2)
+776	04:47 56-20 36 11 CHOMBA A 2pt FG in the paint, driving layup made (2)
+777	04:47 5 AMAYAI E foul personal (2 - 2)
+778	04:47 18 MORANGI G foul received (2)
+779	04:30 18 MORANGI G 3pt FG , jump shot missed
+780	04:25 16 WAIBALE T offensive rebound (1)
+781	Game Time USIU Score Diff CNS
+782	DIVISION 1
+783	USIU, Sun 26 Jul 2026 Start time: 15:42
+784	Play by Play
+785	USIU TIGERS 83 – 34 CONGO NETS
+786	(26-16, 17-1, 18-7, 22-10)
+787	Scoring by 5 Minute intervals USIU
+788	CNS
+789	Q1
+790	13 26
+791	6 16
+792	Q2
+793	34 43
+794	17 17
+795	Q3
+796	56 61
+797	18 24
+798	Q4
+799	65 83
+800	31 34
+801	Game No.: 212
+802	Attendance: 100
+803	Game Duration: 01:40
+804	Report Generated: Sun 26 Jul 2026 17:47
+805	-- 12 of 36 --
+806	04:25 jump ball situation
+807	04:17 11 KISIVULI D 3pt FG second chance, jump shot missed
+808	04:13 16 WAIBALE T offensive rebound (2)
+809	04:09 11 CHOMBA A foul personal (3 - 3)
+810	04:09 18 MORANGI G foul received (3)
+811	04:07 13 JUMA A turnover ball handling (1)
+812	04:07 9 OKUMU I steal (3)
+813	04:01 56-22 34 9 OKUMU I 2pt FG fast break from turnover in the paint,
+814	driving layup made (5)
+815	03:41 13 KADIR A foul shooting (1 - 4)
+816	03:41 11 KISIVULI D foul received (2)
+817	03:41 11 KISIVULI D free throw 1 - 2 made (6) 57-22 35
+818	03:41 11 KISIVULI D free throw 2 - 2 missed
+819	03:41 12 LICHINA V defensive rebound (3)
+820	03:23 11 CHOMBA A 3pt FG , jump shot missed
+821	03:21 13 KADIR A offensive rebound (3)
+822	03:21 5 AMAYAI E turnover travel (3)
+823	03:05 18 MORANGI G turnover bad pass (2)
+824	03:05 5 AMAYAI E steal (2)
+825	03:00 5 AMAYAI E 2pt FG from turnover in the paint, driving layup
+826	missed
+827	02:57 16 WAIBALE T defensive rebound (3)
+828	02:46 11 KISIVULI D turnover travel (3)
+829	02:43 Timeout Full
+830	01:53 13 KADIR A 2pt FG from turnover outside the paint, jump
+831	shot missed
+832	01:50 defensive rebound (37)
+833	01:37 18 MORANGI G 2pt FG in the paint, layup made (2) 59-22 37
+834	01:37 9 KIM A assist (1)
+835	01:31 11 CHOMBA A turnover ball handling (2)
+836	01:24 11 CHOMBA A foul shooting (4 - 5)
+837	01:24 11 KISIVULI D foul received (3)
+838	01:24 11 KISIVULI D free throw fast break 1 - 2 missed
+839	01:24 11 KISIVULI D free throw fast break 2 - 2 missed
+840	01:24 18 MORANGI G offensive rebound (1)
+841	01:16 16 WAIBALE T turnover travel (2)
+842	01:16 11 CHOMBA A substitution out
+843	01:16 14 OTIENO E substitution in
+844	01:16 14 OTIENO E turnover ball handling (2)
+845	01:16 16 WAIBALE T steal (3)
+846	01:15 16 WAIBALE T 2pt FG from turnover in the paint, driving
+847	layup missed
+848	01:12 14 OTIENO E defensive rebound (3)
+849	00:51 11 KISIVULI D foul shooting (2 - 2)
+850	00:51 12 LICHINA V foul received (4)
+851	00:51 59-23 36 12 LICHINA V free throw 1 - 2 made (4)
+852	00:51 59-24 35 12 LICHINA V free throw 2 - 2 made (5)
+853	Game Time USIU Score Diff CNS
+854	DIVISION 1
+855	USIU, Sun 26 Jul 2026 Start time: 15:42
+856	Play by Play
+857	USIU TIGERS 83 – 34 CONGO NETS
+858	(26-16, 17-1, 18-7, 22-10)
+859	Scoring by 5 Minute intervals USIU
+860	CNS
+861	Q1
+862	13 26
+863	6 16
+864	Q2
+865	34 43
+866	17 17
+867	Q3
+868	56 61
+869	18 24
+870	Q4
+871	65 83
+872	31 34
+873	Game No.: 212
+874	Attendance: 100
+875	Game Duration: 01:40
+876	Report Generated: Sun 26 Jul 2026 17:47
+877	-- 13 of 36 --
+878	00:43 9 KIM A turnover travel (1)
+879	00:37 9 KIM A substitution out
+880	00:37 14 MURIUKI A substitution in
+881	00:27 12 LICHINA V 2pt FG from turnover in the paint, driving
+882	layup missed
+883	00:26 13 JUMA A defensive rebound (2)
+884	00:08 13 JUMA A 2pt FG in the paint, driving layup made (6) 61-24 37
+885	Game Time USIU Score Diff CNS
+886	DIVISION 1
+887	USIU, Sun 26 Jul 2026 Start time: 15:42
+888	Play by Play
+889	USIU TIGERS 83 – 34 CONGO NETS
+890	(26-16, 17-1, 18-7, 22-10)
+891	Scoring by 5 Minute intervals USIU
+892	CNS
+893	Q1
+894	13 26
+895	6 16
+896	Q2
+897	34 43
+898	17 17
+899	Q3
+900	56 61
+901	18 24
+902	Q4
+903	65 83
+904	31 34
+905	Game No.: 212
+906	Attendance: 100
+907	Game Duration: 01:40
+908	Report Generated: Sun 26 Jul 2026 17:47
+909	-- 14 of 36 --
+910	Quarter Starters:
+911	Quarter 4
+912	USIU 11 KISIVULI D 12 WENWA H 13 JUMA A 14 MURIUKI A 16 WAIBALE T
+913	CNS 5 AMAYAI E 8 NYONGESA B 9 OKUMU I 12 LICHINA V 18 OKWEMBA J
+914	Game Time USIU Score Diff CNS
+915	10:00 18 MORANGI G substitution out
+916	10:00 12 WENWA H substitution in
+917	10:00 13 KADIR A substitution out
+918	10:00 14 OTIENO E substitution out
+919	10:00 8 NYONGESA B substitution in
+920	10:00 18 OKWEMBA J substitution in
+921	09:51 12 LICHINA V 2pt FG in the paint, layup missed
+922	09:49 13 JUMA A defensive rebound (3)
+923	09:15 13 JUMA A turnover ball handling (2)
+924	09:15 5 AMAYAI E steal (3)
+925	09:09 61-26 35 9 OKUMU I 2pt FG fast break from turnover in the paint,
+926	driving layup made (7)
+927	08:53 13 JUMA A turnover bad pass (3)
+928	08:50 13 JUMA A substitution out
+929	08:50 22 MINEENE E substitution in
+930	08:43 22 MINEENE E foul shooting (1 - 1)
+931	08:43 12 LICHINA V foul received (5)
+932	08:43 12 LICHINA V free throw 1 - 2 missed
+933	08:43 61-27 34 12 LICHINA V free throw 2 - 2 made (6)
+934	08:29 16 WAIBALE T 2pt FG in the paint, layup missed
+935	08:26 9 OKUMU I defensive rebound (2)
+936	08:21 18 OKWEMBA J turnover travel (1)
+937	08:07 14 MURIUKI A turnover bad pass (1)
+938	08:07 5 AMAYAI E steal (4)
+939	07:50 12 LICHINA V 3pt FG from turnover, jump shot missed
+940	07:48 14 MURIUKI A defensive rebound (3)
+941	07:46 11 KISIVULI D 2pt FG fast break in the paint, driving layup
+942	made (8) 63-27 36
+943	07:46 22 MINEENE E assist (3)
+944	07:28 5 AMAYAI E 2pt FG outside the paint, jump shot missed
+945	07:09 12 LICHINA V offensive rebound (4)
+946	07:08 12 WENWA H foul personal (1 - 2)
+947	07:08 5 AMAYAI E foul received (1)
+948	06:57 16 WAIBALE T substitution out
+949	06:57 21 ATHIAN J substitution in
+950	06:36 14 MURIUKI A foul shooting (1 - 3)
+951	06:36 18 OKWEMBA J foul received (2)
+952	06:28 63-28 35 18 OKWEMBA J free throw 1 - 2 made (1)
+953	06:28 63-29 34 18 OKWEMBA J free throw 2 - 2 made (2)
+954	06:27 21 ATHIAN J 2pt FG in the paint, layup missed
+955	DIVISION 1
+956	USIU, Sun 26 Jul 2026 Start time: 15:42
+957	Play by Play
+958	USIU TIGERS 83 – 34 CONGO NETS
+959	(26-16, 17-1, 18-7, 22-10)
+960	Scoring by 5 Minute intervals USIU
+961	CNS
+962	Q1
+963	13 26
+964	6 16
+965	Q2
+966	34 43
+967	17 17
+968	Q3
+969	56 61
+970	18 24
+971	Q4
+972	65 83
+973	31 34
+974	Game No.: 212
+975	Attendance: 100
+976	Game Duration: 01:40
+977	Report Generated: Sun 26 Jul 2026 17:47
+978	-- 15 of 36 --
+979	06:22 defensive rebound (29)
+980	06:21 14 MURIUKI A foul personal (2 - 4)
+981	06:21 5 AMAYAI E foul received (2)
+982	06:19 11 KISIVULI D substitution out
+983	06:19 10 MPONELA V substitution in
+984	06:17 8 NYONGESA B 2pt FG outside the paint, jump shot
+985	missed
+986	06:14 10 MPONELA V defensive rebound (1)
+987	06:01 8 NYONGESA B substitution out
+988	06:01 14 OTIENO E substitution in
+989	06:01 21 ATHIAN J 3pt FG , jump shot missed
+990	06:01 14 OTIENO E defensive rebound (4)
+991	06:01 14 OTIENO E turnover ball handling (3)
+992	06:01 10 MPONELA V steal (1)
+993	06:01 21 ATHIAN J 2pt FG fast break from turnover in the paint,
+994	dunk, made (26) 65-29 36
+995	06:01 10 MPONELA V assist (3)
+996	05:57 12 LICHINA V 2pt FG in the paint, layup missed
+997	05:54 18 OKWEMBA J offensive rebound (3)
+998	05:54 65-31 34 18 OKWEMBA J 2pt FG second chance in the paint, tip-in
+999	layup made (4)
+1000	05:35 10 MPONELA V 2pt FG outside the paint, jump shot missed
+1001	05:33 12 LICHINA V defensive rebound (5)
+1002	05:22 9 OKUMU I 2pt FG in the paint, layup missed
+1003	05:22 offensive rebound (33)
+1004	05:22 9 OKUMU I substitution out
+1005	05:22 11 CHOMBA A substitution in
+1006	05:11 5 AMAYAI E 3pt FG second chance, jump shot missed
+1007	05:09 21 ATHIAN J defensive rebound (9)
+1008	05:03 22 MINEENE E 3pt FG , jump shot missed
+1009	04:55 defensive rebound (34)
+1010	04:54 12 WENWA H substitution out
+1011	04:54 17 OTANGO P substitution in
+1012	04:41 14 MURIUKI A foul shooting (3 - 5)
+1013	04:41 18 OKWEMBA J foul received (3)
+1014	04:41 14 MURIUKI A substitution out
+1015	04:41 20 GICHANA M substitution in
+1016	04:41 18 OKWEMBA J free throw 1 - 2 missed
+1017	04:41 18 OKWEMBA J free throw 2 - 2 missed
+1018	04:41 17 OTANGO P defensive rebound (6)
+1019	04:23 21 ATHIAN J 3pt FG , jump shot missed
+1020	04:20 defensive rebound (35)
+1021	04:12 5 AMAYAI E turnover ball handling (4)
+1022	04:12 10 MPONELA V steal (2)
+1023	04:12 10 MPONELA V 2pt FG fast break from turnover in the paint,
+1024	driving layup made (10) 67-31 36
+1025	04:12 20 GICHANA M assist (1)
+1026	Game Time USIU Score Diff CNS
+1027	DIVISION 1
+1028	USIU, Sun 26 Jul 2026 Start time: 15:42
+1029	Play by Play
+1030	USIU TIGERS 83 – 34 CONGO NETS
+1031	(26-16, 17-1, 18-7, 22-10)
+1032	Scoring by 5 Minute intervals USIU
+1033	CNS
+1034	Q1
+1035	13 26
+1036	6 16
+1037	Q2
+1038	34 43
+1039	17 17
+1040	Q3
+1041	56 61
+1042	18 24
+1043	Q4
+1044	65 83
+1045	31 34
+1046	Game No.: 212
+1047	Attendance: 100
+1048	Game Duration: 01:40
+1049	Report Generated: Sun 26 Jul 2026 17:47
+1050	-- 16 of 36 --
+1051	04:04 12 LICHINA V 2pt FG in the paint, layup missed
+1052	04:00 20 GICHANA M defensive rebound (11)
+1053	03:58 21 ATHIAN J 2pt FG fast break in the paint, driving layup
+1054	made (28) 69-31 38
+1055	03:58 10 MPONELA V assist (4)
+1056	03:51 20 GICHANA M foul shooting (3 - 6)
+1057	03:51 18 OKWEMBA J foul received (4)
+1058	03:51 18 OKWEMBA J free throw fast break 1 - 2 missed
+1059	03:51 18 OKWEMBA J free throw fast break 2 - 2 missed
+1060	03:51 17 OTANGO P defensive rebound (7)
+1061	03:41 21 ATHIAN J turnover travel (5)
+1062	03:29 12 LICHINA V 2pt FG from turnover outside the paint, jump
+1063	shot missed
+1064	03:23 14 OTIENO E offensive rebound (5)
+1065	03:23 14 OTIENO E 2pt FG from turnover second chance in the
+1066	paint, tip-in layup missed
+1067	03:22 17 OTANGO P defensive rebound (8)
+1068	03:18 22 MINEENE E turnover bad pass (2)
+1069	03:18 12 LICHINA V steal (2)
+1070	03:12 12 LICHINA V 2pt FG from turnover in the paint, layup
+1071	missed
+1072	03:05 20 GICHANA M defensive rebound (12)
+1073	03:04 21 ATHIAN J 2pt FG fast break in the paint, dunk, made (30) 71-31 40
+1074	03:04 10 MPONELA V assist (5)
+1075	02:41 5 AMAYAI E turnover bad pass (5)
+1076	02:41 10 MPONELA V steal (3)
+1077	02:41 5 AMAYAI E foul personal (3 - 1)
+1078	02:41 10 MPONELA V foul received (2)
+1079	02:32 10 MPONELA V 3pt FG from turnover, jump shot missed
+1080	02:29 21 ATHIAN J offensive rebound (10)
+1081	02:29 21 ATHIAN J 2pt FG from turnover second chance in the
+1082	paint, tip-in layup made (32) 73-31 42
+1083	02:28 18 OKWEMBA J substitution out
+1084	02:28 13 KADIR A substitution in
+1085	02:28 13 KADIR A foul shooting (2 - 2)
+1086	02:28 21 ATHIAN J foul received (4)
+1087	02:28 21 ATHIAN J free throw 1 - 1 missed
+1088	02:28 11 CHOMBA A defensive rebound (3)
+1089	02:16 13 KADIR A 2pt FG outside the paint, jump shot missed
+1090	02:13 20 GICHANA M defensive rebound (13)
+1091	02:09 13 KADIR A foul personal (3 - 3)
+1092	02:09 20 GICHANA M foul received (2)
+1093	02:04 10 MPONELA V 3pt FG , jump shot made (13) 76-31 45
+1094	02:04 22 MINEENE E assist (4)
+1095	01:50 11 CHOMBA A 3pt FG , jump shot missed
+1096	01:48 20 GICHANA M defensive rebound (14)
+1097	01:39 17 OTANGO P 3pt FG , jump shot missed
+1098	01:37 20 GICHANA M offensive rebound (15)
+1099	Game Time USIU Score Diff CNS
+1100	DIVISION 1
+1101	USIU, Sun 26 Jul 2026 Start time: 15:42
+1102	Play by Play
+1103	USIU TIGERS 83 – 34 CONGO NETS
+1104	(26-16, 17-1, 18-7, 22-10)
+1105	Scoring by 5 Minute intervals USIU
+1106	CNS
+1107	Q1
+1108	13 26
+1109	6 16
+1110	Q2
+1111	34 43
+1112	17 17
+1113	Q3
+1114	56 61
+1115	18 24
+1116	Q4
+1117	65 83
+1118	31 34
+1119	Game No.: 212
+1120	Attendance: 100
+1121	Game Duration: 01:40
+1122	Report Generated: Sun 26 Jul 2026 17:47
+1123	-- 17 of 36 --
+1124	01:37 20 GICHANA M 2pt FG second chance in the paint, jump
+1125	shot made (6) 78-31 47
+1126	01:37 13 KADIR A foul shooting (4 - 4)
+1127	01:37 20 GICHANA M foul received (3)
+1128	01:37 20 GICHANA M free throw 1 - 1 made (7) 79-31 48
+1129	01:33 21 ATHIAN J foul shooting (2 - 7)
+1130	01:33 13 KADIR A foul received (2)
+1131	01:33 79-32 47 13 KADIR A free throw 1 - 2 made (2)
+1132	01:33 13 KADIR A free throw 2 - 2 missed
+1133	01:33 20 GICHANA M defensive rebound (16)
+1134	01:21 17 OTANGO P 2pt FG in the paint, driving layup missed
+1135	01:17 20 GICHANA M offensive rebound (17)
+1136	01:17 20 GICHANA M 2pt FG second chance in the paint, tip-in
+1137	layup made (9) 81-32 49
+1138	01:05 5 AMAYAI E turnover bad pass (6)
+1139	01:01 22 MINEENE E substitution out
+1140	01:01 9 KIM A substitution in
+1141	00:55 9 KIM A 2pt FG from turnover in the paint, driving layup
+1142	made (5) 83-32 51
+1143	00:55 10 MPONELA V assist (6)
+1144	00:47 83-34 49 13 KADIR A 2pt FG fast break in the paint, driving layup
+1145	made (4)
+1146	00:32 21 ATHIAN J 3pt FG , jump shot missed
+1147	00:29 13 KADIR A defensive rebound (4)
+1148	Game Time USIU Score Diff CNS
+1149	DIVISION 1
+1150	USIU, Sun 26 Jul 2026 Start time: 15:42
+1151	Play by Play
+1152	USIU TIGERS 83 – 34 CONGO NETS
+1153	(26-16, 17-1, 18-7, 22-10)
+1154	Scoring by 5 Minute intervals USIU
+1155	CNS
+1156	Q1
+1157	13 26
+1158	6 16
+1159	Q2
+1160	34 43
+1161	17 17
+1162	Q3
+1163	56 61
+1164	18 24
+1165	Q4
+1166	65 83
+1167	31 34
+1168	Game No.: 212
+1169	Attendance: 100
+1170	Game Duration: 01:40
+1171	Report Generated: Sun 26 Jul 2026 17:47
+1172	-- 18 of 36 --
+1173	#9 AMOS KIM (USIU TIGERS)
+1174	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1175	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1176	2/2 100.0 2/2 100.0 0/0 0.0 1/2 50.0 0 2 2 1 1 0 0 2 1 5
+1177	Minutes Played 11:58
+1178	Points 5
+1179	Plus / Minus 6
+1180	#10 VITUMBIKO MPONELA (USIU TIGERS)
+1181	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1182	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1183	4/10 40.0 1/5 20.0 3/5 60.0 2/2 100.0 0 1 1 6 2 3 0 0 2 13
+1184	Minutes Played 17:25
+1185	Points 13
+1186	Plus / Minus 35
+1187	DIVISION 1
+1188	USIU, Sun 26 Jul 2026 Start time: 15:42
+1189	Player Evaluation
+1190	USIU TIGERS 83 – 34 CONGO NETS
+1191	(26-16, 17-1, 18-7, 22-10)
+1192	Scoring by 5 Minute intervals USIU
+1193	CNS
+1194	Q1
+1195	13 26
+1196	6 16
+1197	Q2
+1198	34 43
+1199	17 17
+1200	Q3
+1201	56 61
+1202	18 24
+1203	Q4
+1204	65 83
+1205	31 34
+1206	Game No.: 212
+1207	Attendance: 100
+1208	Game Duration: 01:40
+1209	Report Generated: Sun 26 Jul 2026 17:52
+1210	-- 19 of 36 --
+1211	#11 DARLINGTON KISIVULI (USIU TIGERS)
+1212	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1213	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1214	3/7 42.9 2/3 66.7 1/4 25.0 1/6 16.7 0 0 0 1 3 0 0 2 3 8
+1215	Minutes Played 19:57
+1216	Points 8
+1217	Plus / Minus 6
+1218	#12 HAWI WENWA (USIU TIGERS)
+1219	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1220	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1221	1/2 50.0 1/1 100.0 0/1 0.0 0/0 0.0 1 1 2 0 0 0 0 1 0 2
+1222	Minutes Played 09:55
+1223	Points 2
+1224	Plus / Minus 6
+1225	DIVISION 1
+1226	USIU, Sun 26 Jul 2026 Start time: 15:42
+1227	Player Evaluation
+1228	USIU TIGERS 83 – 34 CONGO NETS
+1229	(26-16, 17-1, 18-7, 22-10)
+1230	Scoring by 5 Minute intervals USIU
+1231	CNS
+1232	Q1
+1233	13 26
+1234	6 16
+1235	Q2
+1236	34 43
+1237	17 17
+1238	Q3
+1239	56 61
+1240	18 24
+1241	Q4
+1242	65 83
+1243	31 34
+1244	Game No.: 212
+1245	Attendance: 100
+1246	Game Duration: 01:40
+1247	Report Generated: Sun 26 Jul 2026 17:52
+1248	-- 20 of 36 --
+1249	#13 ALLAN JUMA (USIU TIGERS)
+1250	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1251	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1252	2/3 66.7 1/1 100.0 1/2 50.0 1/2 50.0 0 3 3 1 3 0 0 0 1 6
+1253	Minutes Played 11:24
+1254	Points 6
+1255	Plus / Minus -1
+1256	#14 AUSTIN MURIUKI (USIU TIGERS)
+1257	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1258	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1259	0/0 0.0 0/0 0.0 0/0 0.0 0/4 0.0 1 2 3 1 1 2 1 3 2 0
+1260	Minutes Played 14:34
+1261	Points 0
+1262	Plus / Minus 14
+1263	DIVISION 1
+1264	USIU, Sun 26 Jul 2026 Start time: 15:42
+1265	Player Evaluation
+1266	USIU TIGERS 83 – 34 CONGO NETS
+1267	(26-16, 17-1, 18-7, 22-10)
+1268	Scoring by 5 Minute intervals USIU
+1269	CNS
+1270	Q1
+1271	13 26
+1272	6 16
+1273	Q2
+1274	34 43
+1275	17 17
+1276	Q3
+1277	56 61
+1278	18 24
+1279	Q4
+1280	65 83
+1281	31 34
+1282	Game No.: 212
+1283	Attendance: 100
+1284	Game Duration: 01:40
+1285	Report Generated: Sun 26 Jul 2026 17:52
+1286	-- 21 of 36 --
+1287	#16 TITUS WAIBALE (USIU TIGERS)
+1288	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1289	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1290	0/2 0.0 0/2 0.0 0/0 0.0 0/0 0.0 2 1 3 1 2 3 0 0 0 0
+1291	Minutes Played 14:57
+1292	Points 0
+1293	Plus / Minus 5
+1294	#17 PATRICK OTANGO (USIU TIGERS)
+1295	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1296	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1297	2/7 28.6 0/1 0.0 2/6 33.3 0/0 0.0 0 8 8 3 2 0 0 2 0 6
+1298	Minutes Played 20:46
+1299	Points 6
+1300	Plus / Minus 38
+1301	DIVISION 1
+1302	USIU, Sun 26 Jul 2026 Start time: 15:42
+1303	Player Evaluation
+1304	USIU TIGERS 83 – 34 CONGO NETS
+1305	(26-16, 17-1, 18-7, 22-10)
+1306	Scoring by 5 Minute intervals USIU
+1307	CNS
+1308	Q1
+1309	13 26
+1310	6 16
+1311	Q2
+1312	34 43
+1313	17 17
+1314	Q3
+1315	56 61
+1316	18 24
+1317	Q4
+1318	65 83
+1319	31 34
+1320	Game No.: 212
+1321	Attendance: 100
+1322	Game Duration: 01:40
+1323	Report Generated: Sun 26 Jul 2026 17:52
+1324	-- 22 of 36 --
+1325	#18 GLENN MORANGI (USIU TIGERS)
+1326	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1327	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1328	1/4 25.0 1/2 50.0 0/2 0.0 0/0 0.0 1 0 1 0 2 1 0 1 3 2
+1329	Minutes Played 12:09
+1330	Points 2
+1331	Plus / Minus 10
+1332	#20 MOSES GICHANA (C) (USIU TIGERS)
+1333	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1334	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1335	3/3 100.0 3/3 100.0 0/0 0.0 3/3 100.0 4 13 17 1 2 1 0 3 3 9
+1336	Minutes Played 21:49
+1337	Points 9
+1338	Plus / Minus 44
+1339	DIVISION 1
+1340	USIU, Sun 26 Jul 2026 Start time: 15:42
+1341	Player Evaluation
+1342	USIU TIGERS 83 – 34 CONGO NETS
+1343	(26-16, 17-1, 18-7, 22-10)
+1344	Scoring by 5 Minute intervals USIU
+1345	CNS
+1346	Q1
+1347	13 26
+1348	6 16
+1349	Q2
+1350	34 43
+1351	17 17
+1352	Q3
+1353	56 61
+1354	18 24
+1355	Q4
+1356	65 83
+1357	31 34
+1358	Game No.: 212
+1359	Attendance: 100
+1360	Game Duration: 01:40
+1361	Report Generated: Sun 26 Jul 2026 17:52
+1362	-- 23 of 36 --
+1363	#21 JOSHUA ATHIAN (USIU TIGERS)
+1364	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1365	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1366	13/23 56.5 11/13 84.6 2/10 20.0 4/5 80.0 3 7 10 2 5 1 0 2 4 32
+1367	Minutes Played 28:22
+1368	Points 32
+1369	Plus / Minus 49
+1370	#22 ELTON MINEENE (USIU TIGERS)
+1371	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1372	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1373	0/3 0.0 0/0 0.0 0/3 0.0 0/0 0.0 1 0 1 4 2 1 0 1 0 0
+1374	Minutes Played 16:44
+1375	Points 0
+1376	Plus / Minus 33
+1377	DIVISION 1
+1378	USIU, Sun 26 Jul 2026 Start time: 15:42
+1379	Player Evaluation
+1380	USIU TIGERS 83 – 34 CONGO NETS
+1381	(26-16, 17-1, 18-7, 22-10)
+1382	Scoring by 5 Minute intervals USIU
+1383	CNS
+1384	Q1
+1385	13 26
+1386	6 16
+1387	Q2
+1388	34 43
+1389	17 17
+1390	Q3
+1391	56 61
+1392	18 24
+1393	Q4
+1394	65 83
+1395	31 34
+1396	Game No.: 212
+1397	Attendance: 100
+1398	Game Duration: 01:40
+1399	Report Generated: Sun 26 Jul 2026 17:52
+1400	-- 24 of 36 --
+1401	#5 EVANS AMAYAI (C) (CONGO NETS)
+1402	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1403	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1404	0/9 0.0 0/6 0.0 0/3 0.0 0/0 0.0 1 2 3 1 6 4 0 3 2 0
+1405	Minutes Played 31:57
+1406	Points 0
+1407	Plus / Minus -41
+1408	#6 JOHN NGALA (CONGO NETS)
+1409	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1410	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1411	3/9 33.3 2/3 66.7 1/6 16.7 0/0 0.0 0 2 2 2 6 1 0 2 0 7
+1412	Minutes Played 14:22
+1413	Points 7
+1414	Plus / Minus -22
+1415	DIVISION 1
+1416	USIU, Sun 26 Jul 2026 Start time: 15:42
+1417	Player Evaluation
+1418	USIU TIGERS 83 – 34 CONGO NETS
+1419	(26-16, 17-1, 18-7, 22-10)
+1420	Scoring by 5 Minute intervals USIU
+1421	CNS
+1422	Q1
+1423	13 26
+1424	6 16
+1425	Q2
+1426	34 43
+1427	17 17
+1428	Q3
+1429	56 61
+1430	18 24
+1431	Q4
+1432	65 83
+1433	31 34
+1434	Game No.: 212
+1435	Attendance: 100
+1436	Game Duration: 01:40
+1437	Report Generated: Sun 26 Jul 2026 17:52
+1438	-- 25 of 36 --
+1439	#7 NICK KHADHIANG (CONGO NETS)
+1440	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1441	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1442	1/1 100.0 1/1 100.0 0/0 0.0 0/0 0.0 1 1 2 0 2 0 0 3 1 2
+1443	Minutes Played 05:24
+1444	Points 2
+1445	Plus / Minus -3
+1446	#8 BILLY NYONGESA (CONGO NETS)
+1447	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1448	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1449	1/4 25.0 1/4 25.0 0/0 0.0 0/0 0.0 0 0 0 0 4 1 0 0 0 2
+1450	Minutes Played 14:57
+1451	Points 2
+1452	Plus / Minus -13
+1453	DIVISION 1
+1454	USIU, Sun 26 Jul 2026 Start time: 15:42
+1455	Player Evaluation
+1456	USIU TIGERS 83 – 34 CONGO NETS
+1457	(26-16, 17-1, 18-7, 22-10)
+1458	Scoring by 5 Minute intervals USIU
+1459	CNS
+1460	Q1
+1461	13 26
+1462	6 16
+1463	Q2
+1464	34 43
+1465	17 17
+1466	Q3
+1467	56 61
+1468	18 24
+1469	Q4
+1470	65 83
+1471	31 34
+1472	Game No.: 212
+1473	Attendance: 100
+1474	Game Duration: 01:40
+1475	Report Generated: Sun 26 Jul 2026 17:52
+1476	-- 26 of 36 --
+1477	#9 ISAAC OKUMU (CONGO NETS)
+1478	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1479	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1480	3/8 37.5 3/8 37.5 0/0 0.0 1/2 50.0 1 1 2 0 4 3 0 0 2 7
+1481	Minutes Played 29:22
+1482	Points 7
+1483	Plus / Minus -25
+1484	#11 ALEX CHOMBA (CONGO NETS)
+1485	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1486	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1487	1/7 14.3 1/2 50.0 0/5 0.0 0/0 0.0 0 3 3 1 2 0 0 4 1 2
+1488	Minutes Played 27:21
+1489	Points 2
+1490	Plus / Minus -43
+1491	DIVISION 1
+1492	USIU, Sun 26 Jul 2026 Start time: 15:42
+1493	Player Evaluation
+1494	USIU TIGERS 83 – 34 CONGO NETS
+1495	(26-16, 17-1, 18-7, 22-10)
+1496	Scoring by 5 Minute intervals USIU
+1497	CNS
+1498	Q1
+1499	13 26
+1500	6 16
+1501	Q2
+1502	34 43
+1503	17 17
+1504	Q3
+1505	56 61
+1506	18 24
+1507	Q4
+1508	65 83
+1509	31 34
+1510	Game No.: 212
+1511	Attendance: 100
+1512	Game Duration: 01:40
+1513	Report Generated: Sun 26 Jul 2026 17:52
+1514	-- 27 of 36 --
+1515	#12 VINCE LICHINA (CONGO NETS)
+1516	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1517	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1518	0/9 0.0 0/8 0.0 0/1 0.0 6/10 60.0 1 4 5 0 0 2 0 0 5 6
+1519	Minutes Played 19:24
+1520	Points 6
+1521	Plus / Minus -14
+1522	#13 ABDUL KADIR (CONGO NETS)
+1523	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1524	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1525	1/6 16.7 1/5 20.0 0/1 0.0 2/4 50.0 2 2 4 0 2 0 0 4 2 4
+1526	Minutes Played 22:08
+1527	Points 4
+1528	Plus / Minus -34
+1529	DIVISION 1
+1530	USIU, Sun 26 Jul 2026 Start time: 15:42
+1531	Player Evaluation
+1532	USIU TIGERS 83 – 34 CONGO NETS
+1533	(26-16, 17-1, 18-7, 22-10)
+1534	Scoring by 5 Minute intervals USIU
+1535	CNS
+1536	Q1
+1537	13 26
+1538	6 16
+1539	Q2
+1540	34 43
+1541	17 17
+1542	Q3
+1543	56 61
+1544	18 24
+1545	Q4
+1546	65 83
+1547	31 34
+1548	Game No.: 212
+1549	Attendance: 100
+1550	Game Duration: 01:40
+1551	Report Generated: Sun 26 Jul 2026 17:52
+1552	-- 28 of 36 --
+1553	#14 ERIC OTIENO (CONGO NETS)
+1554	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1555	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1556	0/1 0.0 0/1 0.0 0/0 0.0 0/0 0.0 1 4 5 0 3 0 0 1 0 0
+1557	Minutes Played 15:20
+1558	Points 0
+1559	Plus / Minus -23
+1560	#18 JOASH OKWEMBA (CONGO NETS)
+1561	Field Goals 2 Points 3 Points Free Throws Rebounds AS TO ST BS Fouls PTS
+1562	M/A % M/A % M/A % M/A % OR DR TOT PF FD
+1563	1/4 25.0 1/4 25.0 0/0 0.0 2/6 33.3 1 2 3 0 1 0 0 2 4 4
+1564	Minutes Played 19:45
+1565	Points 4
+1566	Plus / Minus -27
+1567	DIVISION 1
+1568	USIU, Sun 26 Jul 2026 Start time: 15:42
+1569	Player Evaluation
+1570	USIU TIGERS 83 – 34 CONGO NETS
+1571	(26-16, 17-1, 18-7, 22-10)
+1572	Scoring by 5 Minute intervals USIU
+1573	CNS
+1574	Q1
+1575	13 26
+1576	6 16
+1577	Q2
+1578	34 43
+1579	17 17
+1580	Q3
+1581	56 61
+1582	18 24
+1583	Q4
+1584	65 83
+1585	31 34
+1586	Game No.: 212
+1587	Attendance: 100
+1588	Game Duration: 01:40
+1589	Report Generated: Sun 26 Jul 2026 17:52
+1590	-- 29 of 36 --
+1591	USIU TIGERS
+1592	No Name Mins Score Points Diff Points per Min Assists Rebounds Steals Turnovers
+1593	On Off On Off On Off On Off On Off On Off On Off On Off
+1594	9 AMOS KIM 11:58 28:02 21-15 62-19 6 43 1.76 2.21 7 14 12 42 4 8 9 16
+1595	10 VITUMBIKO MPONELA 17:25 22:35 50-15 33-19 35 14 2.87 1.46 12 9 27 27 5 7 8 17
+1596	11 DARLINGTON KISIVULI 19:57 20:03 30-24 53-10 6 43 1.50 2.64 7 14 21 33 5 7 15 10
+1597	12 HAWI WENWA 09:55 30:05 13-7 70-27 6 43 1.31 2.33 4 17 14 40 3 9 6 19
+1598	13 ALLAN JUMA 11:24 28:36 14-15 69-19 -1 50 1.23 2.41 4 17 12 42 5 7 10 15
+1599	14 AUSTIN MURIUKI 14:34 25:26 28-14 55-20 14 35 1.92 2.16 8 13 14 40 5 7 8 17
+1600	16 TITUS WAIBALE 14:57 25:03 21-16 62-18 5 44 1.40 2.48 7 14 15 39 5 7 13 12
+1601	17 PATRICK OTANGO 20:46 19:14 52-14 31-20 38 11 2.50 1.61 12 9 34 20 5 7 11 14
+1602	18 GLENN MORANGI 12:09 27:51 17-7 66-27 10 39 1.40 2.37 3 18 18 36 4 8 10 15
+1603	20 MOSES GICHANA 21:49 18:11 58-14 25-20 44 5 2.66 1.37 13 8 35 19 6 6 12 13
+1604	21 JOSHUA ATHIAN 28:22 11:38 67-18 16-16 49 0 2.36 1.38 16 5 44 10 8 4 15 10
+1605	22 ELTON MINEENE 16:44 23:16 44-11 39-23 33 16 2.63 1.68 12 9 24 30 5 7 8 17
+1606	CONGO NETS
+1607	No Name Mins Score Points Diff Points per Min Assists Rebounds Steals Turnovers
+1608	On Off On Off On Off On Off On Off On Off On Off On Off
+1609	5 EVANS AMAYAI 31:57 08:03 30-71 4-12 -41 -8 0.94 0.50 4 0 29 9 10 1 22 8
+1610	6 JOHN NGALA 14:22 25:38 14-36 20-47 -22 -27 0.97 0.78 4 0 12 26 2 9 13 17
+1611	7 NICK KHADHIANG 05:24 34:36 10-13 24-70 -3 -46 1.85 0.69 3 1 3 35 2 9 4 26
+1612	8 BILLY NYONGESA 14:57 25:03 15-28 19-55 -13 -36 1.00 0.76 2 2 12 26 6 5 9 21
+1613	9 ISAAC OKUMU 29:22 10:38 30-55 4-28 -25 -24 1.02 0.38 4 0 28 10 10 1 22 8
+1614	11 ALEX CHOMBA 27:21 12:39 16-59 18-24 -43 -6 0.59 1.42 2 2 25 13 7 4 22 8
+1615	12 VINCE LICHINA 19:24 20:36 20-34 14-49 -14 -35 1.03 0.68 0 4 22 16 6 5 14 16
+1616	13 ABDUL KADIR 22:08 17:52 11-45 23-38 -34 -15 0.50 1.29 0 4 20 18 5 6 18 12
+1617	14 ERIC OTIENO 15:20 24:40 11-34 23-49 -23 -26 0.72 0.93 0 4 19 19 2 9 13 17
+1618	18 JOASH OKWEMBA 19:45 20:15 13-40 21-43 -27 -22 0.66 1.04 1 3 20 18 5 6 13 17
+1619	DIVISION 1
+1620	USIU, Sun 26 Jul 2026 Start time: 15:42
+1621	Player Plus/Minus
+1622	Summary
+1623	USIU TIGERS 83 – 34 CONGO NETS
+1624	(26-16, 17-1, 18-7, 22-10)
+1625	Scoring by 5 Minute intervals USIU
+1626	CNS
+1627	Q1
+1628	13 26
+1629	6 16
+1630	Q2
+1631	34 43
+1632	17 17
+1633	Q3
+1634	56 61
+1635	18 24
+1636	Q4
+1637	65 83
+1638	31 34
+1639	Game No.: 212
+1640	Attendance: 100
+1641	Game Duration: 01:40
+1642	Report Generated: Sun 26 Jul 2026 17:50
+1643	-- 30 of 36 --
+1644	USIU TIGERS 83
+1645	No. Pos. Name Quarters
+1646	Total 1 2 3 4
+1647	21 JOSHUA ATHIAN 32 10 9 5 8
+1648	10 VITUMBIKO MPONELA 13 2 0 6 5
+1649	20 MOSES GICHANA (C) 9 2 0 2 5
+1650	11 DARLINGTON KISIVULI 8 2 3 1 2
+1651	13 ALLAN JUMA 6 4 0 2 0
+1652	17 PATRICK OTANGO 6 3 3 0 0
+1653	9 AMOS KIM 5 3 0 0 2
+1654	12 HAWI WENWA 2 0 2 0 0
+1655	18 GLENN MORANGI 2 0 0 2 0
+1656	14 AUSTIN MURIUKI 0 0 0 0 0
+1657	16 TITUS WAIBALE 0 0 0 0 0
+1658	22 ELTON MINEENE 0 0 0 0 0
+1659	Quarter Scores 83 26 17 18 22
+1660	26 43 61 83
+1661	CONGO NETS 34
+1662	No. Pos. Name Quarters
+1663	Total 1 2 3 4
+1664	6 JOHN NGALA 7 7 0 0 0
+1665	9 ISAAC OKUMU 7 2 0 3 2
+1666	12 VINCE LICHINA 6 3 0 2 1
+1667	13 ABDUL KADIR 4 0 1 0 3
+1668	18 JOASH OKWEMBA 4 0 0 0 4
+1669	7 NICK KHADHIANG 2 2 0 0 0
+1670	8 BILLY NYONGESA 2 2 0 0 0
+1671	11 ALEX CHOMBA 2 0 0 2 0
+1672	5 EVANS AMAYAI (C) 0 0 0 0 0
+1673	14 ERIC OTIENO 0 0 0 0 0
+1674	Quarter Scores 34 16 1 7 10
+1675	16 17 24 34
+1676	DIVISION 1
+1677	USIU, Sun 26 Jul 2026 Start time: 15:42
+1678	Quarter
+1679	USIU TIGERS 83 – 34 CONGO NETS
+1680	(26-16, 17-1, 18-7, 22-10)
+1681	Scoring by 5 Minute intervals USIU
+1682	CNS
+1683	Q1
+1684	13 26
+1685	6 16
+1686	Q2
+1687	34 43
+1688	17 17
+1689	Q3
+1690	56 61
+1691	18 24
+1692	Q4
+1693	65 83
+1694	31 34
+1695	Game No.: 212
+1696	Attendance: 100
+1697	Game Duration: 01:40
+1698	Report Generated: Sun 26 Jul 2026 17:49
+1699	-- 31 of 36 --
+1700	CONGO NETS
+1701	Lineup Quarter
+1702	On Time
+1703	On Quarter
+1704	Off Time
+1705	Off Time on
+1706	Court Score Score
+1707	Diff Reb Stl Tov Ass
+1708	5- AMAYAI E/ 6- NGALA J/ 8- NYONGESA B/ 9- OKUMU I/ 18-
+1709	OKWEMBA J/ 1 10:00 1 05:04 04:56 6-13 -7 5 1 4 1
+1710	5- AMAYAI E/ 6- NGALA J/ 7- KHADHIANG N/ 8- NYONGESA B/ 9-
+1711	OKUMU I/ 1 05:04 1 03:15 01:49 3-5 -2 0 1 1 1
+1712	5- AMAYAI E/ 6- NGALA J/ 7- KHADHIANG N/ 9- OKUMU I/ 11-
+1713	CHOMBA A/ 1 03:15 1 01:39 01:36 4-6 -2 2 0 2 2
+1714	6- NGALA J/ 7- KHADHIANG N/ 9- OKUMU I/ 11- CHOMBA A/ 14-
+1715	OTIENO E/ 1 01:39 1 00:53 00:45 0-2 -2 0 0 1 0
+1716	7- KHADHIANG N/ 9- OKUMU I/ 11- CHOMBA A/ 12- LICHINA V/ 14-
+1717	OTIENO E/ 1 00:53 2 09:40 01:13 3-0 3 1 1 0 0
+1718	9- OKUMU I/ 11- CHOMBA A/ 12- LICHINA V/ 13- KADIR A/ 14-
+1719	OTIENO E/ 2 09:40 2 08:01 01:39 0-0 0 4 0 2 0
+1720	6- NGALA J/ 11- CHOMBA A/ 12- LICHINA V/ 13- KADIR A/ 14- OTIENO
+1721	E/ 2 08:01 2 07:17 00:44 1-2 -1 1 0 1 0
+1722	6- NGALA J/ 11- CHOMBA A/ 13- KADIR A/ 14- OTIENO E/ 18-
+1723	OKWEMBA J/ 2 07:17 2 03:36 03:41 0-8 -8 3 0 4 0
+1724	5- AMAYAI E/ 6- NGALA J/ 11- CHOMBA A/ 13- KADIR A/ 18-
+1725	OKWEMBA J/ 2 03:36 2 02:45 00:51 0-0 0 1 0 0 0
+1726	5- AMAYAI E/ 9- OKUMU I/ 11- CHOMBA A/ 13- KADIR A/ 18-
+1727	OKWEMBA J/ 2 02:45 3 10:00 02:45 0-7 -7 1 1 1 0
+1728	5- AMAYAI E/ 8- NYONGESA B/ 9- OKUMU I/ 11- CHOMBA A/ 13-
+1729	KADIR A/ 3 10:00 3 05:47 04:13 1-8 -7 4 2 3 0
+1730	5- AMAYAI E/ 9- OKUMU I/ 11- CHOMBA A/ 12- LICHINA V/ 13- KADIR
+1731	A/ 3 05:47 3 01:16 04:31 4-8 -4 3 2 5 0
+1732	5- AMAYAI E/ 9- OKUMU I/ 12- LICHINA V/ 13- KADIR A/ 14- OTIENO E/ 3 01:16 4 10:00 01:16 2-2 0 1 0 1 0
+1733	5- AMAYAI E/ 8- NYONGESA B/ 9- OKUMU I/ 12- LICHINA V/ 18-
+1734	OKWEMBA J/ 4 10:00 4 06:01 03:59 5-2 3 3 2 1 0
+1735	5- AMAYAI E/ 9- OKUMU I/ 12- LICHINA V/ 14- OTIENO E/ 18-
+1736	OKWEMBA J/ 4 06:01 4 05:22 00:39 2-2 0 4 0 1 0
+1737	5- AMAYAI E/ 11- CHOMBA A/ 12- LICHINA V/ 14- OTIENO E/ 18-
+1738	OKWEMBA J/ 4 05:22 4 02:28 02:54 0-8 -8 3 1 2 0
+1739	5- AMAYAI E/ 11- CHOMBA A/ 12- LICHINA V/ 13- KADIR A/ 14-
+1740	OTIENO E/ 4 02:28 4 00:00 02:28 3-10 -7 2 0 1 0
+1741	DIVISION 1
+1742	USIU, Sun 26 Jul 2026 Start time: 15:42
+1743	Rotations Summary
+1744	USIU TIGERS 83 – 34 CONGO NETS
+1745	(26-16, 17-1, 18-7, 22-10)
+1746	Scoring by 5 Minute intervals USIU
+1747	CNS
+1748	Q1
+1749	13 26
+1750	6 16
+1751	Q2
+1752	34 43
+1753	17 17
+1754	Q3
+1755	56 61
+1756	18 24
+1757	Q4
+1758	65 83
+1759	31 34
+1760	Game No.: 212
+1761	Attendance: 100
+1762	Game Duration: 01:40
+1763	Report Generated: Sun 26 Jul 2026 17:50
+1764	-- 32 of 36 --
+1765	USIU TIGERS
+1766	Lineup Quarter
+1767	On Time
+1768	On Quarter
+1769	Off Time
+1770	Off Time on
+1771	Court Score Score
+1772	Diff Reb Stl Tov Ass
+1773	10- MPONELA V/ 17- OTANGO P/ 20- GICHANA M/ 21- ATHIAN J/ 22-
+1774	MINEENE E/ 1 10:00 1 05:56 04:04 11-4 7 3 1 1 2
+1775	10- MPONELA V/ 11- KISIVULI D/ 17- OTANGO P/ 20- GICHANA M/ 21-
+1776	ATHIAN J/ 1 05:56 1 04:19 01:37 4-5 -1 3 0 1 0
+1777	10- MPONELA V/ 11- KISIVULI D/ 14- MURIUKI A/ 20- GICHANA M/ 21-
+1778	ATHIAN J/ 1 04:19 1 03:45 00:34 2-0 2 1 0 0 0
+1779	11- KISIVULI D/ 14- MURIUKI A/ 16- WAIBALE T/ 20- GICHANA M/ 21-
+1780	ATHIAN J/ 1 03:45 1 03:26 00:19 0-0 0 0 0 1 0
+1781	9- KIM A/ 11- KISIVULI D/ 13- JUMA A/ 14- MURIUKI A/ 16- WAIBALE T/ 1 03:26 2 10:00 03:26 9-7 2 2 2 1 3
+1782	11- KISIVULI D/ 13- JUMA A/ 14- MURIUKI A/ 16- WAIBALE T/ 21-
+1783	ATHIAN J/ 2 10:00 2 08:42 01:18 0-0 0 2 1 1 0
+1784	11- KISIVULI D/ 13- JUMA A/ 16- WAIBALE T/ 20- GICHANA M/ 21-
+1785	ATHIAN J/ 2 08:42 2 08:21 00:21 0-0 0 1 0 0 0
+1786	11- KISIVULI D/ 17- OTANGO P/ 18- MORANGI G/ 20- GICHANA M/ 21-
+1787	ATHIAN J/ 2 08:21 2 04:49 03:32 8-1 7 4 0 2 2
+1788	12- WENWA H/ 17- OTANGO P/ 18- MORANGI G/ 20- GICHANA M/ 21-
+1789	ATHIAN J/ 2 04:49 2 02:59 01:50 2-0 2 5 2 1 0
+1790	9- KIM A/ 12- WENWA H/ 17- OTANGO P/ 18- MORANGI G/ 21- ATHIAN
+1791	J/ 2 02:59 2 01:21 01:38 2-0 2 3 0 1 0
+1792	9- KIM A/ 12- WENWA H/ 16- WAIBALE T/ 17- OTANGO P/ 21- ATHIAN J/ 2 01:21 3 10:00 01:21 5-0 5 2 0 1 2
+1793	10- MPONELA V/ 17- OTANGO P/ 20- GICHANA M/ 21- ATHIAN J/ 22-
+1794	MINEENE E/ 3 10:00 3 08:10 01:50 2-1 1 3 0 2 1
+1795	10- MPONELA V/ 14- MURIUKI A/ 20- GICHANA M/ 21- ATHIAN J/ 22-
+1796	MINEENE E/ 3 08:10 3 05:09 03:01 11-0 11 4 1 2 3
+1797	9- KIM A/ 11- KISIVULI D/ 13- JUMA A/ 16- WAIBALE T/ 18- MORANGI G/ 3 05:09 3 00:37 04:31 3-6 -3 5 2 6 1
+1798	11- KISIVULI D/ 13- JUMA A/ 14- MURIUKI A/ 16- WAIBALE T/ 18-
+1799	MORANGI G/ 3 00:37 4 10:00 00:37 2-0 2 1 0 0 0
+1800	11- KISIVULI D/ 12- WENWA H/ 13- JUMA A/ 14- MURIUKI A/ 16-
+1801	WAIBALE T/ 4 10:00 4 08:50 01:10 0-2 -2 1 0 2 0
+1802	11- KISIVULI D/ 12- WENWA H/ 14- MURIUKI A/ 16- WAIBALE T/ 22-
+1803	MINEENE E/ 4 08:50 4 06:57 01:53 2-1 1 1 0 1 1
+1804	11- KISIVULI D/ 12- WENWA H/ 14- MURIUKI A/ 21- ATHIAN J/ 22-
+1805	MINEENE E/ 4 06:57 4 06:19 00:38 0-2 -2 0 0 0 0
+1806	10- MPONELA V/ 12- WENWA H/ 14- MURIUKI A/ 21- ATHIAN J/ 22-
+1807	MINEENE E/ 4 06:19 4 04:54 01:25 2-2 0 2 1 0 1
+1808	10- MPONELA V/ 14- MURIUKI A/ 17- OTANGO P/ 21- ATHIAN J/ 22-
+1809	MINEENE E/ 4 04:54 4 04:41 00:13 0-0 0 0 0 0 0
+1810	10- MPONELA V/ 17- OTANGO P/ 20- GICHANA M/ 21- ATHIAN J/ 22-
+1811	MINEENE E/ 4 04:41 4 01:01 03:40 16-1 15 11 2 2 4
+1812	9- KIM A/ 10- MPONELA V/ 17- OTANGO P/ 20- GICHANA M/ 21- ATHIAN
+1813	J/ 4 01:01 4 00:00 01:01 2-2 0 0 0 0 1
+1814	DIVISION 1
+1815	USIU, Sun 26 Jul 2026 Start time: 15:42
+1816	Rotations Summary
+1817	USIU TIGERS 83 – 34 CONGO NETS
+1818	(26-16, 17-1, 18-7, 22-10)
+1819	Scoring by 5 Minute intervals USIU
+1820	CNS
+1821	Q1
+1822	13 26
+1823	6 16
+1824	Q2
+1825	34 43
+1826	17 17
+1827	Q3
+1828	56 61
+1829	18 24
+1830	Q4
+1831	65 83
+1832	31 34
+1833	Game No.: 212
+1834	Attendance: 100
+1835	Game Duration: 01:40
+1836	Report Generated: Sun 26 Jul 2026 17:50
+1837	-- 33 of 36 --
+1838	Time-outs
+1839	H1 9 7
+1840	H2 8
+1841	OT HCC
+1842	License
+1843	no Players No Player
+1844	in
+1845	Fouls
+1846	1 2 3 4 5
+1847	KIM, A. 9 P P2
+1848	MPONELA, V. 10
+1849	KISIVULI, D. 11 P2 P2
+1850	WENWA, H. 12 P
+1851	JUMA, A. 13
+1852	MURIUKI, A. 14 P2 P P2
+1853	WAIBALE, T. 16
+1854	OTANGO, P. 17 P2 P2
+1855	MORANGI, G. 18 P2
+1856	GICHANA, M. (CAP) 20 P P P2
+1857	ATHIAN, J. 21 P P2
+1858	MINEENE, E. 22 P2
+1859	Head coach WAFULA, A.
+1860	First assistant coach
+1861	Team A: USIU TIGERS
+1862	Team Fouls
+1863	Q1 1 2 3 4 Q2 1 2 3 4
+1864	Q3 1 2 3 4 Q4 1 2 3 4
+1865	Time-outs
+1866	H1 4 4
+1867	H2 5
+1868	OT HCC
+1869	License
+1870	no Players No Player
+1871	in
+1872	Fouls
+1873	1 2 3 4 5
+1874	AMAYAI, E. (CAP) 5 P2 P P
+1875	NGALA, J. 6 P2 P
+1876	KHADHIANG, N. 7 P P2 P2
+1877	NYONGESA, B. 8
+1878	OKUMU, I. 9
+1879	CHOMBA, A. 11 P2 P2 P P2
+1880	LICHINA, V. 12
+1881	KADIR, A. 13 P2 P1 P P1
+1882	OTIENO, E. 14 P2
+1883	OKWEMBA, J. 18 P2 P2
+1884	Head coach E, W.
+1885	First assistant coach
+1886	Team B: CONGO NETS
+1887	Team Fouls
+1888	Q1 1 2 3 4 Q2 1 2 3 4
+1889	Q3 1 2 3 4 Q4 1 2 3 4
+1890	Team A: USIU TIGERS Team B: CONGO NETS
+1891	Scorer
+1892	Assistant Scorer
+1893	Timer
+1894	Shot Clock Operator
+1895	Crew Chief
+1896	Umpire 1 Umpire 2
+1897	Captain's signature in case of protest
+1898	Competition DIVISION 1 Date 26.07.2026 Time 15:42 Crew Chief
+1899	Game No 212 Place USIU Umpire 1 Umpire 2
+1900	RUNNING SCORE RUNNING SCORE
+1901	AA BB AA BB AA BB AA BB
+1902	21 1 1 21 41 41 20 81 81 121 121
+1903	21 2 2 6 42 42 82 82 122 122
+1904	3 3 21 43 43 9 83 83 123 123
+1905	21 4 4 8 44 44 84 84 124 124
+1906	5 5 21 45 45 85 85 125 125
+1907	6 6 6 46 46 86 86 126 126
+1908	17 7 7 47 47 87 87 127 127
+1909	10 8 8 21 48 48 88 88 128 128
+1910	10 9 9 6 49 49 89 89 129 129
+1911	10 10 50 50 90 90 130 130
+1912	21 11 11 7 10 51 51 91 91 131 131
+1913	21 12 12 52 52 92 92 132 132
+1914	21 13 13 9 53 53 93 93 133 133
+1915	14 14 12 10 54 54 94 94 134 134
+1916	21 15 15 12 20 55 55 95 95 135 135
+1917	16 16 12 20 56 56 96 96 136 136
+1918	20 17 17 13 11 57 57 97 97 137 137
+1919	9 18 18 9 58 58 98 98 138 138
+1920	19 19 18 59 59 99 99 139 139
+1921	20 20 11 60 60 100 100 140 140
+1922	13 21 21 13 61 61 101 101 141 141
+1923	22 22 9 62 62 102 102 142 142
+1924	9 23 23 12 11 63 63 103 103 143 143
+1925	13 24 24 12 64 64 104 104 144 144
+1926	25 25 21 65 65 105 105 145 145
+1927	11 26 26 9 66 66 106 106 146 146
+1928	27 27 12 10 67 67 107 107 147 147
+1929	21 28 28 18 68 68 108 108 148 148
+1930	29 29 18 21 69 69 109 109 149 149
+1931	30 30 70 70 110 110 150 150
+1932	17 31 31 18 21 71 71 111 111 151 151
+1933	32 32 13 72 72 112 112 152 152
+1934	33 33 21 73 73 113 113 153 153
+1935	11 34 34 13 74 74 114 114 154 154
+1936	35 35 75 75 115 115 155 155
+1937	12 36 36 10 76 76 116 116 156 156
+1938	37 37 77 77 117 117 157 157
+1939	21 38 38 20 78 78 118 118 158 158
+1940	39 39 20 79 79 119 119 159 159
+1941	40 40 80 80 120 120 160 160
+1942	Scores Quarter 1 A 26 B 16
+1943	Quarter 2 A 17 B 1
+1944	Quarter 3 A 18 B 7
+1945	Quarter 4 A 22 B 10
+1946	Overtimes A - B -
+1947	Final Score Team A: 83 Team B: 34
+1948	Name of winning team USIU TIGERS
+1949	Game ended at (hh:mm) 17:43
+1950	FEDERATION INTERNATIONALE DE BASKETBALL
+1951	INTERNATIONAL BASKETBALL FEDERATION
+1952	SCORESHEET
+1953	Unofficial Results
+1954	-- 34 of 36 --
+1955	Players => All FG Types => All ; Results => All ;
+1956	USIU TIGERS
+1957	Players => All FG Types => All ; Results => All ;
+1958	CONGO NETS
+1959	USIU TIGERS M/A %
+1960	Field Goals 31/66 47
+1961	2 Points 22/33 67
+1962	3 Points 9/33 27
+1963	Free Throws 12/24 50
+1964	CONGO NETS M/A %
+1965	Field Goals 11/58 19
+1966	2 Points 10/42 24
+1967	3 Points 1/16 6
+1968	Free Throws 11/22 50
+1969	DIVISION 1
+1970	USIU, Sun 26 Jul 2026 Start time: 15:42
+1971	Shot Areas
+1972	USIU TIGERS 83 – 34 CONGO NETS
+1973	(26-16, 17-1, 18-7, 22-10)
+1974	Scoring by 5 Minute intervals USIU
+1975	CNS
+1976	Q1
+1977	13 26
+1978	6 16
+1979	Q2
+1980	34 43
+1981	17 17
+1982	Q3
+1983	56 61
+1984	18 24
+1985	Q4
+1986	65 83
+1987	31 34
+1988	Game No.: 212
+1989	Attendance: 100
+1990	Game Duration: 01:40
+1991	Report Generated: Sun 26 Jul 2026 17:52
+1992	-- 35 of 36 --
+1993	Players => All FG Types => All ; Results => All ;
+1994	USIU TIGERS
+1995	Players => All FG Types => All ; Results => All ;
+1996	CONGO NETS
+1997	USIU TIGERS M/A %
+1998	Field Goals 31/66 47
+1999	2 Points 22/33 67
+2000	3 Points 9/33 27
+2001	Free Throws 12/24 50
+2002	CONGO NETS M/A %
+2003	Field Goals 11/58 19
+2004	2 Points 10/42 24
+2005	3 Points 1/16 6
+2006	Free Throws 11/22 50
+2007	DIVISION 1
+2008	USIU, Sun 26 Jul 2026 Start time: 15:42
+2009	Shot Chart
+2010	USIU TIGERS 83 – 34 CONGO NETS
+2011	(26-16, 17-1, 18-7, 22-10)
+2012	Scoring by 5 Minute intervals USIU
+2013	CNS
+2014	Q1
+2015	13 26
+2016	6 16
+2017	Q2
+2018	34 43
+2019	17 17
+2020	Q3
+2021	56 61
+2022	18 24
+2023	Q4
+2024	65 83
+2025	31 34
+2026	Game No.: 212
+2027	Attendance: 100
+2028	Game Duration: 01:40
+2029	Report Generated: Sun 26 Jul 2026 17:51
+2030	-- 36 of 36 --

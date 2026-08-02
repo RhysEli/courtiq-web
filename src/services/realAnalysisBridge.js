@@ -48,7 +48,7 @@ function matchPlayerName(extractedName, rosterPlayers) {
 // Convert the backend's real metrics payload into the same shape
 // analysisService.createAnalysisForMatch() already produces, so existing
 // pages don't need rewriting.
-export function buildAnalysisFromRealMetrics({ matchId, metrics, insightTags, narrative, players, reportMeta }) {
+export function buildAnalysisFromRealMetrics({ matchId, metrics, insightTags, narrative, players, reportMeta, additionalReports }) {
   const home = metrics.home;
 
   const teamSummary = {
@@ -121,6 +121,11 @@ export function buildAnalysisFromRealMetrics({ matchId, metrics, insightTags, na
     narrative: narrative || null,
     isRealExtraction: true, // flag so the UI can distinguish real vs simulated
     opponentAnalysis: null,
+    // Extra FIBA report types beyond Box Score (Quarter, Plus/Minus,
+    // Lineup Analysis, Rotations Summary, etc.), when the uploaded PDF
+    // was a merged multi-report export and those extractors succeeded.
+    // Shape: { quarter, plusMinus, lineupAnalysis, rotationsSummary }.
+    additionalReports: additionalReports || null,
   };
 
   const entries = getAnalysisEntries().filter((entry) => entry.matchId !== matchId);
