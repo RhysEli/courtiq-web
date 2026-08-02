@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -13,6 +13,7 @@ const {
   extractPlayByPlay,
 } = require('../services/reportExtractors');
 const { extractScoreSheet } = require('../services/parseScoreSheet');
+const { persistAdditionalReports } = require('../services/persistExtractedReports');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -42,12 +43,6 @@ const insertStatStmt = db.prepare(`
   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `);
 
-// Extractors for the additional FIBA LiveStats report types, beyond the
-// Box Score. Each one is called independently against the same merged
-// PDF -- if a given report type isn't present in a particular export, or
-// its regex doesn't match this file's exact formatting, that single
-// extractor fails without blocking the Box Score import that already
-// succeeded, or the other extractors.
 const extraExtractors = {
   quarter: extractQuarterReport,
   plusMinus: extractPlusMinusSummary,
@@ -57,16 +52,6 @@ const extraExtractors = {
   scoreSheet: extractScoreSheet,
 };
 
-// Bulk-import Box Score PDFs (standalone or merged 10-report exports --
-// both work, since only the Box Score's own pages carry the
-// "Assistant Coach(es):" markers this extractor looks for). Each file's
-// own header (team names, score, date, game number) is parsed to
-// auto-create or match a game record, so a whole season's worth of PDFs
-// can be dropped in at once without manually creating each match first.
-// Re-running this on the same files (e.g. to catch the current season up
-// to where it stands) is safe: an existing game for the same two teams
-// on the same date is reused rather than duplicated, and that game's
-// stats are replaced with the fresh extraction rather than appended.
 router.post(
   '/games/bulk-import',
   requireRole('Administrator', 'Statistician'),
@@ -92,10 +77,6 @@ router.post(
           continue;
         }
 
-        // Run the additional report-type extractors against this same
-        // file. This does NOT write anything to the database yet -- the
-        // results are only attached to the API response so they can be
-        // inspected and verified before we wire them into storage.
         entry.additionalReports = {};
         for (const [key, extractorFn] of Object.entries(extraExtractors)) {
           try {
@@ -133,9 +114,6 @@ router.post(
           VALUES (?, 'Box Score', ?, ?, ?, 'extracted')
         `).run(game.id, file.originalname, file.path, req.user.id);
 
-        // Replace, don't accumulate: clears out any earlier extraction for
-        // this game before inserting the fresh one, so re-running the
-        // bulk import never double-counts stats.
         db.prepare('DELETE FROM player_game_stats WHERE game_id = ?').run(game.id);
         players.forEach((p) => {
           insertStatStmt.run(
@@ -145,6 +123,8 @@ router.post(
             JSON.stringify(p),
           );
         });
+
+        persistAdditionalReports(game.id, entry.additionalReports);
 
         entry.status = created ? 'game_created' : 'game_matched';
         entry.gameId = game.id;

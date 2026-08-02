@@ -5,6 +5,21 @@ import Layout from '../components/layout';
 import { backendApi } from '../api/client';
 import { reconcileBulkImportResults } from '../services/bulkImportBridge';
 
+// Each additional report type has a different data shape (Quarter/
+// PlusMinus/LineupAnalysis/RotationsSummary all have {teams:[...]} but
+// count different sub-arrays; PlayByPlay has a flat {events:[...]};
+// ScoreSheet has no natural "count" at all, just a few extracted facts).
+// A failed extraction comes back as {error, code} instead, regardless of
+// report type, and must be checked before assuming the success shape.
+const ADDITIONAL_REPORT_TYPES = [
+  { key: 'quarter', label: 'Quarter', count: (d) => d.teams.reduce((n, t) => n + t.players.length, 0) },
+  { key: 'plusMinus', label: 'Plus/Minus', count: (d) => d.teams.reduce((n, t) => n + t.players.length, 0) },
+  { key: 'lineupAnalysis', label: 'Lineup Analysis', count: (d) => d.teams.reduce((n, t) => n + t.lineups.length, 0) },
+  { key: 'rotationsSummary', label: 'Rotations Summary', count: (d) => d.teams.reduce((n, t) => n + t.stints.length, 0) },
+  { key: 'playByPlay', label: 'Play-by-Play', count: (d) => d.events.length },
+  { key: 'scoreSheet', label: 'Score Sheet', count: () => null },
+];
+
 function BulkImport({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -104,18 +119,22 @@ function BulkImport({ mode, toggleTheme, selectedTeam, onTeamChange, role, selec
                         </Typography>
                         {o.additionalReports && (
                           <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }} useFlexGap>
-                            {o.additionalReports.quarter && (
-                              <Chip size="small" variant="outlined" label={`Quarter — ${o.additionalReports.quarter.teams.reduce((n, t) => n + t.players.length, 0)} players`} />
-                            )}
-                            {o.additionalReports.plusMinus && (
-                              <Chip size="small" variant="outlined" label={`Plus/Minus — ${o.additionalReports.plusMinus.teams.reduce((n, t) => n + t.players.length, 0)} players`} />
-                            )}
-                            {o.additionalReports.lineupAnalysis && (
-                              <Chip size="small" variant="outlined" label={`Lineup Analysis — ${o.additionalReports.lineupAnalysis.teams.reduce((n, t) => n + t.lineups.length, 0)} lineups`} />
-                            )}
-                            {o.additionalReports.rotationsSummary && (
-                              <Chip size="small" variant="outlined" label={`Rotations Summary — ${o.additionalReports.rotationsSummary.teams.reduce((n, t) => n + t.stints.length, 0)} stints`} />
-                            )}
+                            {ADDITIONAL_REPORT_TYPES.map(({ key, label, count }) => {
+                              const data = o.additionalReports[key];
+                              if (!data) return null;
+                              if (data.error) {
+                                return <Chip key={key} size="small" variant="outlined" color="error" label={`${label} — failed`} />;
+                              }
+                              const n = count(data);
+                              return (
+                                <Chip
+                                  key={key}
+                                  size="small"
+                                  variant="outlined"
+                                  label={n === null ? label : `${label} — ${n}`}
+                                />
+                              );
+                            })}
                           </Stack>
                         )}
                       </>
