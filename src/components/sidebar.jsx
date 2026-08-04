@@ -1,6 +1,11 @@
-﻿import { NavLink, useLocation } from 'react-router-dom';
-import { Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography, Divider, Avatar, useTheme, Button } from '@mui/material';
+﻿import { useEffect } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Box, List, ListItemButton, ListItemIcon, ListItemText, Typography, Divider, Avatar, Button, Tooltip, IconButton, Stack } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
+import { motion, AnimatePresence } from 'framer-motion';
 import { isRouteAllowed } from '../auth/roleAccess';
+import { getRoleTheme } from '../theme/themeConfig';
+import { useThemePreferences } from '../contexts/ThemeContext';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
@@ -14,9 +19,12 @@ import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded';
-
+import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
+import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 const navItems = [
   { label: 'Dashboard', path: '/dashboard', icon: DashboardRoundedIcon },
+  { label: 'Profile', path: '/profile', icon: AccountCircleRoundedIcon },
   { label: 'Teams', path: '/teams', icon: GroupsRoundedIcon },
   { label: 'Players', path: '/players', icon: PersonRoundedIcon },
   { label: 'Games', path: '/games', icon: SportsBasketballRoundedIcon },
@@ -33,42 +41,85 @@ const navItems = [
   { label: 'Settings', path: '/settings', icon: SettingsRoundedIcon },
 ];
 
-function Sidebar({ role, selectedSeason, logout }) {
+function Sidebar({ role, selectedSeason, logout, currentUser }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const theme = useTheme();
+  const { teamColors, sidebarCollapsed, toggleSidebar } = useThemePreferences();
+  const roleTheme = getRoleTheme(role);
   const allowedItems = navItems.filter((item) => isRouteAllowed(role, item.path));
+  const isDark = theme.palette.mode === 'dark';
+  const width = sidebarCollapsed ? 72 : 248;
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--sidebar-width', `${width}px`);
+  }, [width]);
+
+  const glassStyle = {
+    backdropFilter: 'blur(24px)',
+    WebkitBackdropFilter: 'blur(24px)',
+    backgroundColor: isDark ? 'rgba(11, 18, 32, 0.55)' : 'rgba(255, 255, 255, 0.55)',
+    border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(15,23,42,0.08)',
+    boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.4)' : '0 8px 32px rgba(15,23,42,0.1)',
+  };
 
   return (
-    <Drawer
-      variant="permanent"
+    <Box
+      component={motion.nav}
+      animate={{ width }}
+      transition={{ duration: 0.3, ease: 'easeInOut' }}
       sx={{
-        width: 260,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
-          width: 260,
-          boxSizing: 'border-box',
-          bgcolor: theme.palette.mode === 'dark' ? '#0b1220' : '#f8fafc',
-          borderRight: '1px solid rgba(255,255,255,0.08)',
-          color: 'text.primary',
-          p: 2,
-        },
+        position: 'fixed',
+        top: 16,
+        left: 16,
+        bottom: 16,
+        zIndex: 1200,
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: 3,
+        overflow: 'hidden',
+        ...glassStyle,
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-        <Avatar sx={{ bgcolor: 'primary.main', width: 42, height: 42 }}>CI</Avatar>
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>CourtIQ</Typography>
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>Basketball analytics</Typography>
-        </Box>
+      <Box sx={{ p: sidebarCollapsed ? 1.5 : 2, display: 'flex', alignItems: 'center', gap: 1.5, minHeight: 64 }}>
+        <Avatar
+          sx={{
+            bgcolor: teamColors.primary,
+            color: '#000',
+            width: sidebarCollapsed ? 40 : 42,
+            height: sidebarCollapsed ? 40 : 42,
+            fontWeight: 800,
+            cursor: 'pointer',
+            flexShrink: 0,
+          }}
+          onClick={() => navigate('/dashboard')}
+        >
+          CI
+        </Avatar>
+        <AnimatePresence>
+          {!sidebarCollapsed && (
+            <motion.div initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: 'auto' }} exit={{ opacity: 0, width: 0 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}>CourtIQ</Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>Basketball analytics</Typography>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <IconButton
+          size="small"
+          onClick={toggleSidebar}
+          sx={{ ml: 'auto', color: 'text.secondary', flexShrink: 0 }}
+        >
+          {sidebarCollapsed ? <ChevronRightRoundedIcon /> : <ChevronLeftRoundedIcon />}
+        </IconButton>
       </Box>
 
-      <Divider sx={{ borderColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)', mb: 2 }} />
+      <Divider sx={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)' }} />
 
-      <List>
+      <List sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', px: 1, py: 1 }}>
         {allowedItems.map((item) => {
           const Icon = item.icon;
           const active = location.pathname === item.path;
-          return (
+          const button = (
             <ListItemButton
               key={item.path}
               component={NavLink}
@@ -76,28 +127,52 @@ function Sidebar({ role, selectedSeason, logout }) {
               sx={{
                 borderRadius: 2,
                 mb: 0.5,
-                bgcolor: active ? 'rgba(255,122,26,0.16)' : 'transparent',
-                color: active ? 'primary.main' : 'text.secondary',
-                '&:hover': { bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.05)' },
+                minHeight: 44,
+                justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                px: sidebarCollapsed ? 1 : 2,
+                bgcolor: active ? alpha(teamColors.primary, 0.18) : 'transparent',
+                color: active ? teamColors.primary : 'text.secondary',
+                borderLeft: active ? `3px solid ${teamColors.primary}` : '3px solid transparent',
+                '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.05)' },
               }}
             >
-              <ListItemIcon sx={{ color: 'inherit', minWidth: 36 }}>
-                <Icon />
+              <ListItemIcon sx={{ color: 'inherit', minWidth: sidebarCollapsed ? 0 : 36, justifyContent: 'center' }}>
+                <Icon fontSize="small" />
               </ListItemIcon>
-              <ListItemText primary={item.label} />
+              {!sidebarCollapsed && <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: active ? 700 : 400 }} />}
             </ListItemButton>
+          );
+
+          return sidebarCollapsed ? (
+            <Tooltip key={item.path} title={item.label} placement="right">
+              {button}
+            </Tooltip>
+          ) : (
+            button
           );
         })}
       </List>
 
-      <Box sx={{ mt: 'auto', p: 2, bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(15,23,42,0.04)', borderRadius: 3 }}>
-        <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 600 }}>Role: {role || 'Statistician'}</Typography>
-        <Typography variant="caption" sx={{ color: 'text.secondary' }}>Season: {selectedSeason || '2026/27'}</Typography>
-        <Button startIcon={<LogoutRoundedIcon />} fullWidth sx={{ mt: 2 }} onClick={logout}>
-          Logout
-        </Button>
+      <Box sx={{ p: sidebarCollapsed ? 1 : 2, borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)'}` }}>
+        {!sidebarCollapsed ? (
+          <>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+              <Typography variant="caption" sx={{ color: roleTheme.glow, fontWeight: 700 }}>{roleTheme.icon} {role || 'Statistician'}</Typography>
+            </Stack>
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Season {selectedSeason || '2026/27'}</Typography>
+            <Button startIcon={<LogoutRoundedIcon />} fullWidth size="small" sx={{ mt: 1.5, color: 'text.secondary' }} onClick={logout}>
+              Logout
+            </Button>
+          </>
+        ) : (
+          <Tooltip title="Logout" placement="right">
+            <IconButton onClick={logout} sx={{ color: 'text.secondary', width: '100%' }}>
+              <LogoutRoundedIcon />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
-    </Drawer>
+    </Box>
   );
 }
 

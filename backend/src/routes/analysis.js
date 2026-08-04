@@ -25,57 +25,74 @@ function aggregateTeamTotals(playerRows) {
 // Trigger metric computation for a game once its Box Score is extracted.
 // (Full pipeline needs all 10 reports per the proposal; this computes what's
 // derivable from Box Score data alone, which covers the core Four Factors.)
-router.post('/games/:gameId/compute', requireRole('Administrator', 'Statistician'), (req, res) => {
-  const { gameId } = req.params;
-  const playerRows = db.prepare('SELECT * FROM player_game_stats WHERE game_id = ?').all(gameId);
-  if (playerRows.length === 0) {
-    return res.status(422).json({ error: 'No extracted player stats found for this game. Upload and extract a Box Score first.' });
+//
+// POSTGRES MIGRATION FIX: this whole route was never actually converted
+// despite being listed as done -- wasn't async, and every db call was
+// missing await (so playerRows was a Promise, not an array, causing
+// "playerRows.filter is not a function"). Also fixed datetime('now')
+// (SQLite-only) -> NOW() (Postgres) in the metrics upsert below.
+router.post('/games/:gameId/compute', requireRole('Administrator', 'Statistician'), async (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const playerRows = await db.prepare('SELECT * FROM player_game_stats WHERE game_id = ?').all(gameId);
+    if (playerRows.length === 0) {
+      return res.status(422).json({ error: 'No extracted player stats found for this game. Upload and extract a Box Score first.' });
+    }
+
+    const homeRows = playerRows.filter((p) => p.team_side === 'home');
+    const oppRows = playerRows.filter((p) => p.team_side === 'opponent');
+    const homeTotals = aggregateTeamTotals(homeRows);
+    const oppTotals = aggregateTeamTotals(oppRows);
+
+    const homeMetrics = computeTeamMetrics(homeTotals, oppTotals);
+    const oppMetrics = computeTeamMetrics(oppTotals, homeTotals);
+    const insightTags = tagInsights(homeMetrics, oppMetrics, homeRows, oppRows);
+    const playerMetrics = playerRows.map(computePlayerMetrics);
+
+    const metricsPayload = {
+      home: { ...homeMetrics, raw: homeTotals },
+      opponent: { ...oppMetrics, raw: oppTotals },
+      players: playerMetrics,
+    };
+
+    await db.prepare(`
+      INSERT INTO game_metrics (game_id, metrics_json, insight_tags_json)
+      VALUES (?, ?, ?)
+      ON CONFLICT (game_id) DO UPDATE SET metrics_json = excluded.metrics_json,
+        insight_tags_json = excluded.insight_tags_json, computed_at = NOW()
+    `).run(gameId, JSON.stringify(metricsPayload), JSON.stringify(insightTags));
+
+    await db.prepare("UPDATE games SET status = 'extracted' WHERE id = ?").run(gameId);
+
+    res.json({ metrics: metricsPayload, insightTags });
+  } catch (err) {
+    console.error('compute failed:', err);
+    res.status(500).json({ error: `Metric computation failed: ${err.message}` });
   }
-
-  const homeRows = playerRows.filter((p) => p.team_side === 'home');
-  const oppRows = playerRows.filter((p) => p.team_side === 'opponent');
-  const homeTotals = aggregateTeamTotals(homeRows);
-  const oppTotals = aggregateTeamTotals(oppRows);
-
-  const homeMetrics = computeTeamMetrics(homeTotals, oppTotals);
-  const oppMetrics = computeTeamMetrics(oppTotals, homeTotals);
-  const insightTags = tagInsights(homeMetrics, oppMetrics, homeRows, oppRows);
-  const playerMetrics = playerRows.map(computePlayerMetrics);
-
-  const metricsPayload = {
-    home: { ...homeMetrics, raw: homeTotals },
-    opponent: { ...oppMetrics, raw: oppTotals },
-    players: playerMetrics,
-  };
-
-  db.prepare(`
-    INSERT INTO game_metrics (game_id, metrics_json, insight_tags_json)
-    VALUES (?, ?, ?)
-    ON CONFLICT(game_id) DO UPDATE SET metrics_json = excluded.metrics_json,
-      insight_tags_json = excluded.insight_tags_json, computed_at = datetime('now')
-  `).run(gameId, JSON.stringify(metricsPayload), JSON.stringify(insightTags));
-
-  db.prepare("UPDATE games SET status = 'extracted' WHERE id = ?").run(gameId);
-
-  res.json({ metrics: metricsPayload, insightTags });
 });
 
 // Generate the AI narrative from already-computed metrics.
+//
+// POSTGRES MIGRATION FIX: this route WAS marked async, but still had
+// unawaited db.prepare(...).get(...) calls (row and game came back as
+// unresolved Promises, so row.metrics_json etc would have thrown or
+// behaved incorrectly), plus the same datetime('now') -> NOW() fix as
+// above in the narrative upsert.
 router.post('/games/:gameId/narrative', requireRole('Administrator', 'Statistician', 'Coach'), async (req, res) => {
   const { gameId } = req.params;
-  const row = db.prepare('SELECT * FROM game_metrics WHERE game_id = ?').get(gameId);
-  if (!row) {
-    return res.status(422).json({ error: 'Metrics have not been computed for this game yet. Call /compute first.' });
-  }
-  const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
-  const metrics = JSON.parse(row.metrics_json);
-  const insightTags = JSON.parse(row.insight_tags_json || '[]');
-
-  const topPlayers = [...metrics.players]
-    .sort((a, b) => b.points - a.points)
-    .slice(0, 5);
-
   try {
+    const row = await db.prepare('SELECT * FROM game_metrics WHERE game_id = ?').get(gameId);
+    if (!row) {
+      return res.status(422).json({ error: 'Metrics have not been computed for this game yet. Call /compute first.' });
+    }
+    const game = await db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+    const metrics = JSON.parse(row.metrics_json);
+    const insightTags = JSON.parse(row.insight_tags_json || '[]');
+
+    const topPlayers = [...metrics.players]
+      .sort((a, b) => b.points - a.points)
+      .slice(0, 5);
+
     const { text, model } = await generateGameNarrative({
       homeTeamName: game.home_team_id,
       opponentTeamName: game.opponent_team_id,
@@ -85,31 +102,38 @@ router.post('/games/:gameId/narrative', requireRole('Administrator', 'Statistici
       topPlayers,
     });
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO game_narratives (game_id, narrative_text, model)
       VALUES (?, ?, ?)
-      ON CONFLICT(game_id) DO UPDATE SET narrative_text = excluded.narrative_text,
-        model = excluded.model, generated_at = datetime('now')
+      ON CONFLICT (game_id) DO UPDATE SET narrative_text = excluded.narrative_text,
+        model = excluded.model, generated_at = NOW()
     `).run(gameId, text, model);
 
-    db.prepare("UPDATE games SET status = 'analyzed' WHERE id = ?").run(gameId);
+    await db.prepare("UPDATE games SET status = 'analyzed' WHERE id = ?").run(gameId);
     res.json({ narrative: text, model });
   } catch (err) {
     if (err.code === 'MISSING_API_KEY') {
       return res.status(503).json({ error: err.message });
     }
+    console.error('narrative generation failed:', err);
     res.status(502).json({ error: `Narrative generation failed: ${err.message}` });
   }
 });
 
-router.get('/games/:gameId', (req, res) => {
-  const metricsRow = db.prepare('SELECT * FROM game_metrics WHERE game_id = ?').get(req.params.gameId);
-  const narrativeRow = db.prepare('SELECT * FROM game_narratives WHERE game_id = ?').get(req.params.gameId);
-  res.json({
-    metrics: metricsRow ? JSON.parse(metricsRow.metrics_json) : null,
-    insightTags: metricsRow ? JSON.parse(metricsRow.insight_tags_json || '[]') : [],
-    narrative: narrativeRow ? narrativeRow.narrative_text : null,
-  });
+// POSTGRES MIGRATION FIX: wasn't async, both db calls were missing await.
+router.get('/games/:gameId', async (req, res) => {
+  try {
+    const metricsRow = await db.prepare('SELECT * FROM game_metrics WHERE game_id = ?').get(req.params.gameId);
+    const narrativeRow = await db.prepare('SELECT * FROM game_narratives WHERE game_id = ?').get(req.params.gameId);
+    res.json({
+      metrics: metricsRow ? JSON.parse(metricsRow.metrics_json) : null,
+      insightTags: metricsRow ? JSON.parse(metricsRow.insight_tags_json || '[]') : [],
+      narrative: narrativeRow ? narrativeRow.narrative_text : null,
+    });
+  } catch (err) {
+    console.error('fetch analysis failed:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const db = require('./db');
 
 const authRoutes = require('./routes/auth');
 const gameRoutes = require('./routes/games');
@@ -27,6 +28,16 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`CourtIQ backend listening on http://localhost:${PORT}`);
-});
+
+// Postgres migration is async (unlike the old SQLite exec-at-require-time),
+// so the server only starts listening once the schema is confirmed applied.
+db.migrate()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`CourtIQ backend listening on http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Failed to run database migration on startup:', err);
+    process.exit(1);
+  });

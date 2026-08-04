@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -13,7 +13,7 @@ const {
   extractPlayByPlay,
 } = require('../services/reportExtractors');
 const { extractScoreSheet } = require('../services/parseScoreSheet');
-const { persistAdditionalReports } = require('../services/persistExtractedReports');
+const insertReportData = require('../db/insertReports');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -43,6 +43,12 @@ const insertStatStmt = db.prepare(`
   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `);
 
+// Extractors for the additional FIBA LiveStats report types, beyond the
+// Box Score. Each one is called independently against the same merged
+// PDF -- if a given report type isn't present in a particular export, or
+// its regex doesn't match this file's exact formatting, that single
+// extractor fails without blocking the Box Score import that already
+// succeeded, or the other extractors.
 const extraExtractors = {
   quarter: extractQuarterReport,
   plusMinus: extractPlusMinusSummary,
@@ -52,6 +58,16 @@ const extraExtractors = {
   scoreSheet: extractScoreSheet,
 };
 
+// Bulk-import Box Score PDFs (standalone or merged 10-report exports --
+// both work, since only the Box Score's own pages carry the
+// "Assistant Coach(es):" markers this extractor looks for). Each file's
+// own header (team names, score, date, game number) is parsed to
+// auto-create or match a game record, so a whole season's worth of PDFs
+// can be dropped in at once without manually creating each match first.
+// Re-running this on the same files (e.g. to catch the current season up
+// to where it stands) is safe: an existing game for the same two teams
+// on the same date is reused rather than duplicated, and that game's
+// stats are replaced with the fresh extraction rather than appended.
 router.post(
   '/games/bulk-import',
   requireRole('Administrator', 'Statistician'),
@@ -77,54 +93,72 @@ router.post(
           continue;
         }
 
-        entry.additionalReports = {};
-        for (const [key, extractorFn] of Object.entries(extraExtractors)) {
-          try {
-            entry.additionalReports[key] = await extractorFn(file.path);
-          } catch (extraErr) {
-            entry.additionalReports[key] = { error: extraErr.message, code: extraErr.code };
-          }
-        }
-
         const homeTeamId = gameInfo.homeTeam;
         const awayTeamId = gameInfo.awayTeam;
 
-        db.prepare('INSERT OR IGNORE INTO teams (id, name) VALUES (?, ?)').run(homeTeamId, homeTeamId);
-        db.prepare('INSERT OR IGNORE INTO teams (id, name) VALUES (?, ?)').run(awayTeamId, awayTeamId);
+        await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(homeTeamId, homeTeamId);
+        await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(awayTeamId, awayTeamId);
         if (seasonId) {
-          db.prepare('INSERT OR IGNORE INTO seasons (id, name) VALUES (?, ?)').run(seasonId, seasonId);
+          await db.prepare('INSERT INTO seasons (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(seasonId, seasonId);
         }
 
-        let game = db.prepare(`
+        let game = await db.prepare(`
           SELECT * FROM games WHERE home_team_id = ? AND opponent_team_id = ? AND game_date = ?
         `).get(homeTeamId, awayTeamId, gameInfo.matchDate);
 
         let created = false;
         if (!game) {
-          const insertGame = db.prepare(`
+          const insertGame = await db.prepare(`
             INSERT INTO games (season_id, league_id, home_team_id, opponent_team_id, game_date, created_by, status)
             VALUES (?, ?, ?, ?, ?, ?, 'extracted')
+            RETURNING id
           `).run(seasonId || null, leagueId || null, homeTeamId, awayTeamId, gameInfo.matchDate, req.user.id);
-          game = db.prepare('SELECT * FROM games WHERE id = ?').get(insertGame.lastInsertRowid);
+          game = await db.prepare('SELECT * FROM games WHERE id = ?').get(insertGame.lastInsertRowid);
           created = true;
         }
 
-        const insertReport = db.prepare(`
+        const insertReport = await db.prepare(`
           INSERT INTO reports (game_id, report_type, original_filename, storage_path, uploaded_by, extraction_status)
           VALUES (?, 'Box Score', ?, ?, ?, 'extracted')
+          RETURNING id
         `).run(game.id, file.originalname, file.path, req.user.id);
 
-        db.prepare('DELETE FROM player_game_stats WHERE game_id = ?').run(game.id);
-        players.forEach((p) => {
-          insertStatStmt.run(
+        // Replace, don't accumulate: clears out any earlier extraction for
+        // this game before inserting the fresh one, so re-running the
+        // bulk import never double-counts stats.
+        await db.prepare('DELETE FROM player_game_stats WHERE game_id = ?').run(game.id);
+        for (const p of players) {
+          await insertStatStmt.run(
             game.id, p.player_name, p.team_side, p.minutes, p.points, p.fgm, p.fga,
             p.three_pm, p.three_pa, p.ftm, p.fta, p.oreb, p.dreb, p.reb,
             p.assists, p.steals, p.blocks, p.turnovers, p.fouls, p.plus_minus,
             JSON.stringify(p),
           );
-        });
+        }
 
-        persistAdditionalReports(game.id, entry.additionalReports);
+        // Run the additional report-type extractors against this same file,
+        // now that a game.id exists to attach them to. Each is independent:
+        // extraction failure or storage failure for one report type doesn't
+        // block the Box Score import that already succeeded, or the others.
+        entry.additionalReports = {};
+        for (const [key, extractorFn] of Object.entries(extraExtractors)) {
+          try {
+            // gameInfo.homeTeam is already validated non-null above (line 88)
+            // before this point is reachable -- passing it lets each
+            // extractor match team_side to the actual home team instead of
+            // guessing from print order (see teamSide.js). Extractors that
+            // don't take a second argument (playByPlay, scoreSheet) simply
+            // ignore the extra param.
+            const extracted = await extractorFn(file.path, gameInfo.homeTeam);
+            const { rows, teamRows, playerRows } = await insertReportData[key](game.id, extracted);
+            entry.additionalReports[key] = {
+              status: 'stored',
+              rows: rows ?? (teamRows !== undefined ? { teamRows, playerRows } : undefined),
+            };
+          } catch (extraErr) {
+            entry.additionalReports[key] = { status: 'failed', error: extraErr.message, code: extraErr.code };
+          }
+        }
 
         entry.status = created ? 'game_created' : 'game_matched';
         entry.gameId = game.id;
