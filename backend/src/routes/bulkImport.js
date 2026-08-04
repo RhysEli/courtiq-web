@@ -137,28 +137,36 @@ router.post(
         }
 
         // Run the additional report-type extractors against this same file,
-        // now that a game.id exists to attach them to. Each is independent:
-        // extraction failure or storage failure for one report type doesn't
-        // block the Box Score import that already succeeded, or the others.
-        entry.additionalReports = {};
-        for (const [key, extractorFn] of Object.entries(extraExtractors)) {
-          try {
-            // gameInfo.homeTeam is already validated non-null above (line 88)
-            // before this point is reachable -- passing it lets each
-            // extractor match team_side to the actual home team instead of
-            // guessing from print order (see teamSide.js). Extractors that
-            // don't take a second argument (playByPlay, scoreSheet) simply
-            // ignore the extra param.
-            const extracted = await extractorFn(file.path, gameInfo.homeTeam);
-            const { rows, teamRows, playerRows } = await insertReportData[key](game.id, extracted);
-            entry.additionalReports[key] = {
-              status: 'stored',
-              rows: rows ?? (teamRows !== undefined ? { teamRows, playerRows } : undefined),
-            };
-          } catch (extraErr) {
-            entry.additionalReports[key] = { status: 'failed', error: extraErr.message, code: extraErr.code };
-          }
-        }
+        // now that a game.id exists to attach them to. These 6 extractors
+        // are fully independent -- none reads another's output -- so they
+        // run concurrently instead of one-after-another. On Render's free
+        // tier, Play-by-Play's ~540 sequential inserts alone dominate the
+        // total time; running everything in parallel means the total wait
+        // is roughly the slowest single extractor, not the sum of all six.
+        // Each is still wrapped in its own try/catch so one failing (in
+        // extraction or storage) never blocks the others or the Box Score
+        // import that already succeeded.
+        const extractorResults = await Promise.all(
+          Object.entries(extraExtractors).map(async ([key, extractorFn]) => {
+            try {
+              // gameInfo.homeTeam is already validated non-null above (line 88)
+              // before this point is reachable -- passing it lets each
+              // extractor match team_side to the actual home team instead of
+              // guessing from print order (see teamSide.js). Extractors that
+              // don't take a second argument (playByPlay, scoreSheet) simply
+              // ignore the extra param.
+              const extracted = await extractorFn(file.path, gameInfo.homeTeam);
+              const { rows, teamRows, playerRows } = await insertReportData[key](game.id, extracted);
+              return [key, {
+                status: 'stored',
+                rows: rows ?? (teamRows !== undefined ? { teamRows, playerRows } : undefined),
+              }];
+            } catch (extraErr) {
+              return [key, { status: 'failed', error: extraErr.message, code: extraErr.code }];
+            }
+          }),
+        );
+        entry.additionalReports = Object.fromEntries(extractorResults);
 
         entry.status = created ? 'game_created' : 'game_matched';
         entry.gameId = game.id;
