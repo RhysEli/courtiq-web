@@ -1,5 +1,5 @@
-const fs = require('fs');
-const { PDFParse } = require('pdf-parse');
+const { assignTeamSides } = require('./teamSide');
+const { parseFileToLines } = require('./pdfText');
 
 // FIBA LiveStats "Box Score" report extractor.
 //
@@ -87,16 +87,11 @@ function parseGameHeader(lines) {
   };
 }
 
-async function extractBoxScore(filePath) {
-  const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const data = await parser.getText();
-
-  // Normalise: collapse tabs to single spaces so column boundaries don't
-  // depend on pdf-parse's inconsistent tab insertion, then split into
-  // logical lines. Player rows are single lines already in this export.
-  const normalizedText = data.text.replace(/\t/g, ' ');
-  const lines = normalizedText.split('\n').map((l) => l.trim().replace(/\s+/g, ' ')).filter(Boolean);
+async function extractBoxScore(filePath, preParsedLines = null) {
+  // If bulkImport.js already parsed this file once (to share across all 7
+  // extractors -- see pdfText.js), reuse those lines instead of reading
+  // and re-parsing the PDF again here.
+  const lines = preParsedLines || await parseFileToLines(filePath);
 
   const gameInfo = parseGameHeader(lines);
 
@@ -125,15 +120,22 @@ async function extractBoxScore(filePath) {
 
   const sections = sectionStartIdx.slice(0, 2).map((startIdx, i) => {
     const endIdx = i + 1 < sectionStartIdx.length ? sectionStartIdx[i + 1] : lines.length;
-    return lines.slice(startIdx, endIdx);
+    const sectionLines = lines.slice(startIdx, endIdx);
+    // Team name prints on the same line as the "Assistant Coach(es):"
+    // marker, e.g. "USIU TIGERS (USIU) Assistant Coach(es):".
+    const headerMatch = lines[startIdx].match(/^(.+?)\s*\([A-Za-z0-9]{2,6}\)\s*Assistant Coach\(es\):/);
+    return { sectionLines, team_name: headerMatch ? headerMatch[1].trim() : null };
   });
 
-  const teamSideOrder = ['home', 'opponent'];
+  // Assign 'home'/'opponent' by matching each section's own team name
+  // against the actual home team from the game header, not by which
+  // section happens to print first -- see teamSide.js for why.
+  const sidedSections = assignTeamSides(sections, gameInfo && gameInfo.homeTeam);
+
   const players = [];
   const unparsedLines = [];
 
-  sections.forEach((sectionLines, i) => {
-    const teamSide = teamSideOrder[i] || `team_${i}`;
+  sidedSections.forEach(({ sectionLines, team_side: teamSide }) => {
     for (const line of sectionLines) {
       if (/^Totals\b/.test(line) || /^Team\/Coach\b/.test(line) || /^No Name Min/.test(line) || /^M\/A/.test(line)) {
         continue; // summary/header rows, not individual players

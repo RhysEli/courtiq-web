@@ -1,5 +1,5 @@
-﻿const fs = require('fs');
-const { PDFParse } = require('pdf-parse');
+﻿const { assignTeamSides } = require('./teamSide');
+const { parseFileToLines } = require('./pdfText');
 
 // -----------------------------------------------------------------------
 // Extractors for two more FIBA LiveStats report types, following the same
@@ -23,14 +23,6 @@ const { PDFParse } = require('pdf-parse');
 // can appear.
 // -----------------------------------------------------------------------
 
-function normalizeLines(rawText) {
-  return rawText
-    .replace(/\t/g, ' ')
-    .split('\n')
-    .map((l) => l.trim().replace(/\s+/g, ' '))
-    .filter(Boolean);
-}
-
 // ---------------------------------------------------------------------
 // QUARTER REPORT
 // ---------------------------------------------------------------------
@@ -45,11 +37,8 @@ const QUARTER_PLAYER_ROW_REGEX = new RegExp(
   '(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)$',         // total q1 q2 q3 q4
 );
 
-async function extractQuarterReport(filePath) {
-  const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const data = await parser.getText();
-  const lines = normalizeLines(data.text);
+async function extractQuarterReport(filePath, homeTeamName = null, preParsedLines = null) {
+  const lines = preParsedLines || await parseFileToLines(filePath);
 
   const titleIdx = lines.findIndex((l) => l === 'Quarter');
   if (titleIdx === -1) {
@@ -88,8 +77,7 @@ async function extractQuarterReport(filePath) {
     throw err;
   }
 
-  const teamSideOrder = ['home', 'opponent'];
-  const teams = teamHeaderIdx.slice(0, 2).map((startIdx, i) => {
+  const rawTeams = teamHeaderIdx.slice(0, 2).map((startIdx, i) => {
     const teamLine = lines[startIdx]; // e.g. "USIU TIGERS 83"
     const teamMatch = teamLine.match(/^(.+?)\s+(\d+)$/);
     const endIdx = i + 1 < teamHeaderIdx.length ? teamHeaderIdx[i + 1] : lines.length;
@@ -130,7 +118,6 @@ async function extractQuarterReport(filePath) {
     }
 
     return {
-      team_side: teamSideOrder[i] || `team_${i}`,
       team_name: teamMatch ? teamMatch[1].trim() : null,
       final_score: teamMatch ? Number(teamMatch[2]) : null,
       players,
@@ -138,6 +125,8 @@ async function extractQuarterReport(filePath) {
       cumulativeScore, // running total after each quarter, e.g. [26,43,61,83]
     };
   });
+
+  const teams = assignTeamSides(rawTeams, homeTeamName);
 
   return { teams };
 }
@@ -161,11 +150,8 @@ const PLUSMINUS_ROW_REGEX = new RegExp(
   '(\\d+)\\s+(\\d+)$',                                       // turnovers on / off
 );
 
-async function extractPlusMinusSummary(filePath) {
-  const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const data = await parser.getText();
-  const lines = normalizeLines(data.text);
+async function extractPlusMinusSummary(filePath, homeTeamName = null, preParsedLines = null) {
+  const lines = preParsedLines || await parseFileToLines(filePath);
 
   const titleIdx = lines.findIndex((l, i) => l === 'Player Plus/Minus' && lines[i + 1] === 'Summary');
   if (titleIdx === -1) {
@@ -191,8 +177,7 @@ async function extractPlusMinusSummary(filePath) {
     throw err;
   }
 
-  const teamSideOrder = ['home', 'opponent'];
-  const teams = headerIdx.slice(0, 2).map((headerLineIdx, i) => {
+  const rawTeams = headerIdx.slice(0, 2).map((headerLineIdx, i) => {
     const teamName = lines[headerLineIdx - 1] || null;
     const endIdx = i + 1 < headerIdx.length ? headerIdx[i + 1] - 1 : lines.length;
     const blockLines = lines.slice(headerLineIdx + 2, endIdx); // skip header + "On Off" sub-row
@@ -227,8 +212,10 @@ async function extractPlusMinusSummary(filePath) {
       }
     }
 
-    return { team_side: teamSideOrder[i] || `team_${i}`, team_name: teamName, players };
+    return { team_name: teamName, players };
   });
+
+  const teams = assignTeamSides(rawTeams, homeTeamName);
 
   return { teams };
 }
@@ -279,11 +266,8 @@ function parseLineupString(rawLineup) {
 const LINEUP_ROW_REGEX =
   /^(.+?\/)\s+(\d{1,2}:\d{2})\s+(\d+)-(\d+)\s+([+-]?\d+)\s+([\d.]+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/;
 
-async function extractLineupAnalysis(filePath) {
-  const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const data = await parser.getText();
-  const lines = normalizeLines(data.text);
+async function extractLineupAnalysis(filePath, homeTeamName = null, preParsedLines = null) {
+  const lines = preParsedLines || await parseFileToLines(filePath);
 
   const headerIdx = [];
   lines.forEach((line, idx) => {
@@ -296,8 +280,7 @@ async function extractLineupAnalysis(filePath) {
     throw err;
   }
 
-  const teamSideOrder = ['home', 'opponent'];
-  const teams = headerIdx.slice(0, 2).map((headerLineIdx, i) => {
+  const rawTeams = headerIdx.slice(0, 2).map((headerLineIdx, i) => {
     const teamName = lines[headerLineIdx - 1] || null;
     const endIdx = i + 1 < headerIdx.length ? headerIdx[i + 1] - 1 : lines.length;
     const blockLines = lines.slice(headerLineIdx + 1, endIdx);
@@ -320,8 +303,10 @@ async function extractLineupAnalysis(filePath) {
         });
       }
     }
-    return { team_side: teamSideOrder[i] || `team_${i}`, team_name: teamName, lineups };
+    return { team_name: teamName, lineups };
   });
+
+  const teams = assignTeamSides(rawTeams, homeTeamName);
 
   return { teams };
 }
@@ -350,11 +335,8 @@ const ROTATION_ROW_GLOBAL_REGEX = new RegExp(
   'g',
 );
 
-async function extractRotationsSummary(filePath) {
-  const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const data = await parser.getText();
-  const lines = normalizeLines(data.text);
+async function extractRotationsSummary(filePath, homeTeamName = null, preParsedLines = null) {
+  const lines = preParsedLines || await parseFileToLines(filePath);
 
   const titleIdx = lines.findIndex(
     (l, i) => l === 'Rotations Summary' || (l === 'Rotations' && lines[i + 1] === 'Summary'),
@@ -390,8 +372,7 @@ async function extractRotationsSummary(filePath) {
     throw err;
   }
 
-  const teamSideOrder = ['home', 'opponent'];
-  const teams = teamNameIdx.slice(0, 2).map((nameIdx, i) => {
+  const rawTeams = teamNameIdx.slice(0, 2).map((nameIdx, i) => {
     const teamName = lines[nameIdx];
     const endIdx = i + 1 < teamNameIdx.length ? teamNameIdx[i + 1] : lines.length;
     const flatBlock = lines.slice(nameIdx + 1, endIdx).join(' ');
@@ -426,8 +407,10 @@ async function extractRotationsSummary(filePath) {
         console.warn('Skipped one Rotations Summary row:', parseErr.message);
       }
     }
-    return { team_side: teamSideOrder[i] || `team_${i}`, team_name: teamName, stints };
+    return { team_name: teamName, stints };
   });
+
+  const teams = assignTeamSides(rawTeams, homeTeamName);
 
   return { teams };
 }
@@ -590,17 +573,21 @@ function parseEventText(rawText) {
   return { jersey_number: null, surname: null, initial: null, action_text: text, score };
 }
 
-async function extractPlayByPlay(filePath) {
-  const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const data = await parser.getText();
-  const lines = normalizeLines(data.text);
+async function extractPlayByPlay(filePath, _homeTeamName = null, preParsedLines = null) {
+  const lines = preParsedLines || await parseFileToLines(filePath);
 
   const { rosterMap, teamCodes } = extractBoxScoreRoster(lines);
 
-  const firstQuarterStartIdx = lines.findIndex((l) => l.startsWith('Quarter Starters:'));
+  // Anchored on "Quarter N" rather than "Quarter Starters:" -- the latter
+  // is always the line immediately after "Quarter N", and the loop below
+  // relies on encountering "Quarter N" itself to arm awaitingStarters (the
+  // countdown that skips the two starting-lineup lines). Starting at
+  // "Quarter Starters:" skipped over that line entirely, so
+  // awaitingStarters was never armed and the loop broke on the very first
+  // roster line -- this was silently producing zero events on real PDFs.
+  const firstQuarterStartIdx = lines.findIndex((l) => /^Quarter \d$/.test(l));
   if (firstQuarterStartIdx === -1) {
-    const err = new Error('Could not find the "Quarter Starters:" marker that begins Play by Play in this PDF.');
+    const err = new Error('Could not find the "Quarter N" marker that begins Play by Play in this PDF.');
     err.code = 'EXTRACTION_NO_SECTIONS';
     throw err;
   }
