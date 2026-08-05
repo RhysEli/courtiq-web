@@ -1,24 +1,33 @@
-﻿import { Alert, Box, Button, Card, CardContent, Chip, LinearProgress, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Chip, LinearProgress, Stack, Typography } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useState } from 'react';
 import Layout from '../components/layout';
 import { backendApi } from '../api/client';
 import { reconcileBulkImportResults } from '../services/bulkImportBridge';
 
-// Each additional report type has a different data shape (Quarter/
-// PlusMinus/LineupAnalysis/RotationsSummary all have {teams:[...]} but
-// count different sub-arrays; PlayByPlay has a flat {events:[...]};
-// ScoreSheet has no natural "count" at all, just a few extracted facts).
-// A failed extraction comes back as {error, code} instead, regardless of
-// report type, and must be checked before assuming the success shape.
+// The backend attaches one entry per report type under
+// entry.additionalReports[key], shaped either as
+// { status: 'stored', rows: <number|{teamRows,playerRows}> } or
+// { status: 'failed', error, code } -- NOT the raw extraction shape
+// (previously this assumed {teams:[...]}/{events:[...]}, which crashed
+// the render once bulkImport.js started returning storage-confirmation
+// summaries instead of raw extracted data).
 const ADDITIONAL_REPORT_TYPES = [
-  { key: 'quarter', label: 'Quarter', count: (d) => d.teams.reduce((n, t) => n + t.players.length, 0) },
-  { key: 'plusMinus', label: 'Plus/Minus', count: (d) => d.teams.reduce((n, t) => n + t.players.length, 0) },
-  { key: 'lineupAnalysis', label: 'Lineup Analysis', count: (d) => d.teams.reduce((n, t) => n + t.lineups.length, 0) },
-  { key: 'rotationsSummary', label: 'Rotations Summary', count: (d) => d.teams.reduce((n, t) => n + t.stints.length, 0) },
-  { key: 'playByPlay', label: 'Play-by-Play', count: (d) => d.events.length },
-  { key: 'scoreSheet', label: 'Score Sheet', count: () => null },
+  { key: 'quarter', label: 'Quarter' },
+  { key: 'plusMinus', label: 'Plus/Minus' },
+  { key: 'lineupAnalysis', label: 'Lineup Analysis' },
+  { key: 'rotationsSummary', label: 'Rotations Summary' },
+  { key: 'playByPlay', label: 'Play-by-Play' },
+  { key: 'scoreSheet', label: 'Score Sheet' },
 ];
+
+function reportRowCount(data) {
+  if (data.rows == null) return null;
+  if (typeof data.rows === 'number') return data.rows;
+  // Quarter's rows shape is { teamRows, playerRows } -- player count is
+  // the more meaningful number to show at a glance.
+  return data.rows.playerRows ?? data.rows.teamRows ?? null;
+}
 
 function BulkImport({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const [files, setFiles] = useState([]);
@@ -119,19 +128,19 @@ function BulkImport({ mode, toggleTheme, selectedTeam, onTeamChange, role, selec
                         </Typography>
                         {o.additionalReports && (
                           <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }} useFlexGap>
-                            {ADDITIONAL_REPORT_TYPES.map(({ key, label, count }) => {
+                            {ADDITIONAL_REPORT_TYPES.map(({ key, label }) => {
                               const data = o.additionalReports[key];
                               if (!data) return null;
-                              if (data.error) {
+                              if (data.status === 'failed') {
                                 return <Chip key={key} size="small" variant="outlined" color="error" label={`${label} — failed`} />;
                               }
-                              const n = count(data);
+                              const n = reportRowCount(data);
                               return (
                                 <Chip
                                   key={key}
                                   size="small"
                                   variant="outlined"
-                                  label={n === null ? label : `${label} — ${n}`}
+                                  label={n === null || n === undefined ? label : `${label} — ${n}`}
                                 />
                               );
                             })}
