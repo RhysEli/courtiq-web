@@ -1,6 +1,5 @@
-const fs = require('fs');
-const { PDFParse } = require('pdf-parse');
 const { assignTeamSides } = require('./teamSide');
+const { parseFileToLines } = require('./pdfText');
 
 // FIBA LiveStats "Box Score" report extractor.
 //
@@ -88,16 +87,11 @@ function parseGameHeader(lines) {
   };
 }
 
-async function extractBoxScore(filePath) {
-  const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const data = await parser.getText();
-
-  // Normalise: collapse tabs to single spaces so column boundaries don't
-  // depend on pdf-parse's inconsistent tab insertion, then split into
-  // logical lines. Player rows are single lines already in this export.
-  const normalizedText = data.text.replace(/\t/g, ' ');
-  const lines = normalizedText.split('\n').map((l) => l.trim().replace(/\s+/g, ' ')).filter(Boolean);
+async function extractBoxScore(filePath, preParsedLines = null) {
+  // If bulkImport.js already parsed this file once (to share across all 7
+  // extractors -- see pdfText.js), reuse those lines instead of reading
+  // and re-parsing the PDF again here.
+  const lines = preParsedLines || await parseFileToLines(filePath);
 
   const gameInfo = parseGameHeader(lines);
 

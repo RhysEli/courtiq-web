@@ -1,6 +1,5 @@
-﻿const fs = require('fs');
-const { PDFParse } = require('pdf-parse');
-const { assignTeamSides } = require('./teamSide');
+﻿const { assignTeamSides } = require('./teamSide');
+const { parseFileToLines } = require('./pdfText');
 
 // -----------------------------------------------------------------------
 // Extractors for two more FIBA LiveStats report types, following the same
@@ -24,14 +23,6 @@ const { assignTeamSides } = require('./teamSide');
 // can appear.
 // -----------------------------------------------------------------------
 
-function normalizeLines(rawText) {
-  return rawText
-    .replace(/\t/g, ' ')
-    .split('\n')
-    .map((l) => l.trim().replace(/\s+/g, ' '))
-    .filter(Boolean);
-}
-
 // ---------------------------------------------------------------------
 // QUARTER REPORT
 // ---------------------------------------------------------------------
@@ -46,11 +37,8 @@ const QUARTER_PLAYER_ROW_REGEX = new RegExp(
   '(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)$',         // total q1 q2 q3 q4
 );
 
-async function extractQuarterReport(filePath, homeTeamName = null) {
-  const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const data = await parser.getText();
-  const lines = normalizeLines(data.text);
+async function extractQuarterReport(filePath, homeTeamName = null, preParsedLines = null) {
+  const lines = preParsedLines || await parseFileToLines(filePath);
 
   const titleIdx = lines.findIndex((l) => l === 'Quarter');
   if (titleIdx === -1) {
@@ -162,11 +150,8 @@ const PLUSMINUS_ROW_REGEX = new RegExp(
   '(\\d+)\\s+(\\d+)$',                                       // turnovers on / off
 );
 
-async function extractPlusMinusSummary(filePath, homeTeamName = null) {
-  const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const data = await parser.getText();
-  const lines = normalizeLines(data.text);
+async function extractPlusMinusSummary(filePath, homeTeamName = null, preParsedLines = null) {
+  const lines = preParsedLines || await parseFileToLines(filePath);
 
   const titleIdx = lines.findIndex((l, i) => l === 'Player Plus/Minus' && lines[i + 1] === 'Summary');
   if (titleIdx === -1) {
@@ -281,11 +266,8 @@ function parseLineupString(rawLineup) {
 const LINEUP_ROW_REGEX =
   /^(.+?\/)\s+(\d{1,2}:\d{2})\s+(\d+)-(\d+)\s+([+-]?\d+)\s+([\d.]+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/;
 
-async function extractLineupAnalysis(filePath, homeTeamName = null) {
-  const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const data = await parser.getText();
-  const lines = normalizeLines(data.text);
+async function extractLineupAnalysis(filePath, homeTeamName = null, preParsedLines = null) {
+  const lines = preParsedLines || await parseFileToLines(filePath);
 
   const headerIdx = [];
   lines.forEach((line, idx) => {
@@ -353,11 +335,8 @@ const ROTATION_ROW_GLOBAL_REGEX = new RegExp(
   'g',
 );
 
-async function extractRotationsSummary(filePath, homeTeamName = null) {
-  const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const data = await parser.getText();
-  const lines = normalizeLines(data.text);
+async function extractRotationsSummary(filePath, homeTeamName = null, preParsedLines = null) {
+  const lines = preParsedLines || await parseFileToLines(filePath);
 
   const titleIdx = lines.findIndex(
     (l, i) => l === 'Rotations Summary' || (l === 'Rotations' && lines[i + 1] === 'Summary'),
@@ -594,11 +573,8 @@ function parseEventText(rawText) {
   return { jersey_number: null, surname: null, initial: null, action_text: text, score };
 }
 
-async function extractPlayByPlay(filePath) {
-  const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const data = await parser.getText();
-  const lines = normalizeLines(data.text);
+async function extractPlayByPlay(filePath, _homeTeamName = null, preParsedLines = null) {
+  const lines = preParsedLines || await parseFileToLines(filePath);
 
   const { rosterMap, teamCodes } = extractBoxScoreRoster(lines);
 

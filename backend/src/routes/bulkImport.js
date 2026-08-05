@@ -13,6 +13,7 @@ const {
   extractPlayByPlay,
 } = require('../services/reportExtractors');
 const { extractScoreSheet } = require('../services/parseScoreSheet');
+const { parseFileToLines } = require('../services/pdfText');
 const insertReportData = require('../db/insertReports');
 
 const router = express.Router();
@@ -83,7 +84,12 @@ router.post(
     for (const file of req.files) {
       const entry = { filename: file.originalname };
       try {
-        const { players, gameInfo, unparsedLineCount } = await extractBoxScore(file.path);
+        // Parsed ONCE here and reused by every extractor below (Box Score
+        // + all 6 extra report types) instead of each one independently
+        // re-reading and re-parsing the same PDF -- see pdfText.js for why
+        // this mattered on Render's free-tier CPU allowance.
+        const lines = await parseFileToLines(file.path);
+        const { players, gameInfo, unparsedLineCount } = await extractBoxScore(file.path, lines);
 
         if (!gameInfo || !gameInfo.homeTeam || !gameInfo.awayTeam || !gameInfo.matchDate) {
           entry.status = 'failed';
@@ -155,7 +161,7 @@ router.post(
               // guessing from print order (see teamSide.js). Extractors that
               // don't take a second argument (playByPlay, scoreSheet) simply
               // ignore the extra param.
-              const extracted = await extractorFn(file.path, gameInfo.homeTeam);
+              const extracted = await extractorFn(file.path, gameInfo.homeTeam, lines);
               const { rows, teamRows, playerRows } = await insertReportData[key](game.id, extracted);
               return [key, {
                 status: 'stored',

@@ -1,5 +1,4 @@
-const fs = require('fs');
-const { PDFParse } = require('pdf-parse');
+const { parseFileToLines } = require('./pdfText');
 
 // FIBA official "SCORESHEET" report extractor.
 //
@@ -26,13 +25,8 @@ const { PDFParse } = require('pdf-parse');
 // checkbox cells are filled) -- that's a materially bigger lift than a
 // text parser and wasn't attempted here.
 
-async function extractScoreSheet(filePath) {
-  const buffer = fs.readFileSync(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const data = await parser.getText();
-
-  const normalizedText = data.text.replace(/\t/g, ' ');
-  const lines = normalizedText.split('\n').map((l) => l.trim().replace(/\s+/g, ' ')).filter(Boolean);
+async function extractScoreSheet(filePath, _homeTeamName = null, preParsedLines = null) {
+  const lines = preParsedLines || await parseFileToLines(filePath);
 
   if (!lines.some((l) => l.includes('SCORESHEET'))) {
     const err = new Error('No Score Sheet page found in this PDF.');
@@ -56,7 +50,7 @@ async function extractScoreSheet(filePath) {
   if (!gameEndedMatch) {
     const err = new Error('Could not find "Game ended at" on the Score Sheet page -- layout may have changed.');
     err.code = 'EXTRACTION_NO_MATCH';
-    err.rawTextSample = data.text.slice(0, 2000);
+    err.rawTextSample = lines.slice(0, 60).join('\n');
     throw err;
   }
 
