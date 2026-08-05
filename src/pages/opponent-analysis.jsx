@@ -16,6 +16,7 @@ import {
 import CompareArrowsIcon from "@mui/icons-material/CompareArrows";
 import SportsBasketballIcon from "@mui/icons-material/SportsBasketball";
 import { useEffect, useState } from "react";
+import Layout from "../components/layout";
 
 const STORAGE_KEY = "courtiq_matches";
 
@@ -28,7 +29,7 @@ const emptySummary = {
   turnovers: 0,
 };
 
-export default function OpponentAnalysis() {
+export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTeamChange, selectedSeason, role, logout }) {
   const [matches, setMatches] = useState([]);
   const [teamA, setTeamA] = useState("");
   const [teamB, setTeamB] = useState("");
@@ -184,6 +185,7 @@ export default function OpponentAnalysis() {
   }
 
   return (
+    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
     <Box p={3}>
       <Typography
         variant="h4"
@@ -270,5 +272,6 @@ export default function OpponentAnalysis() {
         </Grid>
       </Grid>
     </Box>
+    </Layout>
   );
 }
