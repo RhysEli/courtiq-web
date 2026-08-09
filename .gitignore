@@ -29,3 +29,7 @@ dist-ssr
 backend/node_modules/
 backend/.env
 backend/data/
+# Runtime and debug output
+backend/server-log.txt
+backend/debug-output.txt
+backend/raw-dump.txt

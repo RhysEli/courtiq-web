@@ -81,7 +81,21 @@ function Sidebar({ role, selectedSeason, logout, currentUser }) {
         ...glassStyle,
       }}
     >
-      <Box sx={{ p: sidebarCollapsed ? 1.5 : 2, display: 'flex', alignItems: 'center', gap: 1.5, minHeight: 64 }}>
+      {/* FIX: side-by-side (Avatar + ml:auto toggle button) doesn't fit in the
+          collapsed 72px width -- the button was getting pushed outside the
+          visible area and clipped by this container's overflow:hidden,
+          making it unreachable once collapsed. Stacking vertically when
+          collapsed keeps both elements inside the visible width. */}
+      <Box
+        sx={{
+          p: sidebarCollapsed ? 1 : 2,
+          display: 'flex',
+          flexDirection: sidebarCollapsed ? 'column' : 'row',
+          alignItems: 'center',
+          gap: sidebarCollapsed ? 1 : 1.5,
+          minHeight: 64,
+        }}
+      >
         <Avatar
           sx={{
             bgcolor: teamColors.primary,
@@ -107,7 +121,7 @@ function Sidebar({ role, selectedSeason, logout, currentUser }) {
         <IconButton
           size="small"
           onClick={toggleSidebar}
-          sx={{ ml: 'auto', color: 'text.secondary', flexShrink: 0 }}
+          sx={{ ...(sidebarCollapsed ? {} : { ml: 'auto' }), color: 'text.secondary', flexShrink: 0 }}
         >
           {sidebarCollapsed ? <ChevronRightRoundedIcon /> : <ChevronLeftRoundedIcon />}
         </IconButton>
