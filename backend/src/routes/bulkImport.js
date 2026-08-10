@@ -89,10 +89,10 @@ router.post(
         const homeTeamId = gameInfo.homeTeam;
         const awayTeamId = gameInfo.awayTeam;
 
-        await db.prepare('INSERT OR IGNORE INTO teams (id, name) VALUES (?, ?)').run(homeTeamId, homeTeamId);
-        await db.prepare('INSERT OR IGNORE INTO teams (id, name) VALUES (?, ?)').run(awayTeamId, awayTeamId);
+        await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(homeTeamId, homeTeamId);
+        await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(awayTeamId, awayTeamId);
         if (seasonId) {
-          await db.prepare('INSERT OR IGNORE INTO seasons (id, name) VALUES (?, ?)').run(seasonId, seasonId);
+          await db.prepare('INSERT INTO seasons (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(seasonId, seasonId);
         }
 
         let game = await db.prepare(`
