@@ -231,7 +231,7 @@ async function extractPlusMinusSummary(filePath, homeTeamName = null, preParsedL
 // same document). The reliable pattern: strip the trailing "/", the
 // LAST character remaining is always the first-name initial, everything
 // before it is the surname.
-const LINEUP_SEGMENT_REGEX = /(\d{1,2})-\s*([A-Za-z]+(?:\s?[A-Za-z])?)\//g;
+const LINEUP_SEGMENT_REGEX = /(\d{1,2})-\s*([A-Za-z-]+(?:\s?[A-Za-z])?)\//g;
 
 function parseLineupString(rawLineup) {
   const players = [];
@@ -326,7 +326,7 @@ async function extractLineupAnalysis(filePath, homeTeamName = null, preParsedLin
 // to flatten each team's block into one continuous string and match
 // rows with a global regex instead of depending on line boundaries.
 const ROTATION_ROW_GLOBAL_REGEX = new RegExp(
-  '((?:\\d{1,2}-\\s*[A-Za-z]+(?:\\s?[A-Za-z])?/\\s*){5})' + // exactly 5 player segments
+  '((?:\\d{1,2}-\\s*[A-Za-z-]+(?:\\s?[A-Za-z])?/\\s*){5})' + // exactly 5 player segments
     '(\\d)\\s+(\\d{1,2}:\\d{2})\\s+' + // quarter on, time on
     '(\\d)\\s+(\\d{1,2}:\\d{2})\\s+' + // quarter off, time off
     '(\\d{1,2}:\\d{2})\\s+' + // time on court
