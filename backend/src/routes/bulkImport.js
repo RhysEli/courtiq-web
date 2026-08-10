@@ -89,42 +89,47 @@ router.post(
         const homeTeamId = gameInfo.homeTeam;
         const awayTeamId = gameInfo.awayTeam;
 
-        db.prepare('INSERT OR IGNORE INTO teams (id, name) VALUES (?, ?)').run(homeTeamId, homeTeamId);
-        db.prepare('INSERT OR IGNORE INTO teams (id, name) VALUES (?, ?)').run(awayTeamId, awayTeamId);
+        await db.prepare('INSERT OR IGNORE INTO teams (id, name) VALUES (?, ?)').run(homeTeamId, homeTeamId);
+        await db.prepare('INSERT OR IGNORE INTO teams (id, name) VALUES (?, ?)').run(awayTeamId, awayTeamId);
         if (seasonId) {
-          db.prepare('INSERT OR IGNORE INTO seasons (id, name) VALUES (?, ?)').run(seasonId, seasonId);
+          await db.prepare('INSERT OR IGNORE INTO seasons (id, name) VALUES (?, ?)').run(seasonId, seasonId);
         }
 
-        let game = db.prepare(`
+        let game = await db.prepare(`
           SELECT * FROM games WHERE home_team_id = ? AND opponent_team_id = ? AND game_date = ?
         `).get(homeTeamId, awayTeamId, gameInfo.matchDate);
 
         let created = false;
         if (!game) {
-          const insertGame = db.prepare(`
+          const insertGame = await db.prepare(`
             INSERT INTO games (season_id, league_id, home_team_id, opponent_team_id, game_date, created_by, status)
             VALUES (?, ?, ?, ?, ?, ?, 'extracted')
+            RETURNING id
           `).run(seasonId || null, leagueId || null, homeTeamId, awayTeamId, gameInfo.matchDate, req.user.id);
-          game = db.prepare('SELECT * FROM games WHERE id = ?').get(insertGame.lastInsertRowid);
+          game = await db.prepare('SELECT * FROM games WHERE id = ?').get(insertGame.lastInsertRowid);
           created = true;
         }
 
-        const insertReport = db.prepare(`
+        const insertReport = await db.prepare(`
           INSERT INTO reports (game_id, report_type, original_filename, storage_path, uploaded_by, extraction_status)
           VALUES (?, 'Box Score', ?, ?, ?, 'extracted')
+          RETURNING id
         `).run(game.id, file.originalname, file.path, req.user.id);
 
-        db.prepare('DELETE FROM player_game_stats WHERE game_id = ?').run(game.id);
-        players.forEach((p) => {
-          insertStatStmt.run(
+        await db.prepare('DELETE FROM player_game_stats WHERE game_id = ?').run(game.id);
+        for (const p of players) {
+          await insertStatStmt.run(
             game.id, p.player_name, p.team_side, p.minutes, p.points, p.fgm, p.fga,
             p.three_pm, p.three_pa, p.ftm, p.fta, p.oreb, p.dreb, p.reb,
             p.assists, p.steals, p.blocks, p.turnovers, p.fouls, p.plus_minus,
             JSON.stringify(p),
           );
-        });
+        }
 
-        persistAdditionalReports(game.id, entry.additionalReports);
+        // Replaces entry.additionalReports (previously the raw per-extractor
+        // output) with the persistence summary -- {status, rows} per report
+        // type -- which is the shape the frontend has always expected.
+        entry.additionalReports = await persistAdditionalReports(game.id, entry.additionalReports);
 
         entry.status = created ? 'game_created' : 'game_matched';
         entry.gameId = game.id;
