@@ -76,10 +76,12 @@ function BulkImport({ selectedTeam, onTeamChange, role, selectedSeason, logout }
     const incoming = Array.from(fileList);
     setStaged((prev) => {
       const existingKeys = new Set(prev.map((s) => s.key));
-      const alreadyDoneKeys = new Set(outcomes.map((o) => o.fileKey));
+      // No longer filtered against `outcomes` -- a file that already has a
+      // result showing can still be re-added and re-run (e.g. after a bug
+      // fix, or to pick up new stats), without clearing Results first.
       const additions = incoming
         .map((file) => ({ key: fileKey(file), file }))
-        .filter((s) => !existingKeys.has(s.key) && !alreadyDoneKeys.has(s.key));
+        .filter((s) => !existingKeys.has(s.key));
       return [...prev, ...additions];
     });
   };
@@ -116,15 +118,15 @@ function BulkImport({ selectedTeam, onTeamChange, role, selectedSeason, logout }
       try {
         const { summary: importSummary, results } = await backendApi.bulkImport([item.file]);
         const reconciled = await reconcileBulkImportResults(results);
-        const [outcome] = reconciled;
-        setOutcomes((prev) => [{ ...outcome, fileKey: item.key }, ...prev]);
+        const outcome = { ...reconciled[0], fileKey: item.key };
+        setOutcomes((prev) => [outcome, ...prev.filter((o) => o.fileKey !== item.key)]);
         created += importSummary.gamesCreated;
         matched += importSummary.gamesMatched;
         failed += importSummary.failed;
       } catch (err) {
         setOutcomes((prev) => [
           { filename: item.file.name, fileKey: item.key, status: 'failed', error: err.message || 'Import failed.' },
-          ...prev,
+          ...prev.filter((o) => o.fileKey !== item.key),
         ]);
         failed += 1;
       }
