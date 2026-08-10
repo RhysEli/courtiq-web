@@ -641,7 +641,7 @@ async function extractPlayByPlay(filePath, _homeTeamName = null, preParsedLines 
       idx = skipHeaderBlocks(lines, idx);
       continue;
     }
-    if (line === 'Game Time USIU Score Diff CNS') { idx += 1; continue; }
+    if (line === `Game Time ${teamCodes[0]} Score Diff ${teamCodes[1]}`) { idx += 1; continue; }
 
     if (line.startsWith('Quarter Starters:')) { idx += 1; continue; }
 
