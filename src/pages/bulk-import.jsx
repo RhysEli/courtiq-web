@@ -251,7 +251,18 @@ function BulkImport({ selectedTeam, onTeamChange, role, selectedSeason, logout }
                               const data = o.additionalReports[key];
                               if (!data) return null;
                               if (data.status === 'failed') {
-                                return <Chip key={key} size="small" variant="outlined" color="error" label={`${label} — failed`} />;
+                                // EXTRACTION_NO_SECTIONS means the section genuinely
+                                // isn't present in this PDF (not a real failure).
+                                const notInThisFile = data.code === 'EXTRACTION_NO_SECTIONS';
+                                return (
+                                  <Chip
+                                    key={key}
+                                    size="small"
+                                    variant="outlined"
+                                    color={notInThisFile ? 'default' : 'error'}
+                                    label={notInThisFile ? `${label} — not in this file` : `${label} — failed`}
+                                  />
+                                );
                               }
                               const n = reportRowCount(data);
                               return (

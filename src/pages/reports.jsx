@@ -4,7 +4,7 @@ import {
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Layout from '../components/layout';
 import { backendApi } from '../api/client';
 import { reconcileBulkImportResults } from '../services/bulkImportBridge';
@@ -58,10 +58,6 @@ function Reports({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const [recent, setRecent] = useState(() => loadPersistedRecent());
   const [notice, setNotice] = useState(null);
 
-  useEffect(() => {
-    persistRecent(recent);
-  }, [recent]);
-
   const handleFileChosen = async (file) => {
     if (!canManage || !file) return;
     setUploading(true);
@@ -69,12 +65,17 @@ function Reports({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
     try {
       const { summary, results } = await backendApi.bulkImport([file]);
       const [reconciled] = await reconcileBulkImportResults(results);
-      setRecent((prev) => [reconciled, ...prev]);
+      const saved = [reconciled, ...loadPersistedRecent()];
+      persistRecent(saved);
+      setRecent(saved);
       if (summary.failed > 0) {
         setNotice({ severity: 'error', text: 'Could not read this report -- see details below.' });
       }
     } catch (err) {
-      setRecent((prev) => [{ filename: file.name, status: 'failed', error: err.message || 'Upload failed.' }, ...prev]);
+      const failedEntry = { filename: file.name, status: 'failed', error: err.message || 'Upload failed.' };
+      const saved = [failedEntry, ...loadPersistedRecent()];
+      persistRecent(saved);
+      setRecent(saved);
       setNotice({ severity: 'error', text: err.message || 'Upload failed.' });
     } finally {
       setUploading(false);
@@ -166,7 +167,21 @@ function Reports({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
                                 const data = o.additionalReports[key];
                                 if (!data) return null;
                                 if (data.status === 'failed') {
-                                  return <Chip key={key} size="small" variant="outlined" color="error" label={`${label} — failed`} />;
+                                  // EXTRACTION_NO_SECTIONS means the section genuinely
+                                  // isn't present in this PDF (e.g. a Box-Score-only
+                                  // export won't have a Play-by-Play section) -- that's
+                                  // expected, not a real failure, so it gets neutral
+                                  // wording instead of an alarming red "failed".
+                                  const notInThisFile = data.code === 'EXTRACTION_NO_SECTIONS';
+                                  return (
+                                    <Chip
+                                      key={key}
+                                      size="small"
+                                      variant="outlined"
+                                      color={notInThisFile ? 'default' : 'error'}
+                                      label={notInThisFile ? `${label} — not in this file` : `${label} — failed`}
+                                    />
+                                  );
                                 }
                                 const n = reportRowCount(data);
                                 return (
