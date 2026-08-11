@@ -87,4 +87,10 @@ export const backendApi = {
   computeMetrics: (gameId) => request(`/analysis/games/${gameId}/compute`, { method: 'POST' }),
   generateNarrative: (gameId) => request(`/analysis/games/${gameId}/narrative`, { method: 'POST' }),
   sendInviteEmail: (payload) => request('/invites/send', { method: 'POST', body: payload }),
+  // NEW: real Opponent Analysis data -- lists every team with real games in
+  // the system (not scoped to "my team"), and per-team season-aggregate
+  // stats (team + per-player averages) computed from actual extracted
+  // player_game_stats rows, no random/placeholder fallbacks.
+  getTeams: () => request('/teams'),
+  getTeamSeasonStats: (teamId) => request(`/teams/${teamId}/season-stats`),
 };
