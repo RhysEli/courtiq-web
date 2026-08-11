@@ -36,11 +36,15 @@ function reportRowCount(data) {
 // the record of what already finished, so a reload doesn't throw away
 // real progress -- only files still queued or mid-upload need to be
 // re-added, not the whole batch.
+// Persisted to localStorage (not sessionStorage) so results are visible
+// from any tab, not just the one that ran the import -- sessionStorage is
+// isolated per tab, which was the actual cause of "my results disappeared"
+// when a new file was added from a different tab than the one used before.
 const PROGRESS_KEY = 'courtiq-bulk-import-progress';
 
 function loadPersistedOutcomes() {
   try {
-    const raw = window.sessionStorage.getItem(PROGRESS_KEY);
+    const raw = window.localStorage.getItem(PROGRESS_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -49,9 +53,9 @@ function loadPersistedOutcomes() {
 
 function persistOutcomes(outcomes) {
   try {
-    window.sessionStorage.setItem(PROGRESS_KEY, JSON.stringify(outcomes));
+    window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(outcomes));
   } catch {
-    /* sessionStorage full or unavailable -- non-fatal, just won't persist */
+    /* localStorage full or unavailable -- non-fatal, just won't persist */
   }
 }
 
