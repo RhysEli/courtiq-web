@@ -52,15 +52,60 @@ function persistRecent(recent) {
   }
 }
 
+// Tracks whether an upload is still running in the background, independent
+// of this component's own mounted lifetime. Plain useState alone can't do
+// this: it resets to false the instant the component remounts (navigating
+// away mid-upload and coming back), which made the "Choose file" button
+// look clickable again even while a previous upload was still in flight --
+// clicking it then started a second, genuinely concurrent upload of the
+// same file, racing the first one and producing what looked like results
+// randomly disappearing or duplicating.
+const UPLOADING_KEY = 'courtiq-reports-uploading';
+const UPLOADING_STALE_MS = 10 * 60 * 1000; // 10 minutes
+
+function getPersistedUploadingFilename() {
+  try {
+    const raw = window.localStorage.getItem(UPLOADING_KEY);
+    if (!raw) return null;
+    const { filename, startedAt } = JSON.parse(raw);
+    if (Date.now() - startedAt > UPLOADING_STALE_MS) {
+      // A page refresh (not just navigation) kills the in-flight request
+      // outright, and with it any chance of the normal `finally` cleanup
+      // running -- this marker would otherwise stay stuck forever. Treat
+      // anything older than a real upload could plausibly still be
+      // running as abandoned.
+      window.localStorage.removeItem(UPLOADING_KEY);
+      return null;
+    }
+    return filename;
+  } catch {
+    return null;
+  }
+}
+
+function setPersistedUploadingFilename(filename) {
+  try {
+    if (filename) {
+      window.localStorage.setItem(UPLOADING_KEY, JSON.stringify({ filename, startedAt: Date.now() }));
+    } else {
+      window.localStorage.removeItem(UPLOADING_KEY);
+    }
+  } catch {
+    /* non-fatal */
+  }
+}
+
 function Reports({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const canManage = role === 'Administrator' || role === 'Statistician' || role === 'Team Manager';
-  const [uploading, setUploading] = useState(false);
+  const [uploadingFilename, setUploadingFilename] = useState(() => getPersistedUploadingFilename());
   const [recent, setRecent] = useState(() => loadPersistedRecent());
   const [notice, setNotice] = useState(null);
+  const uploading = uploadingFilename != null;
 
   const handleFileChosen = async (file) => {
-    if (!canManage || !file) return;
-    setUploading(true);
+    if (!canManage || !file || uploading) return;
+    setPersistedUploadingFilename(file.name);
+    setUploadingFilename(file.name);
     setNotice(null);
     try {
       const { summary, results } = await backendApi.bulkImport([file]);
@@ -78,7 +123,8 @@ function Reports({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
       setRecent(saved);
       setNotice({ severity: 'error', text: err.message || 'Upload failed.' });
     } finally {
-      setUploading(false);
+      setPersistedUploadingFilename(null);
+      setUploadingFilename(null);
     }
   };
 
@@ -110,7 +156,7 @@ function Reports({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
                   disabled={!canManage || uploading}
                   startIcon={uploading ? <CircularProgress size={16} color="inherit" /> : undefined}
                 >
-                  {uploading ? 'Uploading…' : 'Choose file'}
+                  {uploading ? `Uploading ${uploadingFilename}…` : 'Choose file'}
                   <input
                     type="file"
                     accept="application/pdf"
