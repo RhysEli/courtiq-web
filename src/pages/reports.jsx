@@ -4,7 +4,7 @@ import {
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Layout from '../components/layout';
 import { backendApi } from '../api/client';
 import { reconcileBulkImportResults } from '../services/bulkImportBridge';
@@ -30,11 +30,37 @@ function reportRowCount(data) {
   return data.rows.playerRows ?? data.rows.teamRows ?? null;
 }
 
+// Persisted to localStorage (shared across tabs, survives this component
+// unmounting on route navigation) -- same fix already applied to
+// bulk-import.jsx for the same underlying problem.
+const RECENT_KEY = 'courtiq-reports-recent';
+
+function loadPersistedRecent() {
+  try {
+    const raw = window.localStorage.getItem(RECENT_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistRecent(recent) {
+  try {
+    window.localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+  } catch {
+    /* localStorage full or unavailable -- non-fatal, just won't persist */
+  }
+}
+
 function Reports({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const canManage = role === 'Administrator' || role === 'Statistician' || role === 'Team Manager';
   const [uploading, setUploading] = useState(false);
-  const [recent, setRecent] = useState([]);
+  const [recent, setRecent] = useState(() => loadPersistedRecent());
   const [notice, setNotice] = useState(null);
+
+  useEffect(() => {
+    persistRecent(recent);
+  }, [recent]);
 
   const handleFileChosen = async (file) => {
     if (!canManage || !file) return;
@@ -110,7 +136,7 @@ function Reports({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={2}>Recent uploads</Typography>
               {recent.length === 0 ? (
-                <Typography color="text.secondary">Nothing uploaded yet this session.</Typography>
+                <Typography color="text.secondary">Nothing uploaded yet.</Typography>
               ) : (
                 <Stack spacing={2}>
                   {recent.map((o, i) => (
