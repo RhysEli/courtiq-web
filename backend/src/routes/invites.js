@@ -92,7 +92,7 @@ router.post('/send', requireAuth, requireRole(...ROLES_THAT_CAN_INVITE), async (
 router.get('/', requireAuth, requireRole(...ROLES_THAT_CAN_INVITE), async (req, res) => {
   try {
     const invites = await db.prepare(`
-      SELECT inv.id, inv.email, inv.role, inv.status, inv.created_at, inv.expires_at,
+      SELECT inv.id, inv.email, inv.role, inv.status, inv.created_at, inv.expires_at, inv.token,
              t.name AS team_name, i.name AS institution_name
       FROM invites inv
       LEFT JOIN teams t ON t.id = inv.team_id
