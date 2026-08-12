@@ -74,7 +74,15 @@ async function exec(sql) {
 }
 
 async function migrate() {
-  const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
+  let schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
+  // Strip a leading UTF-8 BOM if present -- Postgres fails with
+  // "syntax error at or near ..." (the BOM character) if the SQL text
+  // starts with one. Easy to introduce by accident (some Windows editors
+  // default to "UTF-8 with BOM"), so this is defensive regardless of how
+  // the file was last saved.
+  if (schema.charCodeAt(0) === 0xFEFF) {
+    schema = schema.slice(1);
+  }
   await exec(schema);
 }
 
