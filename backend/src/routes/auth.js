@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { verifyPassword } = require('../utils/passwords');
-const { signToken } = require('../middleware/auth');
+const { signToken, getUserTeams } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -16,10 +16,12 @@ router.post('/login', async (req, res) => {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
 
-  const token = signToken(user);
+  const teams = await getUserTeams(user);
+  const teamIds = teams.map((t) => t.id);
+  const token = signToken(user, teamIds);
   res.json({
     token,
-    user: { id: user.id, name: user.name, email: user.email, role: user.role, teamId: user.team_id },
+    user: { id: user.id, name: user.name, email: user.email, role: user.role, teams },
   });
 });
 

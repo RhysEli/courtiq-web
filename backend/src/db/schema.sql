@@ -1,4 +1,4 @@
--- CourtIQ schema -- PostgreSQL (Supabase), per the project proposal's
+﻿-- CourtIQ schema -- PostgreSQL (Supabase), per the project proposal's
 -- Table 6/7 tech stack. Converted from the original SQLite-compatible
 -- version: INTEGER PRIMARY KEY AUTOINCREMENT -> SERIAL PRIMARY KEY,
 -- datetime('now') -> NOW() (returns a real timestamptz, not a string --
@@ -38,12 +38,33 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS players (
+-- A user can belong to more than one team (e.g. a Statistician covering
+-- both the Men's and Women's side of one institution). users.team_id above
+-- is kept for backward compatibility but is no longer the source of truth
+-- for access -- user_teams is. See the backfill insert below.
+CREATE TABLE IF NOT EXISTS user_teams (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, team_id)
+);
+
+-- Idempotent: only inserts rows that don't already exist, so this is safe
+-- to leave running on every startup (schema.sql runs in full each time).
+INSERT INTO user_teams (user_id, team_id)
+SELECT id, team_id FROM users WHERE team_id IS NOT NULL
+ON CONFLICT (user_id, team_id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS invites (
   id SERIAL PRIMARY KEY,
+  email TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('Administrator','Statistician','Coach','Athlete','Team Manager')),
   team_id TEXT REFERENCES teams(id),
-  full_name TEXT NOT NULL,
-  jersey_number INTEGER,
-  position TEXT
+  token TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','revoked','expired')),
+  invited_by INTEGER REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  accepted_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS leagues (

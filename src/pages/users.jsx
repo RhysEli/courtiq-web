@@ -1,19 +1,39 @@
 import { Alert, Box, Button, Card, CardContent, Chip, Grid, MenuItem, Snackbar, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/layout';
-import { createInvite, getAccessRequests, resetPassword, updateInviteStatus, updateUserInstitution, updateUserRole, updateUserStatus, updateUserTeam } from '../services/accountService';
+import { getAccessRequests, resetPassword, updateUserInstitution, updateUserRole, updateUserStatus, updateUserTeam } from '../services/accountService';
 import { backendApi } from '../api/client';
 
-function Users({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
+function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState('All');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('Coach');
   const [inviteStatus, setInviteStatus] = useState({ open: false, message: '', severity: 'success' });
   const [sendingInvite, setSendingInvite] = useState(false);
-  const [inviteInstitution, setInviteInstitution] = useState('USIU');
-  const [inviteTeam, setInviteTeam] = useState('USIU Tigers Men');
+  const [inviteTeamId, setInviteTeamId] = useState('');
   const [refreshToken, setRefreshToken] = useState(0);
+
+  // Real teams (for the invite form's team picker) and real pending
+  // invites -- both from the actual database now, not localStorage.
+  const [teams, setTeams] = useState([]);
+  const [invites, setInvites] = useState([]);
+  const [invitesLoading, setInvitesLoading] = useState(true);
+
+  useEffect(() => {
+    backendApi.getTeams().then((rows) => {
+      setTeams(rows);
+      if (rows.length > 0 && !inviteTeamId) setInviteTeamId(rows[0].id);
+    }).catch(() => setTeams([]));
+  }, []);
+
+  useEffect(() => {
+    setInvitesLoading(true);
+    backendApi.listInvites()
+      .then((rows) => setInvites(rows))
+      .catch(() => setInvites([]))
+      .finally(() => setInvitesLoading(false));
+  }, [refreshToken]);
 
   const users = useMemo(() => {
     const storedUsers = JSON.parse(window.localStorage.getItem('courtiq-users') || '[]');
@@ -25,29 +45,27 @@ function Users({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
     });
   }, [search, filterRole, refreshToken]);
 
-  const invites = useMemo(() => JSON.parse(window.localStorage.getItem('courtiq-invites') || '[]'), [refreshToken]);
   const requests = useMemo(() => JSON.parse(window.localStorage.getItem('courtiq-access-requests') || '[]'), [refreshToken]);
 
   const createInviteCode = async () => {
-    const invite = createInvite({ email: inviteEmail, institution: inviteInstitution, team: inviteTeam, role: inviteRole, status: 'pending' });
-    setRefreshToken((prev) => prev + 1);
-
+    if (!inviteEmail || !inviteTeamId) return;
     setSendingInvite(true);
     try {
-      await backendApi.sendInviteEmail({
-        toEmail: invite.email,
-        inviteCode: invite.code,
-        role: invite.role,
-        institution: invite.institution,
-        team: invite.team,
+      const result = await backendApi.sendInviteEmail({
+        toEmail: inviteEmail,
+        role: inviteRole,
+        teamId: inviteTeamId,
         appUrl: window.location.origin,
       });
-      setInviteStatus({ open: true, message: `Invite email sent to ${invite.email} (code ${invite.code}).`, severity: 'success' });
+      if (result.emailSent) {
+        setInviteStatus({ open: true, message: `Invite email sent to ${inviteEmail}.`, severity: 'success' });
+      } else {
+        setInviteStatus({ open: true, message: `Invite created, but the email failed to send: ${result.emailError}. The invite link below still works if shared manually.`, severity: 'warning' });
+      }
       setInviteEmail('');
+      setRefreshToken((prev) => prev + 1);
     } catch (err) {
-      // The invite code still exists in the table below even if the email failed to send —
-      // it can be copied and shared manually as a fallback.
-      setInviteStatus({ open: true, message: `Invite created (code ${invite.code}), but the email failed to send: ${err.message}`, severity: 'warning' });
+      setInviteStatus({ open: true, message: `Could not create invite: ${err.message}`, severity: 'error' });
     } finally {
       setSendingInvite(false);
     }
@@ -78,13 +96,17 @@ function Users({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
     setRefreshToken((prev) => prev + 1);
   };
 
-  const revokeInvite = (inviteId) => {
-    updateInviteStatus(inviteId, 'revoked');
-    setRefreshToken((prev) => prev + 1);
+  const revokeInvite = async (token) => {
+    try {
+      await backendApi.revokeInvite(token);
+      setRefreshToken((prev) => prev + 1);
+    } catch (err) {
+      setInviteStatus({ open: true, message: `Could not revoke invite: ${err.message}`, severity: 'error' });
+    }
   };
 
   return (
-    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
+    <Layout selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Card>
           <CardContent>
@@ -113,10 +135,18 @@ function Users({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
                 <MenuItem value="Team Manager">Team Manager</MenuItem>
                 <MenuItem value="Athlete">Athlete</MenuItem>
               </TextField></Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="Institution" value={inviteInstitution} onChange={(event) => setInviteInstitution(event.target.value)} /></Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth label="Team" value={inviteTeam} onChange={(event) => setInviteTeam(event.target.value)} /></Grid>
+              <Grid item xs={12} md={6}>
+                <TextField select fullWidth label="Team" value={inviteTeamId} onChange={(event) => setInviteTeamId(event.target.value)} disabled={teams.length === 0}>
+                  {teams.length === 0 && <MenuItem value="" disabled>No teams found yet</MenuItem>}
+                  {teams.map((t) => (
+                    <MenuItem key={t.id} value={t.id}>
+                      {t.institution_name ? `${t.institution_name} — ` : ''}{t.name}{t.gender_category ? ` (${t.gender_category})` : ''}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
             </Grid>
-            <Button variant="contained" sx={{ mt: 2 }} onClick={createInviteCode} disabled={sendingInvite || !inviteEmail}>
+            <Button variant="contained" sx={{ mt: 2 }} onClick={createInviteCode} disabled={sendingInvite || !inviteEmail || !inviteTeamId}>
               {sendingInvite ? 'Sending invite email…' : 'Create invite & send email'}
             </Button>
           </CardContent>
@@ -173,16 +203,21 @@ function Users({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
           <CardContent>
             <Typography variant="h6" fontWeight={700}>Pending invitations</Typography>
             <Stack spacing={1.5} sx={{ mt: 2 }}>
+              {invitesLoading && <Typography color="text.secondary">Loading…</Typography>}
+              {!invitesLoading && invites.filter((invite) => invite.status === 'pending').length === 0 && (
+                <Typography color="text.secondary">No pending invitations.</Typography>
+              )}
               {invites.filter((invite) => invite.status === 'pending').map((invite) => (
                 <Box key={invite.id} sx={{ p: 1.5, borderRadius: 2, bgcolor: 'action.hover', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Box>
                     <Typography fontWeight={600}>{invite.email}</Typography>
-                    <Typography variant="body2" color="text.secondary">{invite.code} • {invite.role} • {invite.institution}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {invite.role}{invite.team_name ? ` • ${invite.team_name}` : ''}{invite.institution_name ? ` • ${invite.institution_name}` : ''}
+                    </Typography>
                   </Box>
                   <Stack direction="row" spacing={1}>
-                    <Button size="small" variant="outlined" onClick={() => navigator.clipboard?.writeText(invite.code)}>Copy code</Button>
-                    <Button size="small" variant="outlined" onClick={() => navigator.clipboard?.writeText(`https://courtiq.app/invite/${invite.code}`)}>Copy link</Button>
-                    <Button size="small" variant="outlined" onClick={() => revokeInvite(invite.id)}>Revoke</Button>
+                    <Button size="small" variant="outlined" onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/accept-invite/${invite.token}`)}>Copy link</Button>
+                    <Button size="small" variant="outlined" onClick={() => revokeInvite(invite.token)}>Revoke</Button>
                   </Stack>
                 </Box>
               ))}

@@ -9,6 +9,7 @@ const reportRoutes = require('./routes/reports');
 const analysisRoutes = require('./routes/analysis');
 const bulkImportRoutes = require('./routes/bulkImport');
 const teamRoutes = require('./routes/teams');
+const inviteRoutes = require('./routes/invites');
 
 const app = express();
 app.use(cors());
@@ -22,6 +23,7 @@ app.use('/api', reportRoutes);       // /api/games/:gameId/reports
 app.use('/api/analysis', analysisRoutes);
 app.use('/api', bulkImportRoutes);
 app.use('/api/teams', teamRoutes);
+app.use('/api/invites', inviteRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {

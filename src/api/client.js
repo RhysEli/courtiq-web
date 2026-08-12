@@ -87,6 +87,22 @@ export const backendApi = {
   computeMetrics: (gameId) => request(`/analysis/games/${gameId}/compute`, { method: 'POST' }),
   generateNarrative: (gameId) => request(`/analysis/games/${gameId}/narrative`, { method: 'POST' }),
   sendInviteEmail: (payload) => request('/invites/send', { method: 'POST', body: payload }),
+  listInvites: () => request('/invites'),
+  revokeInvite: (token) => request(`/invites/${token}/revoke`, { method: 'POST' }),
+  // Public endpoints -- the invited person isn't logged in yet, so these
+  // don't go through the normal authenticated request() flow.
+  getInvite: (token) => fetch(`${BASE_URL}/invites/${token}`).then((r) => {
+    if (!r.ok) return r.json().then((body) => { throw new Error(body.error || 'Invite not found'); });
+    return r.json();
+  }),
+  acceptInvite: (token, payload) => fetch(`${BASE_URL}/invites/${token}/accept`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }).then((r) => {
+    if (!r.ok) return r.json().then((body) => { throw new Error(body.error || 'Could not accept invite'); });
+    return r.json();
+  }),
   // NEW: real Opponent Analysis data -- lists every team with real games in
   // the system (not scoped to "my team"), and per-team season-aggregate
   // stats (team + per-player averages) computed from actual extracted
