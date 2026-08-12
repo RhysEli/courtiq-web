@@ -1,37 +1,39 @@
-const nodemailer = require('nodemailer');
-
-// Real email delivery via Gmail SMTP. Requires two env vars on Render
+// Real email delivery via Resend's HTTP API. Requires two env vars on Render
 // (Settings -> Environment, on the courtiq-web/backend service):
-//   GMAIL_USER            e.g. yourteam@gmail.com
-//   GMAIL_APP_PASSWORD    a 16-character Google App Password, NOT the
-//                          normal account password -- generate one at
-//                          https://myaccount.google.com/apppasswords
-//                          (requires 2-Step Verification enabled first)
+//   RESEND_API_KEY   from https://resend.com/api-keys
+//   MAIL_FROM        e.g. "CourtIQ <onboarding@resend.dev>" for the test
+//                     domain, or "CourtIQ <you@yourdomain.com>" once you
+//                     verify a real domain in Resend
 //
-// Gmail's free sending limit is ~500 emails/day, which is far more than
-// this app needs for invite emails.
-let transporter = null;
+// Uses HTTPS, not SMTP, so it works on Render's free tier (which blocks
+// outbound SMTP ports 25/465/587).
 
-function getTransporter() {
-  if (transporter) return transporter;
-  const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
-  if (!user || !pass) {
-    const err = new Error('Email is not configured: set GMAIL_USER and GMAIL_APP_PASSWORD env vars.');
+async function sendMail({ to, subject, html, text }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.MAIL_FROM;
+  if (!apiKey || !from) {
+    const err = new Error('Email is not configured: set RESEND_API_KEY and MAIL_FROM env vars.');
     err.code = 'MAILER_NOT_CONFIGURED';
     throw err;
   }
-  transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user, pass },
-  });
-  return transporter;
-}
 
-async function sendMail({ to, subject, html, text }) {
-  const t = getTransporter();
-  const from = process.env.GMAIL_USER;
-  return t.sendMail({ from: `CourtIQ <${from}>`, to, subject, html, text });
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ from, to, subject, html, text }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    const err = new Error(`Resend send failed (${res.status}): ${body}`);
+    err.code = 'MAILER_SEND_FAILED';
+    throw err;
+  }
+
+  return res.json();
 }
 
 module.exports = { sendMail };
