@@ -19,11 +19,11 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/games', gameRoutes);
-app.use('/api', reportRoutes);       // /api/games/:gameId/reports
 app.use('/api/analysis', analysisRoutes);
-app.use('/api', bulkImportRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/invites', inviteRoutes);
+app.use('/api', reportRoutes);       // /api/games/:gameId/reports
+app.use('/api', bulkImportRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
