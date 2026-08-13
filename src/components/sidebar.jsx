@@ -30,8 +30,15 @@ const navItems = [
   { label: 'Games', path: '/games', icon: SportsBasketballRoundedIcon },
   { label: 'Statistics', path: '/statistics', icon: BarChartRoundedIcon },
   { label: 'AI Analysis', path: '/analysis', icon: AutoAwesomeRoundedIcon },
-  { label: 'Analysis Import', path: '/analysis-import', icon: ArticleRoundedIcon },
-  { label: 'Bulk Import', path: '/bulk-import', icon: ArticleRoundedIcon },
+  // 'Analysis Import' intentionally removed from nav ahead of the
+  // presentation -- most report types on that page are simulated
+  // placeholder data (only Box Score has a real backend pipeline, via
+  // realAnalysisBridge.js), and Bulk Import already covers everything it
+  // does plus 6 more real report types. Route/page code is untouched in
+  // App.jsx and roleAccess.js has the same path removed, so direct URL
+  // access is blocked too -- not just hidden. Trivially reversible after
+  // the presentation if there's a reason to bring it back.
+  { label: 'Upload Reports', path: '/bulk-import', icon: ArticleRoundedIcon },
   { label: 'Opponent Analysis', path: '/opponent-analysis', icon: BarChartRoundedIcon },
   { label: 'Users', path: '/users', icon: ManageAccountsRoundedIcon },
   { label: 'Institutions', path: '/institutions', icon: BusinessRoundedIcon },
