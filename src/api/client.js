@@ -155,5 +155,5 @@ export const backendApi = {
   // FR-11: real season CRUD against the `seasons` table (backend/src/routes/seasons.js).
   getSeasons: () => request('/seasons'),
   createSeason: (data) => request('/seasons', { method: 'POST', body: data }),
-  deleteSeason: (id) => request(`/seasons/${id}`, { method: 'DELETE' }),
+  deleteSeason: (id) => request(`/seasons/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
