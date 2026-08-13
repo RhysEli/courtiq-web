@@ -13,7 +13,12 @@ const REPORT_TYPES = [
 
 // Create a game record (Statistician/Team Manager, per proposal's RBAC design — FR-11 gives Team Manager season/competition administration).
 router.post('/', requireRole('Administrator', 'Statistician', 'Team Manager'), async (req, res) => {
-  const { seasonId, leagueId, homeTeamId, opponentTeamName, gameDate, venue } = req.body;
+  const { seasonId, leagueId, homeTeamId, gameDate, venue } = req.body;
+  // Accept either field name: opponentTeamName (typed freely on the Games
+  // page) or the older opponentTeamId (still sent by
+  // src/services/realAnalysisBridge.js, used by the Analysis Import tab's
+  // real Box Score path). Both are just team-name strings under the hood.
+  const opponentTeamName = req.body.opponentTeamName || req.body.opponentTeamId;
   if (!homeTeamId || !opponentTeamName?.trim() || !gameDate) {
     return res.status(400).json({ error: 'homeTeamId, opponentTeamName, gameDate are required' });
   }
