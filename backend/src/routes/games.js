@@ -13,10 +13,18 @@ const REPORT_TYPES = [
 
 // Create a game record (Statistician/Team Manager, per proposal's RBAC design — FR-11 gives Team Manager season/competition administration).
 router.post('/', requireRole('Administrator', 'Statistician', 'Team Manager'), async (req, res) => {
-  const { seasonId, leagueId, homeTeamId, opponentTeamId, gameDate, venue } = req.body;
-  if (!homeTeamId || !opponentTeamId || !gameDate) {
-    return res.status(400).json({ error: 'homeTeamId, opponentTeamId, gameDate are required' });
+  const { seasonId, leagueId, homeTeamId, opponentTeamName, gameDate, venue } = req.body;
+  if (!homeTeamId || !opponentTeamName?.trim() || !gameDate) {
+    return res.status(400).json({ error: 'homeTeamId, opponentTeamName, gameDate are required' });
   }
+  // Opponents are frequently teams you don't otherwise track full stats
+  // for -- you're recording the game for your own team's comparison, not
+  // building out their roster. Same find-or-create-by-name convention
+  // Bulk Import already uses when it reads a team name off a PDF, so a
+  // manually-typed opponent and a PDF-detected one land in the same row.
+  const opponentTeamId = opponentTeamName.trim();
+  await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(opponentTeamId, opponentTeamId);
+
   const result = await db.prepare(`
     INSERT INTO games (season_id, league_id, home_team_id, opponent_team_id, game_date, venue, created_by)
     VALUES (?, ?, ?, ?, ?, ?, ?)

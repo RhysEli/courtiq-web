@@ -1,4 +1,4 @@
-import { Box, Grid, Card, CardContent, Typography, Button, Chip, Stack, Divider, List, ListItem, ListItemText, TextField, MenuItem, Alert, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress } from '@mui/material';
+import { Box, Grid, Card, CardContent, Typography, Button, Chip, Stack, Divider, List, ListItem, ListItemText, TextField, MenuItem, Alert, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress, Autocomplete } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/layout';
@@ -31,7 +31,7 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
   const [realGames, setRealGames] = useState([]);
   const [realGamesLoading, setRealGamesLoading] = useState(true);
   const [realGamesError, setRealGamesError] = useState('');
-  const [newGame, setNewGame] = useState({ homeTeamId: '', opponentTeamId: '', gameDate: '', venue: '' });
+  const [newGame, setNewGame] = useState({ homeTeamId: '', opponentTeamName: '', gameDate: '', venue: '' });
   const [creatingGame, setCreatingGame] = useState(false);
   const [createGameError, setCreateGameError] = useState('');
 
@@ -51,12 +51,12 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
   const teamName = (id) => realTeams.find((t) => t.id === id)?.name || id;
 
   const handleCreateRealGame = async () => {
-    if (!newGame.homeTeamId || !newGame.opponentTeamId || !newGame.gameDate) return;
+    if (!newGame.homeTeamId || !newGame.opponentTeamName.trim() || !newGame.gameDate) return;
     setCreatingGame(true);
     setCreateGameError('');
     try {
       await backendApi.createGame(newGame);
-      setNewGame({ homeTeamId: '', opponentTeamId: '', gameDate: '', venue: '' });
+      setNewGame({ homeTeamId: '', opponentTeamName: '', gameDate: '', venue: '' });
       loadRealGames();
     } catch (err) {
       setCreateGameError(err.message || 'Could not create game.');
@@ -214,10 +214,13 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
                 </TextField>
               </Grid>
               <Grid item xs={12} sm={3}>
-                <TextField select fullWidth label="Opponent" value={newGame.opponentTeamId}
-                  onChange={(e) => setNewGame({ ...newGame, opponentTeamId: e.target.value })}>
-                  {realTeams.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
-                </TextField>
+                <Autocomplete
+                  freeSolo
+                  options={realTeams.map((t) => t.name)}
+                  inputValue={newGame.opponentTeamName}
+                  onInputChange={(e, value) => setNewGame({ ...newGame, opponentTeamName: value })}
+                  renderInput={(params) => <TextField {...params} label="Opponent (type any name)" />}
+                />
               </Grid>
               <Grid item xs={12} sm={2}>
                 <TextField fullWidth type="date" label="Date" InputLabelProps={{ shrink: true }} value={newGame.gameDate}
