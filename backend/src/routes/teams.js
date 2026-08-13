@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -13,12 +13,60 @@ router.use(requireAuth);
 // team that has played a real, extracted game shows up here, which is
 // what lets Opponent Analysis compare against ANY team with real stats,
 // not just the logged-in user's own team.
+//
+// Includes the FR-11 config columns (coach_name/manager_name/
+// statistician_name/color_primary/color_secondary/logo_url) so
+// Team Management can populate its edit form straight from this list --
+// no separate "get one team" endpoint needed.
 router.get('/', async (req, res) => {
   try {
-    const teams = await db.prepare('SELECT id, name, institution_id, gender_category FROM teams ORDER BY name').all();
+    const teams = await db.prepare(
+      'SELECT id, name, institution_id, gender_category, coach_name, manager_name, statistician_name, color_primary, color_secondary, logo_url FROM teams ORDER BY name',
+    ).all();
     res.json(teams);
   } catch (err) {
     console.error('list teams failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// FR-11: configure an EXISTING team -- coach/manager/statistician
+// assignment, colours, logo. Deliberately no POST here: teams are
+// already correctly created as a side effect of Bulk Import/game
+// creation (INSERT ... ON CONFLICT DO NOTHING, see games.js) --
+// creating a bare team with no games attached would be a different,
+// out-of-scope feature. Partial update: any field omitted from the body
+// keeps its current value rather than being nulled out.
+router.patch('/:teamId', requireRole('Statistician', 'Team Manager'), async (req, res) => {
+  try {
+    const { teamId } = req.params;
+
+    const existing = await db.prepare(
+      'SELECT coach_name, manager_name, statistician_name, color_primary, color_secondary, logo_url FROM teams WHERE id = ?',
+    ).get(teamId);
+    if (!existing) {
+      return res.status(404).json({ error: 'Team not found' });
+    }
+
+    const {
+      coachName = existing.coach_name,
+      managerName = existing.manager_name,
+      statisticianName = existing.statistician_name,
+      colorPrimary = existing.color_primary,
+      colorSecondary = existing.color_secondary,
+      logoUrl = existing.logo_url,
+    } = req.body;
+
+    const team = await db.prepare(`
+      UPDATE teams
+      SET coach_name = ?, manager_name = ?, statistician_name = ?, color_primary = ?, color_secondary = ?, logo_url = ?
+      WHERE id = ?
+      RETURNING id, name, institution_id, gender_category, coach_name, manager_name, statistician_name, color_primary, color_secondary, logo_url
+    `).get(coachName, managerName, statisticianName, colorPrimary, colorSecondary, logoUrl, teamId);
+
+    res.json(team);
+  } catch (err) {
+    console.error('update team failed:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -146,6 +146,8 @@ export const backendApi = {
   // stats (team + per-player averages) computed from actual extracted
   // player_game_stats rows, no random/placeholder fallbacks.
   getTeams: () => request('/teams'),
+  // FR-11: configure an existing team's coach/manager/statistician/colours/logo (backend/src/routes/teams.js).
+  updateTeam: (teamId, data) => request(`/teams/${encodeURIComponent(teamId)}`, { method: 'PATCH', body: data }),
   getTeamSeasonStats: (teamId) => request(`/teams/${teamId}/season-stats`),
   getPlayerDevelopment: (teamId, playerName) => request(`/teams/${teamId}/players/${encodeURIComponent(playerName)}/development`),
   // FR-11: real roster CRUD against the `players` table (backend/src/routes/players.js).

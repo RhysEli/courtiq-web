@@ -98,6 +98,16 @@ CREATE TABLE IF NOT EXISTS games (
 -- table -- this runs every migration but is itself idempotent.
 ALTER TABLE games ADD COLUMN IF NOT EXISTS venue TEXT;
 
+-- FR-11: team configuration (coach/manager/statistician assignment,
+-- colours, logo) needs somewhere real to live -- same idempotent-ALTER
+-- pattern as `venue` above. logo_url is a URL string, not a file upload:
+-- this project has no file storage anywhere, so a URL field is the
+-- honest scope here rather than building an upload pipeline.
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS coach_name TEXT;
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS manager_name TEXT;
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS statistician_name TEXT;
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS logo_url TEXT;
+
 -- One row per uploaded FIBA LiveStats report file for a game.
 CREATE TABLE IF NOT EXISTS reports (
   id SERIAL PRIMARY KEY,

@@ -28,6 +28,7 @@ const navItems = [
   { label: 'Dashboard', path: '/dashboard', icon: DashboardRoundedIcon },
   { label: 'Profile', path: '/profile', icon: AccountCircleRoundedIcon },
   { label: 'Teams', path: '/teams', icon: GroupsRoundedIcon },
+  { label: 'Team Management', path: '/teams-management', icon: GroupsRoundedIcon },
   { label: 'Players', path: '/players', icon: PersonRoundedIcon },
   { label: 'Player Management', path: '/players-management', icon: PersonAddRoundedIcon },
   { label: 'Games', path: '/games', icon: SportsBasketballRoundedIcon },
