@@ -1,8 +1,9 @@
-import { Box, Grid, Card, CardContent, Typography, Button, Chip, Stack, Divider, List, ListItem, ListItemText, TextField, MenuItem, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Grid, Card, CardContent, Typography, Button, Chip, Stack, Divider, List, ListItem, ListItemText, TextField, MenuItem, Alert, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/layout';
 import { archiveMatch, createMatch, deleteMatch, duplicateMatch, getMatches, saveMatchRoster, setLiveMatchState, updateMatch } from '../services/matchService';
+import { backendApi } from '../api/client';
 
 function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const navigate = useNavigate();
@@ -18,6 +19,52 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
   const [notice, setNotice] = useState('');
   const canManage = role === 'Statistician' || role === 'Team Manager';
   const canView = role === 'Statistician' || role === 'Team Manager' || role === 'Coach' || role === 'Athlete';
+
+  // FR-02: real game records, backed by the actual `games` table --
+  // separate from the mock "matches" CRUD below (matchService.js /
+  // localStorage), which has no real backend equivalent for most of its
+  // fields (roster, tip-off time, competition stage, institution). This
+  // section covers what the real backend actually supports: teams,
+  // date, venue, and (once a Score Sheet is uploaded) real outcome.
+  const canCreateRealGame = role === 'Administrator' || role === 'Statistician';
+  const [realTeams, setRealTeams] = useState([]);
+  const [realGames, setRealGames] = useState([]);
+  const [realGamesLoading, setRealGamesLoading] = useState(true);
+  const [realGamesError, setRealGamesError] = useState('');
+  const [newGame, setNewGame] = useState({ homeTeamId: '', opponentTeamId: '', gameDate: '', venue: '' });
+  const [creatingGame, setCreatingGame] = useState(false);
+  const [createGameError, setCreateGameError] = useState('');
+
+  const loadRealGames = () => {
+    setRealGamesLoading(true);
+    backendApi.getGames()
+      .then(setRealGames)
+      .catch((err) => setRealGamesError(err.message || 'Could not load games.'))
+      .finally(() => setRealGamesLoading(false));
+  };
+
+  useEffect(() => {
+    backendApi.getTeams().then(setRealTeams).catch(() => {});
+    loadRealGames();
+  }, []);
+
+  const teamName = (id) => realTeams.find((t) => t.id === id)?.name || id;
+
+  const handleCreateRealGame = async () => {
+    if (!newGame.homeTeamId || !newGame.opponentTeamId || !newGame.gameDate) return;
+    setCreatingGame(true);
+    setCreateGameError('');
+    try {
+      await backendApi.createGame(newGame);
+      setNewGame({ homeTeamId: '', opponentTeamId: '', gameDate: '', venue: '' });
+      loadRealGames();
+    } catch (err) {
+      setCreateGameError(err.message || 'Could not create game.');
+    } finally {
+      setCreatingGame(false);
+    }
+  };
+
 
   useEffect(() => {
     setMatches(getMatches());
@@ -151,6 +198,62 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
 
   return (
     <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" fontWeight={700}>Real game records</Typography>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
+            Backed by the real backend — separate from the scheduling board below.
+          </Typography>
+
+          {canCreateRealGame && (
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={3}>
+                <TextField select fullWidth label="Home team" value={newGame.homeTeamId}
+                  onChange={(e) => setNewGame({ ...newGame, homeTeamId: e.target.value })}>
+                  {realTeams.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <TextField select fullWidth label="Opponent" value={newGame.opponentTeamId}
+                  onChange={(e) => setNewGame({ ...newGame, opponentTeamId: e.target.value })}>
+                  {realTeams.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={2}>
+                <TextField fullWidth type="date" label="Date" InputLabelProps={{ shrink: true }} value={newGame.gameDate}
+                  onChange={(e) => setNewGame({ ...newGame, gameDate: e.target.value })} />
+              </Grid>
+              <Grid item xs={12} sm={2}>
+                <TextField fullWidth label="Venue" value={newGame.venue}
+                  onChange={(e) => setNewGame({ ...newGame, venue: e.target.value })} />
+              </Grid>
+              <Grid item xs={12} sm={2}>
+                <Button fullWidth variant="contained" sx={{ height: '100%' }} disabled={creatingGame} onClick={handleCreateRealGame}>
+                  {creatingGame ? 'Creating…' : 'Create game'}
+                </Button>
+              </Grid>
+              {createGameError && <Grid item xs={12}><Alert severity="error">{createGameError}</Alert></Grid>}
+            </Grid>
+          )}
+
+          {realGamesLoading ? <CircularProgress size={24} /> : realGamesError ? (
+            <Alert severity="error">{realGamesError}</Alert>
+          ) : (
+            <List dense>
+              {realGames.length === 0 && <Typography color="text.secondary">No real game records yet.</Typography>}
+              {realGames.map((g) => (
+                <ListItem key={g.id} divider>
+                  <ListItemText
+                    primary={`${teamName(g.home_team_id)} vs ${teamName(g.opponent_team_id)} — ${g.game_date}${g.venue ? ` @ ${g.venue}` : ''}`}
+                    secondary={g.outcome ? `Final: ${g.outcome.scoreA} - ${g.outcome.scoreB} (winner: ${g.outcome.winningTeam})` : 'Outcome pending — no Score Sheet uploaded yet'}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </CardContent>
+      </Card>
+
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
         <Button variant="contained" onClick={() => { resetForm(); setEditingMatchId(null); setDialogOpen(true); }} disabled={!canManage}>Create Match</Button>
         <Button variant="outlined" disabled title="Live in-game tracking is not built yet">View Live (Coming Soon)</Button>

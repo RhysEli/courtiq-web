@@ -93,6 +93,11 @@ CREATE TABLE IF NOT EXISTS games (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- FR-02: game records should capture a venue. Added as a separate ALTER
+-- since CREATE TABLE IF NOT EXISTS is a no-op on an already-existing
+-- table -- this runs every migration but is itself idempotent.
+ALTER TABLE games ADD COLUMN IF NOT EXISTS venue TEXT;
+
 -- One row per uploaded FIBA LiveStats report file for a game.
 CREATE TABLE IF NOT EXISTS reports (
   id SERIAL PRIMARY KEY,

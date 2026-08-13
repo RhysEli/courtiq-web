@@ -13,15 +13,15 @@ const REPORT_TYPES = [
 
 // Create a game record (Statistician only, per proposal's RBAC design).
 router.post('/', requireRole('Administrator', 'Statistician'), async (req, res) => {
-  const { seasonId, leagueId, homeTeamId, opponentTeamId, gameDate } = req.body;
+  const { seasonId, leagueId, homeTeamId, opponentTeamId, gameDate, venue } = req.body;
   if (!homeTeamId || !opponentTeamId || !gameDate) {
     return res.status(400).json({ error: 'homeTeamId, opponentTeamId, gameDate are required' });
   }
   const result = await db.prepare(`
-    INSERT INTO games (season_id, league_id, home_team_id, opponent_team_id, game_date, created_by)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO games (season_id, league_id, home_team_id, opponent_team_id, game_date, venue, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     RETURNING id
-  `).run(seasonId || null, leagueId || null, homeTeamId, opponentTeamId, gameDate, req.user.id);
+  `).run(seasonId || null, leagueId || null, homeTeamId, opponentTeamId, gameDate, venue || null, req.user.id);
 
   res.status(201).json(await getGameWithReportStatus(result.lastInsertRowid));
 });
@@ -47,7 +47,20 @@ async function getGameWithReportStatus(gameId) {
     uploaded: uploadedTypes.has(type),
     status: uploaded.find((r) => r.report_type === type)?.extraction_status || 'not_uploaded',
   }));
-  return { ...game, reportChecklist };
+  // FR-02's "outcome" field: rather than duplicating a score column on
+  // `games`, this reads the real result from game_score_sheet once a
+  // Score Sheet report has actually been extracted for this game. Until
+  // then, outcome is honestly "pending", not a fabricated value.
+  const scoreSheet = await db.prepare(
+    'SELECT winning_team, final_score_team_a, final_score_team_b FROM game_score_sheet WHERE game_id = ?',
+  ).get(gameId);
+  return {
+    ...game,
+    reportChecklist,
+    outcome: scoreSheet
+      ? { winningTeam: scoreSheet.winning_team, scoreA: scoreSheet.final_score_team_a, scoreB: scoreSheet.final_score_team_b }
+      : null,
+  };
 }
 
 module.exports = router;
