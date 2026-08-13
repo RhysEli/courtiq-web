@@ -1,6 +1,6 @@
 export const roleRouteAccess = {
-  Statistician: ['/dashboard', '/profile', '/statistics', '/player-development', '/institutions', '/teams', '/leagues', '/seasons', '/games', '/reports', '/analysis','/bulk-import', '/opponent-analysis', '/settings', '/account', '/users', '/organizations', '/leagues-management', '/seasons-management', '/teams-management', '/players-management'],
-  'Team Manager': ['/dashboard', '/profile', '/statistics', '/player-development', '/institutions', '/teams', '/leagues', '/seasons', '/games', '/reports', '/analysis', '/opponent-analysis', '/settings', '/account', '/users', '/organizations', '/leagues-management', '/seasons-management', '/teams-management', '/players-management'],
+  Statistician: ['/dashboard', '/profile', '/statistics', '/player-development', '/institutions', '/teams', '/leagues', '/seasons', '/games', '/reports', '/analysis','/bulk-import', '/opponent-analysis', '/settings', '/account', '/users', '/organizations', '/leagues-management', '/seasons-management', '/teams-management', '/players-management', '/audit-log'],
+  'Team Manager': ['/dashboard', '/profile', '/statistics', '/player-development', '/institutions', '/teams', '/leagues', '/seasons', '/games', '/reports', '/analysis', '/opponent-analysis', '/settings', '/account', '/users', '/organizations', '/leagues-management', '/seasons-management', '/teams-management', '/players-management', '/audit-log'],
   Coach: ['/dashboard', '/profile', '/players', '/games', '/statistics', '/player-development', '/analysis', '/opponent-analysis', '/settings', '/account'],
   Athlete: ['/dashboard', '/profile', '/statistics', '/player-development', '/analysis', '/settings', '/account'],
 };

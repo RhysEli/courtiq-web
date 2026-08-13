@@ -24,6 +24,7 @@ import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
+import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 const navItems = [
   { label: 'Dashboard', path: '/dashboard', icon: DashboardRoundedIcon },
   { label: 'Profile', path: '/profile', icon: AccountCircleRoundedIcon },
@@ -52,6 +53,7 @@ const navItems = [
   { label: 'Seasons', path: '/seasons', icon: CalendarMonthRoundedIcon },
   { label: 'Season Management', path: '/seasons-management', icon: CalendarMonthRoundedIcon },
   { label: 'Reports', path: '/reports', icon: ArticleRoundedIcon },
+  { label: 'Audit Log', path: '/audit-log', icon: HistoryRoundedIcon },
   { label: 'Settings', path: '/settings', icon: SettingsRoundedIcon },
 ];
 

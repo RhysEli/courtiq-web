@@ -29,6 +29,7 @@ import LeaguesManagement from './pages/leagues-management';
 import SeasonsManagement from './pages/seasons-management';
 import TeamsManagement from './pages/teams-management';
 import PlayersManagement from './pages/players-management';
+import AuditLog from './pages/audit-log';
 import { isRouteAllowed } from './auth/roleAccess';
 
 const initialInstitutions = [
@@ -160,6 +161,7 @@ function AppRoutes() {
         <Route path="/seasons-management" element={<ProtectedRoute allowedPath="/seasons-management"><SeasonsManagement {...sharedProps} /></ProtectedRoute>} />
         <Route path="/teams-management" element={<ProtectedRoute allowedPath="/teams-management"><TeamsManagement {...sharedProps} /></ProtectedRoute>} />
         <Route path="/players-management" element={<ProtectedRoute allowedPath="/players-management"><PlayersManagement {...sharedProps} /></ProtectedRoute>} />
+        <Route path="/audit-log" element={<ProtectedRoute allowedPath="/audit-log"><AuditLog {...sharedProps} /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

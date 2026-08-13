@@ -3,6 +3,7 @@ const db = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { computeTeamMetrics, computePlayerMetrics, tagInsights } = require('../services/metrics');
 const { generateGameNarrative } = require('../services/narrative');
+const { logAction } = require('../services/auditLog');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -36,6 +37,7 @@ router.post('/games/:gameId/compute', requireRole('Administrator', 'Statistician
     const { gameId } = req.params;
     const playerRows = await db.prepare('SELECT * FROM player_game_stats WHERE game_id = ?').all(gameId);
     if (playerRows.length === 0) {
+      await logAction(req.user.id, 'compute', `Compute metrics: game #${gameId} (no extracted player stats)`, false);
       return res.status(422).json({ error: 'No extracted player stats found for this game. Upload and extract a Box Score first.' });
     }
 
@@ -64,9 +66,11 @@ router.post('/games/:gameId/compute', requireRole('Administrator', 'Statistician
 
     await db.prepare("UPDATE games SET status = 'extracted' WHERE id = ?").run(gameId);
 
+    await logAction(req.user.id, 'compute', `Compute metrics: game #${gameId}`, true);
     res.json({ metrics: metricsPayload, insightTags });
   } catch (err) {
     console.error('compute failed:', err);
+    await logAction(req.user.id, 'compute', `Compute metrics: game #${req.params.gameId} (${err.message})`, false);
     res.status(500).json({ error: `Metric computation failed: ${err.message}` });
   }
 });
@@ -83,6 +87,7 @@ router.post('/games/:gameId/narrative', requireRole('Administrator', 'Statistici
   try {
     const row = await db.prepare('SELECT * FROM game_metrics WHERE game_id = ?').get(gameId);
     if (!row) {
+      await logAction(req.user.id, 'narrative', `Generate narrative: game #${gameId} (metrics not computed yet)`, false);
       return res.status(422).json({ error: 'Metrics have not been computed for this game yet. Call /compute first.' });
     }
     const game = await db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
@@ -110,12 +115,15 @@ router.post('/games/:gameId/narrative', requireRole('Administrator', 'Statistici
     `).run(gameId, text, model);
 
     await db.prepare("UPDATE games SET status = 'analyzed' WHERE id = ?").run(gameId);
+    await logAction(req.user.id, 'narrative', `Generate narrative: game #${gameId} (model ${model})`, true);
     res.json({ narrative: text, model });
   } catch (err) {
     if (err.code === 'MISSING_API_KEY') {
+      await logAction(req.user.id, 'narrative', `Generate narrative: game #${gameId} (missing API key)`, false);
       return res.status(503).json({ error: err.message });
     }
     console.error('narrative generation failed:', err);
+    await logAction(req.user.id, 'narrative', `Generate narrative: game #${gameId} (${err.message})`, false);
     res.status(502).json({ error: `Narrative generation failed: ${err.message}` });
   }
 });

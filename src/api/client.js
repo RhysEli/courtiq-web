@@ -162,4 +162,6 @@ export const backendApi = {
   getLeagues: () => request('/leagues'),
   createLeague: (data) => request('/leagues', { method: 'POST', body: data }),
   deleteLeague: (id) => request(`/leagues/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  // FR-14: real audit trail of upload/compute/narrative actions (backend/src/routes/auditLog.js).
+  getAuditLog: () => request('/audit-log'),
 };

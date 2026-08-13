@@ -275,3 +275,18 @@ CREATE TABLE IF NOT EXISTS annotations (
   body TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- FR-14: "The system shall maintain an audit log recording all data
+-- upload events, metric computation runs, and report generation actions
+-- with timestamps and the identity of the initiating user." Written via
+-- backend/src/services/auditLog.js from bulkImport.js, reports.js, and
+-- analysis.js -- covers both successful and failed attempts, not just
+-- successes (see logAction call sites).
+CREATE TABLE IF NOT EXISTS audit_log (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  action_type TEXT NOT NULL, -- 'upload' | 'compute' | 'narrative'
+  details TEXT, -- short human-readable summary, e.g. filename or game id
+  success BOOLEAN NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);

@@ -14,6 +14,7 @@ const {
 } = require('../services/reportExtractors');
 const { extractScoreSheet } = require('../services/parseScoreSheet');
 const { persistAdditionalReports } = require('../services/persistExtractedReports');
+const { logAction } = require('../services/auditLog');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -74,6 +75,7 @@ router.post(
           entry.error = 'Could not read team names and date from this PDF\'s header. '
             + 'It may not be a FIBA Box Score report, or the header layout is different from what this parser expects.';
           results.push(entry);
+          await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} (unreadable header)`, false);
           continue;
         }
 
@@ -143,11 +145,13 @@ router.post(
         entry.unparsedLineCount = unparsedLineCount;
         entry.reportId = insertReport.lastInsertRowid;
         results.push(entry);
+        await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} -> game #${game.id} (${entry.status})`, true);
       } catch (err) {
         entry.status = 'failed';
         entry.error = err.message;
         entry.code = err.code;
         results.push(entry);
+        await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} (${err.message})`, false);
       }
     }
 

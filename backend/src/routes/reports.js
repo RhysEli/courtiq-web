@@ -5,6 +5,7 @@ const fs = require('fs');
 const db = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { extractBoxScore } = require('../services/pdfExtraction');
+const { logAction } = require('../services/auditLog');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -73,6 +74,7 @@ router.post(
           );
         }
         await db.prepare('UPDATE reports SET extraction_status = ? WHERE id = ?').run('extracted', reportId);
+        await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (${players.length} players extracted)`, true);
         return res.status(201).json({
           reportId,
           extraction: { playersExtracted: players.length, unparsedLineCount },
@@ -83,6 +85,7 @@ router.post(
       } catch (err) {
         await db.prepare('UPDATE reports SET extraction_status = ?, extraction_error = ? WHERE id = ?')
           .run('failed', err.message, reportId);
+        await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (${err.message})`, false);
         return res.status(422).json({
           reportId,
           error: err.message,
@@ -96,6 +99,7 @@ router.post(
     // stored but not yet parsed — extraction for those follows the same
     // pattern as extractBoxScore once you supply real sample PDFs for each.
     await db.prepare('UPDATE reports SET extraction_status = ? WHERE id = ?').run('pending', reportId);
+    await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (stored, not yet parsed)`, true);
     res.status(201).json({
       reportId,
       note: `${reportType} was stored but extraction for this report type is not yet implemented.`,
