@@ -1,9 +1,11 @@
 import {
   Box, Grid, Card, CardContent, Typography, TextField, MenuItem, Table, TableBody,
-  TableCell, TableHead, TableRow, Stack, CircularProgress, Alert,
+  TableCell, TableHead, TableRow, Stack, CircularProgress, Alert, Button,
 } from '@mui/material';
+import DownloadIcon from '@mui/icons-material/Download';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useEffect, useMemo, useState } from 'react';
+import { jsPDF } from 'jspdf';
 import Layout from '../components/layout';
 import { backendApi } from '../api/client';
 
@@ -86,6 +88,63 @@ function Statistics({ mode, toggleTheme, selectedTeam, onTeamChange, role, selec
     { category: 'TOPG', value: team.topg },
   ]), [team]);
 
+  // FR-13: export the currently-displayed real season summary as a PDF.
+  // Built from the same `team`/`players` state rendered on screen -- no
+  // separate fetch, no placeholder values.
+  const exportPdf = () => {
+    const teamName = teams.find((t) => t.id === teamId)?.name || 'Team';
+    const doc = new jsPDF();
+    let y = 18;
+
+    doc.setFontSize(16);
+    doc.text(`CourtIQ Season Summary — ${teamName}`, 14, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.text(`Generated ${new Date().toLocaleString()} • ${team.gamesPlayed} real recorded game(s)`, 14, y);
+    y += 10;
+
+    doc.setFontSize(12);
+    doc.text('Team per-game averages', 14, y);
+    y += 6;
+    doc.setFontSize(10);
+    [
+      ['PPG', team.ppg], ['RPG', team.rpg], ['APG', team.apg],
+      ['SPG', team.spg], ['BPG', team.bpg], ['TOPG', team.topg],
+      ['FG%', `${team.fgPct}%`], ['3P%', `${team.threePct}%`], ['FT%', `${team.ftPct}%`],
+    ].forEach(([label, value]) => {
+      doc.text(`${label}: ${value}`, 14, y);
+      y += 6;
+    });
+
+    y += 4;
+    doc.setFontSize(12);
+    doc.text('Player season averages', 14, y);
+    y += 8;
+    doc.setFontSize(9);
+    doc.text('Player', 14, y);
+    doc.text('GP', 90, y);
+    doc.text('PPG', 110, y);
+    doc.text('RPG', 130, y);
+    doc.text('APG', 150, y);
+    doc.text('FG%', 170, y);
+    y += 5;
+    doc.line(14, y, 196, y);
+    y += 5;
+
+    players.forEach((p) => {
+      if (y > 280) { doc.addPage(); y = 18; }
+      doc.text(String(p.playerName), 14, y);
+      doc.text(String(p.gamesPlayed), 90, y);
+      doc.text(String(p.ppg), 110, y);
+      doc.text(String(p.rpg), 130, y);
+      doc.text(String(p.apg), 150, y);
+      doc.text(`${p.fgPct}%`, 170, y);
+      y += 6;
+    });
+
+    doc.save(`courtiq-season-summary-${teamName.replace(/\s+/g, '-').toLowerCase()}.pdf`);
+  };
+
   return (
     <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -122,9 +181,14 @@ function Statistics({ mode, toggleTheme, selectedTeam, onTeamChange, role, selec
 
         {!statsLoading && !statsError && stats && team.gamesPlayed > 0 && (
           <>
-            <Typography color="text.secondary">
-              Season averages across {team.gamesPlayed} real recorded game{team.gamesPlayed === 1 ? '' : 's'}.
-            </Typography>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+              <Typography color="text.secondary">
+                Season averages across {team.gamesPlayed} real recorded game{team.gamesPlayed === 1 ? '' : 's'}.
+              </Typography>
+              <Button variant="outlined" size="small" startIcon={<DownloadIcon />} onClick={exportPdf}>
+                Download as PDF
+              </Button>
+            </Stack>
 
             <Grid container spacing={3}>
               <Grid item xs={12} lg={7}>
