@@ -9,6 +9,7 @@ import { useThemePreferences } from '../contexts/ThemeContext';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
+import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
 import SportsBasketballRoundedIcon from '@mui/icons-material/SportsBasketballRounded';
 import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
@@ -28,6 +29,7 @@ const navItems = [
   { label: 'Profile', path: '/profile', icon: AccountCircleRoundedIcon },
   { label: 'Teams', path: '/teams', icon: GroupsRoundedIcon },
   { label: 'Players', path: '/players', icon: PersonRoundedIcon },
+  { label: 'Player Management', path: '/players-management', icon: PersonAddRoundedIcon },
   { label: 'Games', path: '/games', icon: SportsBasketballRoundedIcon },
   { label: 'Statistics', path: '/statistics', icon: BarChartRoundedIcon },
   { label: 'Player Development', path: '/player-development', icon: TrendingUpRoundedIcon },
