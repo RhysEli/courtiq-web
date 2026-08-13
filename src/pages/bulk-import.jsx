@@ -42,6 +42,55 @@ function reportRowCount(data) {
 // when a new file was added from a different tab than the one used before.
 const PROGRESS_KEY = 'courtiq-bulk-import-progress';
 
+// Same fix as the Reports page's double-submission bug: `running` and
+// `currentFileName` were plain useState, which resets to nothing on a
+// component remount. Navigating to another sidebar tab mid-upload made
+// the page look idle again, even though the original upload was still
+// genuinely running in the background on the old (now orphaned) component
+// instance -- and worse, when that orphaned upload finished, its
+// setOutcomes(...) call was a no-op (component unmounted), silently
+// losing the result forever. The user's only option was to re-upload,
+// risking a second concurrent request for the same file.
+// Persisting a single "currently importing" marker (only one file is ever
+// mid-upload at a time, since the queue runs sequentially) lets a
+// freshly-mounted component correctly show "still importing X" instead of
+// looking idle. A 10-minute staleness timeout covers a genuine page
+// refresh, which kills the request outright with no code path left to
+// ever clear this marker normally.
+const IN_PROGRESS_KEY = 'courtiq-bulk-import-inprogress';
+const STALE_AFTER_MS = 10 * 60 * 1000;
+
+function loadInProgressMarker() {
+  try {
+    const raw = window.localStorage.getItem(IN_PROGRESS_KEY);
+    if (!raw) return null;
+    const marker = JSON.parse(raw);
+    if (Date.now() - marker.startedAt > STALE_AFTER_MS) {
+      window.localStorage.removeItem(IN_PROGRESS_KEY);
+      return null;
+    }
+    return marker;
+  } catch {
+    return null;
+  }
+}
+
+function setInProgressMarker(filename) {
+  try {
+    window.localStorage.setItem(IN_PROGRESS_KEY, JSON.stringify({ filename, startedAt: Date.now() }));
+  } catch {
+    /* non-fatal */
+  }
+}
+
+function clearInProgressMarker() {
+  try {
+    window.localStorage.removeItem(IN_PROGRESS_KEY);
+  } catch {
+    /* non-fatal */
+  }
+}
+
 function loadPersistedOutcomes() {
   try {
     const raw = window.localStorage.getItem(PROGRESS_KEY);
@@ -67,14 +116,33 @@ function BulkImport({ selectedTeam, onTeamChange, role, selectedSeason, logout }
   // Staged files not yet run: { key, file }. Kept separate from outcomes
   // (completed results) so the two lists can't get confused.
   const [staged, setStaged] = useState([]);
-  const [running, setRunning] = useState(false);
-  const [currentFileName, setCurrentFileName] = useState(null);
+  const [running, setRunning] = useState(() => loadInProgressMarker() !== null);
+  const [currentFileName, setCurrentFileName] = useState(() => loadInProgressMarker()?.filename ?? null);
   const [outcomes, setOutcomes] = useState(() => loadPersistedOutcomes());
   const [notice, setNotice] = useState(null);
 
   useEffect(() => {
     persistOutcomes(outcomes);
   }, [outcomes]);
+
+  // Only relevant right after a remount that inherited an in-progress
+  // marker from a possibly-orphaned upload in a previous component
+  // instance (see IN_PROGRESS_KEY comment above) -- if THIS instance is
+  // the one actually running handleImport, it manages running/
+  // currentFileName directly and this poll is a harmless no-op alongside
+  // it. Stops as soon as the marker is gone (upload finished elsewhere)
+  // or this instance's own handleImport takes over.
+  useEffect(() => {
+    if (!running) return undefined;
+    const interval = setInterval(() => {
+      const marker = loadInProgressMarker();
+      if (!marker) {
+        setRunning(false);
+        setCurrentFileName(null);
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [running]);
 
   const addFiles = (fileList) => {
     const incoming = Array.from(fileList);
@@ -119,6 +187,7 @@ function BulkImport({ selectedTeam, onTeamChange, role, selectedSeason, logout }
 
     for (const item of queue) {
       setCurrentFileName(item.file.name);
+      setInProgressMarker(item.file.name);
       try {
         const { summary: importSummary, results } = await backendApi.bulkImport([item.file]);
         const reconciled = await reconcileBulkImportResults(results);
@@ -139,6 +208,7 @@ function BulkImport({ selectedTeam, onTeamChange, role, selectedSeason, logout }
       setStaged((prev) => prev.filter((s) => s.key !== item.key));
     }
 
+    clearInProgressMarker();
     setCurrentFileName(null);
     setRunning(false);
     setNotice({
