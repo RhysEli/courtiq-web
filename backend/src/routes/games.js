@@ -11,8 +11,8 @@ const REPORT_TYPES = [
   'Shot Charts', 'Score Sheet',
 ];
 
-// Create a game record (Statistician only, per proposal's RBAC design).
-router.post('/', requireRole('Administrator', 'Statistician'), async (req, res) => {
+// Create a game record (Statistician/Team Manager, per proposal's RBAC design — FR-11 gives Team Manager season/competition administration).
+router.post('/', requireRole('Administrator', 'Statistician', 'Team Manager'), async (req, res) => {
   const { seasonId, leagueId, homeTeamId, opponentTeamId, gameDate, venue } = req.body;
   if (!homeTeamId || !opponentTeamId || !gameDate) {
     return res.status(400).json({ error: 'homeTeamId, opponentTeamId, gameDate are required' });

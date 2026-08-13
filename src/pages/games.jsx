@@ -26,7 +26,7 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
   // fields (roster, tip-off time, competition stage, institution). This
   // section covers what the real backend actually supports: teams,
   // date, venue, and (once a Score Sheet is uploaded) real outcome.
-  const canCreateRealGame = role === 'Administrator' || role === 'Statistician';
+  const canCreateRealGame = role === 'Administrator' || role === 'Statistician' || role === 'Team Manager';
   const [realTeams, setRealTeams] = useState([]);
   const [realGames, setRealGames] = useState([]);
   const [realGamesLoading, setRealGamesLoading] = useState(true);
