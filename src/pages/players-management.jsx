@@ -1,17 +1,93 @@
-import { Box, Button, Card, CardContent, Grid, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
-import { useMemo, useState } from 'react';
+import {
+  Alert, Box, Button, Card, CardContent, CircularProgress, Grid, MenuItem, Stack,
+  Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
+} from '@mui/material';
+import { useEffect, useState } from 'react';
 import Layout from '../components/layout';
+import { backendApi } from '../api/client';
+
+// FR-11: real roster assignment against the backend `players` table
+// (backend/src/routes/players.js), replacing the old localStorage-only
+// version of this page (which wrote to 'courtiq-players' and was never
+// read by anything real). The form is limited to the columns that
+// actually exist on `players` -- id, team_id, full_name, jersey_number,
+// position -- rather than carrying over fields (photo, DOB, medical
+// notes, etc.) that have nowhere real to be stored.
 
 function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
-  const [form, setForm] = useState({ name: '', photo: '', dob: '', height: '', weight: '', nationality: '', position: '', jerseyNumber: '', dominantHand: '', status: '', medicalNotes: '', season: '2026/27', team: '' });
-  const [refreshToken, setRefreshToken] = useState(0);
-  const players = useMemo(() => JSON.parse(window.localStorage.getItem('courtiq-players') || '[]'), [refreshToken]);
+  const [teams, setTeams] = useState([]);
+  const [teamsLoading, setTeamsLoading] = useState(true);
+  const [teamsError, setTeamsError] = useState('');
+  const [teamId, setTeamId] = useState('');
 
-  const createPlayer = () => {
-    const nextPlayers = [...players, { id: `player-${Date.now()}`, ...form }];
-    window.localStorage.setItem('courtiq-players', JSON.stringify(nextPlayers));
-    setForm({ name: '', photo: '', dob: '', height: '', weight: '', nationality: '', position: '', jerseyNumber: '', dominantHand: '', status: '', medicalNotes: '', season: '2026/27', team: '' });
-    setRefreshToken((prev) => prev + 1);
+  const [roster, setRoster] = useState([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [rosterError, setRosterError] = useState('');
+
+  const [form, setForm] = useState({ fullName: '', jerseyNumber: '', position: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [removingId, setRemovingId] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setTeamsLoading(true);
+    backendApi.getTeams()
+      .then((data) => {
+        if (cancelled) return;
+        setTeams(data);
+        const guess = data.find((t) => t.name?.toLowerCase().includes(String(selectedTeam || '').toLowerCase().replace(/-/g, ' ')));
+        setTeamId(guess?.id || data[0]?.id || '');
+      })
+      .catch((err) => { if (!cancelled) setTeamsError(err.message || 'Could not load teams.'); })
+      .finally(() => { if (!cancelled) setTeamsLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadRoster = (id) => {
+    if (!id) return;
+    setRosterLoading(true);
+    setRosterError('');
+    backendApi.getTeamPlayers(id)
+      .then(setRoster)
+      .catch((err) => setRosterError(err.message || 'Could not load roster.'))
+      .finally(() => setRosterLoading(false));
+  };
+
+  useEffect(() => {
+    if (teamId) loadRoster(teamId);
+  }, [teamId]);
+
+  const createPlayer = async () => {
+    if (!teamId || !form.fullName.trim()) return;
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      await backendApi.addPlayer(teamId, {
+        fullName: form.fullName.trim(),
+        jerseyNumber: form.jerseyNumber ? Number(form.jerseyNumber) : null,
+        position: form.position || null,
+      });
+      setForm({ fullName: '', jerseyNumber: '', position: '' });
+      loadRoster(teamId);
+    } catch (err) {
+      setSubmitError(err.message || 'Could not add player.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const removePlayer = async (playerId) => {
+    setRemovingId(playerId);
+    try {
+      await backendApi.removePlayer(teamId, playerId);
+      loadRoster(teamId);
+    } catch (err) {
+      setRosterError(err.message || 'Could not remove player.');
+    } finally {
+      setRemovingId(null);
+    }
   };
 
   return (
@@ -21,47 +97,71 @@ function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
           <CardContent>
             <Typography variant="h5" fontWeight={700}>Player management</Typography>
             <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={6}><TextField fullWidth label="Name" value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} /></Grid>
-              <Grid item xs={12} md={6}><TextField fullWidth label="Photo" value={form.photo} onChange={(event) => setForm((prev) => ({ ...prev, photo: event.target.value }))} /></Grid>
-              <Grid item xs={12} md={6}><TextField fullWidth label="DOB" value={form.dob} onChange={(event) => setForm((prev) => ({ ...prev, dob: event.target.value }))} /></Grid>
-              <Grid item xs={12} md={6}><TextField fullWidth label="Height" value={form.height} onChange={(event) => setForm((prev) => ({ ...prev, height: event.target.value }))} /></Grid>
-              <Grid item xs={12} md={6}><TextField fullWidth label="Weight" value={form.weight} onChange={(event) => setForm((prev) => ({ ...prev, weight: event.target.value }))} /></Grid>
-              <Grid item xs={12} md={6}><TextField fullWidth label="Nationality" value={form.nationality} onChange={(event) => setForm((prev) => ({ ...prev, nationality: event.target.value }))} /></Grid>
-              <Grid item xs={12} md={6}><TextField fullWidth label="Position" value={form.position} onChange={(event) => setForm((prev) => ({ ...prev, position: event.target.value }))} /></Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth select label="Team" value={teamId}
+                  onChange={(e) => setTeamId(e.target.value)}
+                  disabled={teamsLoading || teams.length === 0}
+                >
+                  {teams.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={6}><TextField fullWidth label="Name" value={form.fullName} onChange={(event) => setForm((prev) => ({ ...prev, fullName: event.target.value }))} /></Grid>
               <Grid item xs={12} md={6}><TextField fullWidth label="Jersey Number" value={form.jerseyNumber} onChange={(event) => setForm((prev) => ({ ...prev, jerseyNumber: event.target.value }))} /></Grid>
-              <Grid item xs={12} md={6}><TextField fullWidth label="Dominant Hand" value={form.dominantHand} onChange={(event) => setForm((prev) => ({ ...prev, dominantHand: event.target.value }))} /></Grid>
-              <Grid item xs={12} md={6}><TextField fullWidth label="Status" value={form.status} onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value }))} /></Grid>
-              <Grid item xs={12} md={6}><TextField fullWidth label="Season" value={form.season} onChange={(event) => setForm((prev) => ({ ...prev, season: event.target.value }))} /></Grid>
-              <Grid item xs={12} md={6}><TextField fullWidth label="Team" value={form.team} onChange={(event) => setForm((prev) => ({ ...prev, team: event.target.value }))} /></Grid>
-              <Grid item xs={12}><TextField fullWidth multiline minRows={3} label="Medical Notes" value={form.medicalNotes} onChange={(event) => setForm((prev) => ({ ...prev, medicalNotes: event.target.value }))} /></Grid>
+              <Grid item xs={12} md={6}><TextField fullWidth label="Position" value={form.position} onChange={(event) => setForm((prev) => ({ ...prev, position: event.target.value }))} /></Grid>
             </Grid>
-            <Button variant="contained" sx={{ mt: 2 }} onClick={createPlayer}>Create player</Button>
+            {teamsError && <Alert severity="error" sx={{ mt: 2 }}>{teamsError}</Alert>}
+            {submitError && <Alert severity="error" sx={{ mt: 2 }}>{submitError}</Alert>}
+            <Button
+              variant="contained" sx={{ mt: 2 }} onClick={createPlayer}
+              disabled={submitting || !teamId || !form.fullName.trim()}
+            >
+              {submitting ? 'Adding…' : 'Add player'}
+            </Button>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent>
-            <Typography variant="h6" fontWeight={700}>Players</Typography>
-            <Table size="small" sx={{ mt: 2 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Position</TableCell>
-                  <TableCell>Team</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {players.map((player) => (
-                  <TableRow key={player.id}>
-                    <TableCell>{player.name}</TableCell>
-                    <TableCell>{player.position}</TableCell>
-                    <TableCell>{player.team}</TableCell>
-                    <TableCell>{player.status}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <Typography variant="h6" fontWeight={700}>Roster</Typography>
+            {rosterLoading ? (
+              <Stack alignItems="center" sx={{ py: 4 }}><CircularProgress /></Stack>
+            ) : (
+              <>
+                {rosterError && <Alert severity="error" sx={{ mt: 2 }}>{rosterError}</Alert>}
+                <Table size="small" sx={{ mt: 2 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Jersey Number</TableCell>
+                      <TableCell>Position</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {roster.map((player) => (
+                      <TableRow key={player.id}>
+                        <TableCell>{player.full_name}</TableCell>
+                        <TableCell>{player.jersey_number ?? '—'}</TableCell>
+                        <TableCell>{player.position || '—'}</TableCell>
+                        <TableCell>
+                          <Button
+                            size="small" variant="outlined" color="error"
+                            disabled={removingId === player.id}
+                            onClick={() => removePlayer(player.id)}
+                          >
+                            {removingId === player.id ? 'Removing…' : 'Remove'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {roster.length === 0 && (
+                      <TableRow><TableCell colSpan={4}>No players on this roster yet.</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </>
+            )}
           </CardContent>
         </Card>
       </Box>

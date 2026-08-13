@@ -148,4 +148,8 @@ export const backendApi = {
   getTeams: () => request('/teams'),
   getTeamSeasonStats: (teamId) => request(`/teams/${teamId}/season-stats`),
   getPlayerDevelopment: (teamId, playerName) => request(`/teams/${teamId}/players/${encodeURIComponent(playerName)}/development`),
+  // FR-11: real roster CRUD against the `players` table (backend/src/routes/players.js).
+  getTeamPlayers: (teamId) => request(`/teams/${teamId}/players`),
+  addPlayer: (teamId, data) => request(`/teams/${teamId}/players`, { method: 'POST', body: data }),
+  removePlayer: (teamId, playerId) => request(`/teams/${teamId}/players/${playerId}`, { method: 'DELETE' }),
 };

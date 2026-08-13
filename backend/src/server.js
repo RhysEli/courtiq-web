@@ -11,6 +11,7 @@ const bulkImportRoutes = require('./routes/bulkImport');
 const teamRoutes = require('./routes/teams');
 const inviteRoutes = require('./routes/invites');
 const annotationRoutes = require('./routes/annotations');
+const playerRoutes = require('./routes/players');
 
 const app = express();
 app.use(cors());
@@ -22,8 +23,14 @@ app.use('/api/auth', authRoutes);
 app.use('/api/games', gameRoutes);
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/teams', teamRoutes);
+app.use('/api/teams', playerRoutes);
 app.use('/api/invites', inviteRoutes);
 app.use('/api/annotations', annotationRoutes);
+// reportRoutes/bulkImportRoutes mount at the broad '/api' prefix (their own
+// paths start with '/games/...') -- keep every specific-prefix router
+// ('/api/teams', '/api/invites', etc.) registered above these two, or a
+// request that happens to match one of their internal patterns first would
+// get handled (and likely 401'd/404'd) by the wrong router.
 app.use('/api', reportRoutes);       // /api/games/:gameId/reports
 app.use('/api', bulkImportRoutes);
 
