@@ -97,9 +97,31 @@ router.post(
           await db.prepare('INSERT INTO seasons (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(seasonId, seasonId);
         }
 
-        let game = await db.prepare(`
-          SELECT * FROM games WHERE home_team_id = ? AND opponent_team_id = ? AND game_date = ?
-        `).get(homeTeamId, awayTeamId, gameInfo.matchDate);
+        // Date-tolerant match: a game manually entered on the Games page and
+        // the same game's PDF uploaded later via Bulk Import can disagree by
+        // a day (e.g. a typo, or a tip-off past midnight) without actually
+        // being two different games. game_date is stored as TEXT but is
+        // always an ISO 'YYYY-MM-DD' string (both the manual date picker and
+        // pdfExtraction.js's isoDate produce that format), so a ::date cast
+        // gives a real day-difference comparison here.
+        const candidates = await db.prepare(`
+          SELECT * FROM games
+          WHERE home_team_id = ? AND opponent_team_id = ?
+            AND ABS(game_date::date - ?::date) <= 1
+        `).all(homeTeamId, awayTeamId, gameInfo.matchDate);
+
+        let game = null;
+        if (candidates.length === 1) {
+          game = candidates[0];
+        } else if (candidates.length > 1) {
+          // Ambiguous -- more than one existing game for this matchup falls
+          // within the tolerance window. Don't guess: fall back to an exact
+          // date match only, and if even that doesn't resolve it uniquely,
+          // fall through to creating a new game record. A safe duplicate
+          // beats silently merging into the wrong one of two real games
+          // these teams legitimately played twice.
+          game = candidates.find((g) => g.game_date === gameInfo.matchDate) || null;
+        }
 
         let created = false;
         if (!game) {

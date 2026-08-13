@@ -42,6 +42,8 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
   const [newGame, setNewGame] = useState({ homeTeamId: '', opponentTeamName: '', gameDate: '', venue: '' });
   const [creatingGame, setCreatingGame] = useState(false);
   const [createGameError, setCreateGameError] = useState('');
+  const [removingGameId, setRemovingGameId] = useState(null);
+  const [removeGameError, setRemoveGameError] = useState('');
 
   const loadRealGames = () => {
     setRealGamesLoading(true);
@@ -73,6 +75,23 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
     }
   };
 
+  // Only ever called for a game the UI has already confirmed hasStats
+  // === false (see the Remove button below) -- the backend's 409 guard
+  // on real player_game_stats stays in place regardless as the actual
+  // safety check; this button is just the honest-by-default UI for it.
+  const removeRealGame = async (gameId) => {
+    if (!window.confirm('Remove this game record? This cannot be undone.')) return;
+    setRemovingGameId(gameId);
+    setRemoveGameError('');
+    try {
+      await backendApi.deleteGame(gameId);
+      loadRealGames();
+    } catch (err) {
+      setRemoveGameError(err.message || 'Could not remove game.');
+    } finally {
+      setRemovingGameId(null);
+    }
+  };
 
   useEffect(() => {
     setMatches(getMatches());
@@ -253,17 +272,32 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
           {realGamesLoading ? <CircularProgress size={24} /> : realGamesError ? (
             <Alert severity="error">{realGamesError}</Alert>
           ) : (
-            <List dense>
-              {realGames.length === 0 && <Typography color="text.secondary">No real game records yet.</Typography>}
-              {realGames.map((g) => (
-                <ListItem key={g.id} divider>
-                  <ListItemText
-                    primary={`${teamName(g.home_team_id)} vs ${teamName(g.opponent_team_id)} — ${g.game_date}${g.venue ? ` @ ${g.venue}` : ''}`}
-                    secondary={g.outcome ? `Final: ${g.outcome.scoreA} - ${g.outcome.scoreB} (winner: ${g.outcome.winningTeam})` : 'Outcome pending — no Score Sheet uploaded yet'}
-                  />
-                </ListItem>
-              ))}
-            </List>
+            <>
+              {removeGameError && <Alert severity="error" sx={{ mb: 2 }}>{removeGameError}</Alert>}
+              <List dense>
+                {realGames.length === 0 && <Typography color="text.secondary">No real game records yet.</Typography>}
+                {realGames.map((g) => (
+                  <ListItem
+                    key={g.id}
+                    divider
+                    secondaryAction={canManage && g.hasStats === false && (
+                      <Button
+                        size="small" variant="outlined" color="error"
+                        disabled={removingGameId === g.id}
+                        onClick={() => removeRealGame(g.id)}
+                      >
+                        {removingGameId === g.id ? 'Removing…' : 'Remove'}
+                      </Button>
+                    )}
+                  >
+                    <ListItemText
+                      primary={`${teamName(g.home_team_id)} vs ${teamName(g.opponent_team_id)} — ${g.game_date}${g.venue ? ` @ ${g.venue}` : ''}`}
+                      secondary={g.outcome ? `Final: ${g.outcome.scoreA} - ${g.outcome.scoreB} (winner: ${g.outcome.winningTeam})` : 'Outcome pending — no Score Sheet uploaded yet'}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </>
           )}
         </CardContent>
       </Card>

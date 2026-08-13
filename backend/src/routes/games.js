@@ -50,6 +50,34 @@ router.get('/:id', async (req, res) => {
   res.json(game);
 });
 
+// Remove a duplicate/mistaken game record. Blocked (409) if any real
+// player_game_stats rows are attached -- same delete-guard discipline as
+// seasons.js/leagues.js. A game with reports referencing it but no
+// player_game_stats (e.g. only a failed extraction) will still fail here
+// via the games.reports foreign key, which is an acceptable safe failure,
+// not something this route needs to special-case.
+router.delete('/:id', requireRole('Statistician', 'Team Manager'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await db.prepare('SELECT id FROM games WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    const statsCount = await db.prepare('SELECT COUNT(*) AS count FROM player_game_stats WHERE game_id = ?').get(id);
+    if (Number(statsCount.count) > 0) {
+      return res.status(409).json({ error: `Cannot delete game: ${statsCount.count} real player stat row(s) are attached` });
+    }
+
+    await db.prepare('DELETE FROM games WHERE id = ?').run(id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('remove game failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 async function getGameWithReportStatus(gameId) {
   const game = await db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
   if (!game) return null;
@@ -67,12 +95,20 @@ async function getGameWithReportStatus(gameId) {
   const scoreSheet = await db.prepare(
     'SELECT winning_team, final_score_team_a, final_score_team_b FROM game_score_sheet WHERE game_id = ?',
   ).get(gameId);
+  // Whether this game has any real extracted player stats -- the actual
+  // condition that determines whether it's safe to delete (see DELETE
+  // /:id below), not a proxy like "outcome pending" (a game can have real
+  // stats but still show outcome-pending if no Score Sheet was uploaded).
+  const statsRow = await db.prepare(
+    'SELECT EXISTS (SELECT 1 FROM player_game_stats WHERE game_id = ?) AS has_stats',
+  ).get(gameId);
   return {
     ...game,
     reportChecklist,
     outcome: scoreSheet
       ? { winningTeam: scoreSheet.winning_team, scoreA: scoreSheet.final_score_team_a, scoreB: scoreSheet.final_score_team_b }
       : null,
+    hasStats: Boolean(statsRow.has_stats),
   };
 }
 
