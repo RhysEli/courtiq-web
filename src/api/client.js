@@ -156,4 +156,8 @@ export const backendApi = {
   getSeasons: () => request('/seasons'),
   createSeason: (data) => request('/seasons', { method: 'POST', body: data }),
   deleteSeason: (id) => request(`/seasons/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  // FR-11: real league/competition CRUD against the `leagues` table (backend/src/routes/leagues.js).
+  getLeagues: () => request('/leagues'),
+  createLeague: (data) => request('/leagues', { method: 'POST', body: data }),
+  deleteLeague: (id) => request(`/leagues/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };

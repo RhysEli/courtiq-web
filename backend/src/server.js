@@ -13,6 +13,7 @@ const inviteRoutes = require('./routes/invites');
 const annotationRoutes = require('./routes/annotations');
 const playerRoutes = require('./routes/players');
 const seasonRoutes = require('./routes/seasons');
+const leagueRoutes = require('./routes/leagues');
 
 const app = express();
 app.use(cors());
@@ -28,6 +29,7 @@ app.use('/api/teams', playerRoutes);
 app.use('/api/invites', inviteRoutes);
 app.use('/api/annotations', annotationRoutes);
 app.use('/api/seasons', seasonRoutes);
+app.use('/api/leagues', leagueRoutes);
 // reportRoutes/bulkImportRoutes mount at the broad '/api' prefix (their own
 // paths start with '/games/...') -- keep every specific-prefix router
 // ('/api/teams', '/api/invites', etc.) registered above these two, or a

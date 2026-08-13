@@ -47,6 +47,7 @@ const navItems = [
   { label: 'Users', path: '/users', icon: ManageAccountsRoundedIcon },
   { label: 'Institutions', path: '/institutions', icon: BusinessRoundedIcon },
   { label: 'Leagues', path: '/leagues', icon: SchoolRoundedIcon },
+  { label: 'League Management', path: '/leagues-management', icon: SchoolRoundedIcon },
   { label: 'Seasons', path: '/seasons', icon: CalendarMonthRoundedIcon },
   { label: 'Season Management', path: '/seasons-management', icon: CalendarMonthRoundedIcon },
   { label: 'Reports', path: '/reports', icon: ArticleRoundedIcon },
