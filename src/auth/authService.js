@@ -1,9 +1,13 @@
 import { createOrganization, createUserAccount, getUsers, getOrganizations, getInvites } from '../services/accountService.js';
+import { backendApi } from '../api/client';
 
 const AUTH_STORAGE_KEY = 'courtiq-auth';
 const USER_STORAGE_KEY = 'courtiq-users';
 const ORGANIZATION_STORAGE_KEY = 'courtiq-organizations';
 const INVITE_STORAGE_KEY = 'courtiq-invites';
+// Real per-user JWT, read by src/api/client.js and preferred over the
+// shared service account whenever it's present.
+const USER_TOKEN_KEY = 'courtiq-user-token';
 
 const normalizeEmail = (email = '') => email.trim().toLowerCase();
 
@@ -141,9 +145,43 @@ export function clearAuth() {
   storage.removeItem(AUTH_STORAGE_KEY);
 }
 
-export function loginUser({ email, password, rememberMe = false }) {
-  ensureDemoUsers();
+export async function loginUser({ email, password, rememberMe = false }) {
   const normalizedEmail = normalizeEmail(email);
+
+  // Try the real backend first. Accounts created through the real invite
+  // flow live in the actual `users` table, and logging in this way stores
+  // a real per-user token (see USER_TOKEN_KEY) so every subsequent API
+  // call carries this person's real role/team and the backend's existing
+  // requireAuth/requireRole checks apply for real -- not just in the UI.
+  try {
+    const data = await backendApi.login({ email: normalizedEmail, password });
+    const storage = getStorage();
+    if (storage) {
+      storage.setItem(USER_TOKEN_KEY, data.token);
+    }
+
+    const authState = {
+      currentUser: {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.name,
+        role: data.user.role,
+        institution: data.user.teams?.[0]?.institution_name || '',
+        team: data.user.teams?.[0]?.name || '',
+      },
+      role: data.user.role,
+      rememberMe,
+    };
+
+    persistAuth(authState);
+    return { success: true, user: authState.currentUser };
+  } catch {
+    // No matching real account (or backend unreachable) -- fall back to
+    // the local demo accounts below so the existing demo logins keep
+    // working exactly as before.
+  }
+
+  ensureDemoUsers();
   const matchingUser = getUsers().find((user) => normalizeEmail(user.email) === normalizedEmail && user.password === password);
 
   if (!matchingUser) {
@@ -239,6 +277,10 @@ export function registerUser(userData) {
 
 export function logoutUser() {
   clearAuth();
+  const storage = getStorage();
+  if (storage) {
+    storage.removeItem(USER_TOKEN_KEY);
+  }
   return { success: true };
 }
 

@@ -16,6 +16,15 @@ const SERVICE_EMAIL = 'stats@courtiq.dev';
 const SERVICE_PASSWORD = 'courtiq123';
 const TOKEN_KEY = 'courtiq-backend-token';
 
+// Real per-user token, set by authService.loginUser() when someone signs in
+// with real backend credentials (e.g. an account created via the invite
+// flow). When present, this is used instead of the shared service account,
+// so API calls carry the actual logged-in person's real role/team and the
+// backend's existing requireRole/requireAuth checks apply for real. Falls
+// back to the shared service token for anyone still on the local demo
+// accounts, so those keep working exactly as before.
+const USER_TOKEN_KEY = 'courtiq-user-token';
+
 async function getServiceToken() {
   const cached = window.localStorage.getItem(TOKEN_KEY);
   if (cached) return cached;
@@ -33,8 +42,14 @@ async function getServiceToken() {
   return data.token;
 }
 
+async function getAuthToken() {
+  const userToken = window.localStorage.getItem(USER_TOKEN_KEY);
+  if (userToken) return userToken;
+  return getServiceToken();
+}
+
 async function request(path, { method = 'GET', body, isForm = false } = {}) {
-  const token = await getServiceToken();
+  const token = await getAuthToken();
   const headers = { Authorization: `Bearer ${token}` };
   if (!isForm) headers['Content-Type'] = 'application/json';
 
@@ -45,9 +60,15 @@ async function request(path, { method = 'GET', body, isForm = false } = {}) {
   });
 
   if (res.status === 401) {
-    // Token expired — clear and retry once with a fresh login.
-    window.localStorage.removeItem(TOKEN_KEY);
-    const freshToken = await getServiceToken();
+    // Whichever token we used is missing/expired -- clear just that one
+    // and retry once with a fresh token from the same source.
+    const usedUserToken = Boolean(window.localStorage.getItem(USER_TOKEN_KEY));
+    if (usedUserToken) {
+      window.localStorage.removeItem(USER_TOKEN_KEY);
+    } else {
+      window.localStorage.removeItem(TOKEN_KEY);
+    }
+    const freshToken = await getAuthToken();
     res = await fetch(`${BASE_URL}${path}`, {
       method,
       headers: { ...headers, Authorization: `Bearer ${freshToken}` },
@@ -69,6 +90,20 @@ async function request(path, { method = 'GET', body, isForm = false } = {}) {
 }
 
 export const backendApi = {
+  // Real per-user login against the backend `users` table. No token needed
+  // for this call itself -- it's how one is obtained.
+  login: ({ email, password }) => fetch(`${BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  }).then((r) => {
+    if (!r.ok) {
+      return r.json().then((data) => {
+        throw new Error(data.error || 'Invalid email or password.');
+      });
+    }
+    return r.json();
+  }),
   createGame: (payload) => request('/games', { method: 'POST', body: payload }),
   getGame: (id) => request(`/games/${id}`),
   bulkImport: (files, { seasonId, leagueId } = {}) => {

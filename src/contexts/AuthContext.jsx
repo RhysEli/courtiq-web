@@ -11,8 +11,8 @@ export function AuthProvider({ children }) {
     setAuth(storedAuth);
   }, []);
 
-  const login = ({ email, password, rememberMe = false }) => {
-    const result = loginUserService({ email, password, rememberMe });
+  const login = async ({ email, password, rememberMe = false }) => {
+    const result = await loginUserService({ email, password, rememberMe });
     if (result.success) {
       setAuth({
         currentUser: result.user,

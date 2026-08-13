@@ -27,8 +27,8 @@ function Login() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = () => {
-    const result = login({ email: signInForm.email, password: signInForm.password, rememberMe: signInForm.rememberMe });
+  const handleLogin = async () => {
+    const result = await login({ email: signInForm.email, password: signInForm.password, rememberMe: signInForm.rememberMe });
     if (result.success) {
       setError('');
       setMessage('Signed in successfully.');
