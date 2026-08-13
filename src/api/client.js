@@ -105,7 +105,10 @@ export const backendApi = {
     return r.json();
   }),
   createGame: (payload) => request('/games', { method: 'POST', body: payload }),
+  getGames: () => request('/games'),
   getGame: (id) => request(`/games/${id}`),
+  getAnnotations: (gameId) => request(`/annotations?gameId=${gameId}`),
+  addAnnotation: (gameId, body) => request('/annotations', { method: 'POST', body: { gameId, body } }),
   bulkImport: (files, { seasonId, leagueId } = {}) => {
     const form = new FormData();
     files.forEach((file) => form.append('files', file));

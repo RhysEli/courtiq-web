@@ -10,6 +10,7 @@ const analysisRoutes = require('./routes/analysis');
 const bulkImportRoutes = require('./routes/bulkImport');
 const teamRoutes = require('./routes/teams');
 const inviteRoutes = require('./routes/invites');
+const annotationRoutes = require('./routes/annotations');
 
 const app = express();
 app.use(cors());
@@ -22,6 +23,7 @@ app.use('/api/games', gameRoutes);
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/invites', inviteRoutes);
+app.use('/api/annotations', annotationRoutes);
 app.use('/api', reportRoutes);       // /api/games/:gameId/reports
 app.use('/api', bulkImportRoutes);
 

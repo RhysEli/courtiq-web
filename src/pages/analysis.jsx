@@ -1,7 +1,11 @@
-import { Box, Grid, Card, CardContent, Typography, Chip, Stack, Divider, Alert } from '@mui/material';
+import {
+  Box, Grid, Card, CardContent, Typography, Chip, Stack, Divider, Alert,
+  TextField, MenuItem, Button, CircularProgress,
+} from '@mui/material';
 import { useEffect, useState } from 'react';
 import Layout from '../components/layout';
 import { getAnalysisEntries } from '../services/analysisService';
+import { backendApi } from '../api/client';
 
 function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const [analysisEntry, setAnalysisEntry] = useState(null);
@@ -10,11 +14,122 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
     setAnalysisEntry(getAnalysisEntries().slice(-1)[0] || null);
   }, []);
 
+  // FR-09: real Coach annotations on a real game record, independent of
+  // the mock analysisEntry data above -- uses the actual backend `games`
+  // and `annotations` tables.
+  const [games, setGames] = useState([]);
+  const [gamesLoading, setGamesLoading] = useState(true);
+  const [gamesError, setGamesError] = useState('');
+  const [selectedGameId, setSelectedGameId] = useState('');
+  const [notes, setNotes] = useState([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [submittingNote, setSubmittingNote] = useState(false);
+  const [noteError, setNoteError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    backendApi.getGames()
+      .then((data) => {
+        if (cancelled) return;
+        setGames(data);
+        setSelectedGameId(data[0]?.id || '');
+      })
+      .catch((err) => { if (!cancelled) setGamesError(err.message || 'Could not load games.'); })
+      .finally(() => { if (!cancelled) setGamesLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const loadNotes = (gameId) => {
+    if (!gameId) return;
+    setNotesLoading(true);
+    backendApi.getAnnotations(gameId)
+      .then(setNotes)
+      .catch((err) => setNoteError(err.message || 'Could not load notes.'))
+      .finally(() => setNotesLoading(false));
+  };
+
+  useEffect(() => {
+    if (selectedGameId) loadNotes(selectedGameId);
+  }, [selectedGameId]);
+
+  const handleAddNote = async () => {
+    if (!noteText.trim()) return;
+    setSubmittingNote(true);
+    setNoteError('');
+    try {
+      await backendApi.addAnnotation(selectedGameId, noteText.trim());
+      setNoteText('');
+      loadNotes(selectedGameId);
+    } catch (err) {
+      setNoteError(err.message || 'Could not add note.');
+    } finally {
+      setSubmittingNote(false);
+    }
+  };
+
   const summary = analysisEntry?.teamSummary || {};
   const players = analysisEntry?.playerAnalysis || [];
 
   return (
     <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" fontWeight={700}>Coach notes</Typography>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
+            Free-text notes on a real game record, visible to the team and added by Coaches.
+          </Typography>
+
+          {gamesError && <Alert severity="error" sx={{ mb: 2 }}>{gamesError}</Alert>}
+
+          <TextField
+            select fullWidth label="Game" value={selectedGameId}
+            onChange={(e) => setSelectedGameId(e.target.value)}
+            disabled={gamesLoading || games.length === 0}
+            sx={{ mb: 2, maxWidth: 420 }}
+          >
+            {games.map((g) => (
+              <MenuItem key={g.id} value={g.id}>
+                Game #{g.id} — {g.game_date || 'no date'}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          {games.length === 0 && !gamesLoading && (
+            <Alert severity="info" sx={{ mb: 2 }}>No games recorded yet.</Alert>
+          )}
+
+          {notesLoading ? (
+            <CircularProgress size={24} />
+          ) : (
+            <Stack spacing={1.5} sx={{ mb: 2 }}>
+              {notes.length === 0 && <Typography color="text.secondary">No notes on this game yet.</Typography>}
+              {notes.map((note) => (
+                <Box key={note.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 1.5 }}>
+                  <Typography>{note.body}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {note.author_name || 'Coach'} • {new Date(note.created_at).toLocaleString()}
+                  </Typography>
+                </Box>
+              ))}
+            </Stack>
+          )}
+
+          {role === 'Coach' && selectedGameId && (
+            <Stack spacing={1}>
+              <TextField
+                multiline minRows={2} fullWidth label="Add a note"
+                value={noteText} onChange={(e) => setNoteText(e.target.value)}
+              />
+              {noteError && <Alert severity="error">{noteError}</Alert>}
+              <Button variant="contained" onClick={handleAddNote} disabled={submittingNote || !noteText.trim()} sx={{ alignSelf: 'flex-start' }}>
+                {submittingNote ? 'Adding…' : 'Add note'}
+              </Button>
+            </Stack>
+          )}
+        </CardContent>
+      </Card>
+
       {!analysisEntry ? (
         <Alert severity="info">Upload a report and run analysis to populate this view.</Alert>
       ) : (
