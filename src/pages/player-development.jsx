@@ -25,7 +25,12 @@ import { backendApi } from '../api/client';
 // data model yet. Two different real players with an identical extracted
 // name on the same team would incorrectly merge into one profile.
 
-function PlayerDevelopment({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
+// Loosely matches a real team name against a display string, ignoring
+// punctuation/casing differences (e.g. "USIU Tigers Men" vs the real
+// "USIU TIGERS" or "USIU Tigers (Men)").
+const normalizeTeamName = (name) => String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+function PlayerDevelopment({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
   const [teams, setTeams] = useState([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [teamsError, setTeamsError] = useState('');
@@ -39,6 +44,11 @@ function PlayerDevelopment({ mode, toggleTheme, selectedTeam, onTeamChange, role
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState('');
 
+  // FR-10: an Athlete's own account has a real `team`/`playerName` (see
+  // authService.js) -- scope them to their own profile and hide both
+  // pickers, rather than letting them browse every player on every team.
+  const isAthlete = role === 'Athlete';
+
   useEffect(() => {
     let cancelled = false;
     setTeamsLoading(true);
@@ -46,7 +56,8 @@ function PlayerDevelopment({ mode, toggleTheme, selectedTeam, onTeamChange, role
       .then((data) => {
         if (cancelled) return;
         setTeams(data);
-        const guess = data.find((t) => t.name?.toLowerCase().includes(String(selectedTeam || '').toLowerCase().replace(/-/g, ' ')));
+        const matchSource = isAthlete ? currentUser?.team : selectedTeam;
+        const guess = data.find((t) => normalizeTeamName(t.name).includes(normalizeTeamName(matchSource)));
         setTeamId(guess?.id || data[0]?.id || '');
       })
       .catch((err) => { if (!cancelled) setTeamsError(err.message || 'Could not load teams.'); })
@@ -70,11 +81,14 @@ function PlayerDevelopment({ mode, toggleTheme, selectedTeam, onTeamChange, role
         if (cancelled) return;
         const names = (data.players || []).map((p) => p.playerName);
         setRosterPlayers(names);
-        setPlayerName(names[0] || '');
+        // An Athlete defaults to their own player_name, not the first
+        // roster entry.
+        setPlayerName((isAthlete && currentUser?.playerName) || names[0] || '');
       })
       .catch(() => { if (!cancelled) setRosterPlayers([]); })
       .finally(() => { if (!cancelled) setRosterLoading(false); });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId]);
 
   useEffect(() => {
@@ -112,22 +126,36 @@ function PlayerDevelopment({ mode, toggleTheme, selectedTeam, onTeamChange, role
             </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={4}>
-                <TextField
-                  fullWidth select label="Team" value={teamId}
-                  onChange={(e) => setTeamId(e.target.value)}
-                  disabled={teamsLoading || teams.length === 0}
-                >
-                  {teams.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
-                </TextField>
+                {isAthlete ? (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Team</Typography>
+                    <Typography>{teams.find((t) => t.id === teamId)?.name || 'Your team'}</Typography>
+                  </Box>
+                ) : (
+                  <TextField
+                    fullWidth select label="Team" value={teamId}
+                    onChange={(e) => setTeamId(e.target.value)}
+                    disabled={teamsLoading || teams.length === 0}
+                  >
+                    {teams.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
+                  </TextField>
+                )}
               </Grid>
               <Grid item xs={12} sm={4}>
-                <TextField
-                  fullWidth select label="Player" value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  disabled={rosterLoading || rosterPlayers.length === 0}
-                >
-                  {rosterPlayers.map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
-                </TextField>
+                {isAthlete ? (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Player</Typography>
+                    <Typography>{playerName || 'You'}</Typography>
+                  </Box>
+                ) : (
+                  <TextField
+                    fullWidth select label="Player" value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                    disabled={rosterLoading || rosterPlayers.length === 0}
+                  >
+                    {rosterPlayers.map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
+                  </TextField>
+                )}
               </Grid>
             </Grid>
             {teamsError && <Alert severity="error" sx={{ mt: 2 }}>{teamsError}</Alert>}

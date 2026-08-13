@@ -76,7 +76,11 @@ const demoUsers = [
     password: 'demo123',
     role: 'Athlete',
     institution: 'USIU',
-    team: 'USIU Tigers Men',
+    // FR-10: kept in sync with the matching record in accountService.js
+    // (the actual seed source -- see the comment there for why these
+    // particular values were chosen).
+    team: 'USIU TIGERS',
+    playerName: 'AMOS KIM',
     status: 'active',
     lastLogin: '3 days ago',
   },
@@ -196,6 +200,11 @@ export async function loginUser({ email, password, rememberMe = false }) {
       role: matchingUser.role,
       institution: matchingUser.institution,
       team: matchingUser.team,
+      // FR-10: carried through so an Athlete's Statistics/Player Development
+      // views can auto-scope to their own real stats. Real backend accounts
+      // (the branch above) have no equivalent linkage yet -- see the
+      // (teamId, playerName) note in backend/src/routes/teams.js.
+      playerName: matchingUser.playerName,
     },
     role: matchingUser.role,
     rememberMe,

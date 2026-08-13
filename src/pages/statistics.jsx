@@ -28,7 +28,12 @@ const emptyStats = {
   fgPct: 0, threePct: 0, ftPct: 0,
 };
 
-function Statistics({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
+// Loosely matches a real team name against a display string, ignoring
+// punctuation/casing differences (e.g. "USIU Tigers Men" vs the real
+// "USIU TIGERS" or "USIU Tigers (Men)").
+const normalizeTeamName = (name) => String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+function Statistics({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
   const [teams, setTeams] = useState([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [teamsError, setTeamsError] = useState('');
@@ -38,6 +43,11 @@ function Statistics({ mode, toggleTheme, selectedTeam, onTeamChange, role, selec
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState('');
 
+  // FR-10: an Athlete's own account has a real `team` name (see
+  // authService.js) -- scope them to it and hide the picker, rather than
+  // letting them browse every team's stats.
+  const isAthlete = role === 'Athlete';
+
   useEffect(() => {
     let cancelled = false;
     setTeamsLoading(true);
@@ -45,11 +55,13 @@ function Statistics({ mode, toggleTheme, selectedTeam, onTeamChange, role, selec
       .then((data) => {
         if (cancelled) return;
         setTeams(data);
-        // Best-effort default: match the app-wide selectedTeam by name if
-        // possible, otherwise just pick the first real team. selectedTeam
-        // is a legacy UI-only identifier and won't always match a real
-        // team id, so this is a convenience default, not a hard link.
-        const guess = data.find((t) => t.name?.toLowerCase().includes(String(selectedTeam || '').toLowerCase().replace(/-/g, ' ')));
+        // Best-effort default: match by name if possible, otherwise just
+        // pick the first real team. For an Athlete, match against their
+        // own account's team; for everyone else, the app-wide selectedTeam.
+        // Neither is a hard link to a real team id, so this stays a
+        // convenience default, not a guaranteed match.
+        const matchSource = isAthlete ? currentUser?.team : selectedTeam;
+        const guess = data.find((t) => normalizeTeamName(t.name).includes(normalizeTeamName(matchSource)));
         setTeamId(guess?.id || data[0]?.id || '');
       })
       .catch((err) => { if (!cancelled) setTeamsError(err.message || 'Could not load teams.'); })
@@ -153,16 +165,22 @@ function Statistics({ mode, toggleTheme, selectedTeam, onTeamChange, role, selec
             <Typography variant="h6" fontWeight={700}>Team</Typography>
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12} sm={4}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Team"
-                  value={teamId}
-                  onChange={(e) => setTeamId(e.target.value)}
-                  disabled={teamsLoading || teams.length === 0}
-                >
-                  {teams.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
-                </TextField>
+                {isAthlete ? (
+                  <Typography sx={{ mt: 1 }} color="text.secondary">
+                    {teams.find((t) => t.id === teamId)?.name || 'Your team'}
+                  </Typography>
+                ) : (
+                  <TextField
+                    fullWidth
+                    select
+                    label="Team"
+                    value={teamId}
+                    onChange={(e) => setTeamId(e.target.value)}
+                    disabled={teamsLoading || teams.length === 0}
+                  >
+                    {teams.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
+                  </TextField>
+                )}
               </Grid>
             </Grid>
             {teamsError && <Alert severity="error" sx={{ mt: 2 }}>{teamsError}</Alert>}

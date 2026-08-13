@@ -60,7 +60,15 @@ const defaultUsers = [
     password: 'demo123',
     role: 'Athlete',
     institution: 'USIU',
-    team: 'USIU Tigers Men',
+    // FR-10: links this account to a real player row so Statistics/Player
+    // Development can auto-scope to "their own" real stats instead of a
+    // team/player picker. team/playerName here must match a real team name
+    // and player_name as they appear in extracted player_game_stats (see
+    // the (teamId, playerName) convention documented in
+    // backend/src/routes/teams.js) -- 'USIU TIGERS' / 'AMOS KIM' is a real
+    // team+player pair with real recorded games in the current dataset.
+    team: 'USIU TIGERS',
+    playerName: 'AMOS KIM',
     status: 'active',
     lastLogin: '3 days ago',
   },
