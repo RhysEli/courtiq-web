@@ -11,6 +11,7 @@ import Teams from './pages/teams';
 import Players from './pages/players';
 import Games from './pages/games';
 import Statistics from './pages/statistics';
+import PlayerDevelopment from './pages/player-development';
 import Analysis from './pages/analysis';
 import AnalysisImport from './pages/analysis-import';
 import BulkImport from './pages/bulk-import';
@@ -142,6 +143,7 @@ function AppRoutes() {
         <Route path="/players" element={<ProtectedRoute allowedPath="/players"><Players {...sharedProps} /></ProtectedRoute>} />
         <Route path="/games" element={<ProtectedRoute allowedPath="/games"><Games {...sharedProps} reports={reports} /></ProtectedRoute>} />
         <Route path="/statistics" element={<ProtectedRoute allowedPath="/statistics"><Statistics {...sharedProps} selectedGame={selectedGame} onGameChange={setSelectedGame} /></ProtectedRoute>} />
+        <Route path="/player-development" element={<ProtectedRoute allowedPath="/player-development"><PlayerDevelopment {...sharedProps} /></ProtectedRoute>} />
         <Route path="/analysis" element={<ProtectedRoute allowedPath="/analysis"><Analysis {...sharedProps} /></ProtectedRoute>} />
         <Route path="/analysis-import" element={<ProtectedRoute allowedPath="/analysis-import"><AnalysisImport {...sharedProps} /></ProtectedRoute>} />
         <Route path="/bulk-import" element={<ProtectedRoute allowedPath="/bulk-import"><BulkImport {...sharedProps} /></ProtectedRoute>} />

@@ -131,4 +131,103 @@ router.get('/:teamId/season-stats', async (req, res) => {
   }
 });
 
+// FR-08: "The system shall maintain a longitudinal player profile
+// displaying per-season and career-cumulative statistics for each
+// registered player, enabling trend analysis of individual development
+// over time." (exact wording from the project proposal)
+//
+// Same honest limitation as the per-player grouping in the season-stats
+// route above: players are identified by their extracted player_name
+// string, not a real roster player_id -- there is no roster/player
+// linkage anywhere in the current data model. A player is therefore
+// scoped to (teamId, playerName) here, matching how the players list in
+// season-stats already works. Two different real players who happen to
+// share an identical extracted name on the same team would incorrectly
+// merge -- not a concern for the current real dataset, worth revisiting
+// if real roster data with stable player IDs is ever entered.
+router.get('/:teamId/players/:playerName/development', async (req, res) => {
+  try {
+    const { teamId, playerName } = req.params;
+
+    const games = await db.prepare(
+      'SELECT id, home_team_id, opponent_team_id, season_id, game_date FROM games WHERE home_team_id = ? OR opponent_team_id = ? ORDER BY game_date ASC',
+    ).all(teamId, teamId);
+
+    if (games.length === 0) {
+      return res.json({ teamId, playerName, career: null, seasons: [] });
+    }
+
+    // Same per-game team_side resolution as season-stats -- which side
+    // this team was on varies per game, it isn't a fixed identity.
+    let allRows = [];
+    for (const game of games) {
+      const side = game.home_team_id === teamId ? 'home' : 'opponent';
+      const rows = await db.prepare(
+        'SELECT * FROM player_game_stats WHERE game_id = ? AND team_side = ? AND player_name = ?',
+      ).all(game.id, side, playerName);
+      for (const row of rows) {
+        allRows.push({ ...row, season_id: game.season_id, game_date: game.game_date });
+      }
+    }
+
+    if (allRows.length === 0) {
+      return res.json({ teamId, playerName, career: null, seasons: [] });
+    }
+
+    const seasonNames = await db.prepare('SELECT id, name FROM seasons').all();
+    const seasonNameById = Object.fromEntries(seasonNames.map((s) => [s.id, s.name]));
+
+    const pct = (made, att) => (att > 0 ? Number(((made / att) * 100).toFixed(1)) : 0);
+
+    // Shared aggregator: same shape used for both a single season's rows
+    // and the full career's rows, so `career` and each entry in `seasons`
+    // come back with identical fields -- convenient for a trend chart
+    // that plots the same stat across both.
+    function summarize(rows) {
+      const gp = rows.length;
+      const s = (key) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+      const totalFgm = s('fgm'); const totalFga = s('fga');
+      const totalThreeM = s('three_pm'); const totalThreeA = s('three_pa');
+      const totalFtm = s('ftm'); const totalFta = s('fta');
+      return {
+        gamesPlayed: gp,
+        totalPoints: s('points'),
+        ppg: Number((s('points') / gp).toFixed(1)),
+        rpg: Number((s('reb') / gp).toFixed(1)),
+        apg: Number((s('assists') / gp).toFixed(1)),
+        spg: Number((s('steals') / gp).toFixed(1)),
+        bpg: Number((s('blocks') / gp).toFixed(1)),
+        topg: Number((s('turnovers') / gp).toFixed(1)),
+        fgPct: pct(totalFgm, totalFga),
+        threePct: pct(totalThreeM, totalThreeA),
+        ftPct: pct(totalFtm, totalFta),
+      };
+    }
+
+    const bySeason = {};
+    for (const row of allRows) {
+      const key = row.season_id || 'unassigned';
+      if (!bySeason[key]) bySeason[key] = [];
+      bySeason[key].push(row);
+    }
+
+    // Sorted chronologically by season id where possible (season ids in
+    // this system are date-like strings, e.g. "2025-2026") so a trend
+    // chart plots left-to-right in real time order, not insertion order.
+    const seasons = Object.entries(bySeason)
+      .sort(([a], [b]) => String(a).localeCompare(String(b)))
+      .map(([seasonId, rows]) => ({
+        seasonId,
+        seasonName: seasonNameById[seasonId] || (seasonId === 'unassigned' ? 'No season assigned' : seasonId),
+        ...summarize(rows),
+      }));
+
+    const career = summarize(allRows);
+
+    res.json({ teamId, playerName, career, seasons });
+  } catch (err) {
+    console.error('player development failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 module.exports = router;

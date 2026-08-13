@@ -147,4 +147,5 @@ export const backendApi = {
   // player_game_stats rows, no random/placeholder fallbacks.
   getTeams: () => request('/teams'),
   getTeamSeasonStats: (teamId) => request(`/teams/${teamId}/season-stats`),
+  getPlayerDevelopment: (teamId, playerName) => request(`/teams/${teamId}/players/${encodeURIComponent(playerName)}/development`),
 };
