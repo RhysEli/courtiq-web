@@ -5,6 +5,7 @@ const fs = require('fs');
 const db = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { extractBoxScore } = require('../services/pdfExtraction');
+const { parseFileToLines } = require('../services/pdfText');
 const {
   extractQuarterReport,
   extractPlusMinusSummary,
@@ -68,7 +69,12 @@ router.post(
     for (const file of req.files) {
       const entry = { filename: file.originalname };
       try {
-        const { players, gameInfo, unparsedLineCount } = await extractBoxScore(file.path);
+        // Parsed once and reused across the box score + all 6 additional
+        // extractors below -- each was independently re-reading and
+        // re-parsing this same PDF from disk (7 full parses per file),
+        // which was the dominant cost in a slow bulk import.
+        const lines = await parseFileToLines(file.path);
+        const { players, gameInfo, unparsedLineCount } = await extractBoxScore(file.path, lines);
 
         if (!gameInfo || !gameInfo.homeTeam || !gameInfo.awayTeam || !gameInfo.matchDate) {
           entry.status = 'failed';
@@ -82,7 +88,7 @@ router.post(
         entry.additionalReports = {};
         for (const [key, extractorFn] of Object.entries(extraExtractors)) {
           try {
-            entry.additionalReports[key] = await extractorFn(file.path);
+            entry.additionalReports[key] = await extractorFn(file.path, gameInfo.homeTeam, lines);
           } catch (extraErr) {
             entry.additionalReports[key] = { error: extraErr.message, code: extraErr.code };
           }
