@@ -22,7 +22,6 @@ import Institutions from './pages/institutions';
 import Leagues from './pages/leagues';
 import Seasons from './pages/seasons';
 import Reports from './pages/reports';
-import Account from './pages/account';
 import Users from './pages/users';
 import Organizations from './pages/organizations';
 import LeaguesManagement from './pages/leagues-management';
@@ -154,7 +153,14 @@ function AppRoutes() {
         <Route path="/leagues" element={<ProtectedRoute allowedPath="/leagues"><Leagues {...sharedProps} leagues={leagues} setLeagues={setLeagues} /></ProtectedRoute>} />
         <Route path="/seasons" element={<ProtectedRoute allowedPath="/seasons"><Seasons {...sharedProps} seasons={seasons} setSeasons={setSeasons} /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute allowedPath="/reports"><Reports {...sharedProps} reports={reports} setReports={setReports} /></ProtectedRoute>} />
-        <Route path="/account" element={<Account {...sharedProps} />} />
+        {/* /account used to render a fake, unauthenticated account/org
+            creation flow (accountService.js/localStorage, no real backend
+            user row) with no ProtectedRoute wrapper -- reachable by anyone,
+            logged in or not. The real, working way to create an account is
+            the invite/accept flow (accept-invite.jsx, backend/src/routes/
+            invites.js). Redirecting rather than deleting src/pages/account.jsx
+            outright -- it's simply unrouted now. */}
+        <Route path="/account" element={<Navigate to="/" replace />} />
         <Route path="/users" element={<ProtectedRoute allowedPath="/users"><Users {...sharedProps} /></ProtectedRoute>} />
         <Route path="/organizations" element={<ProtectedRoute allowedPath="/organizations"><Organizations {...sharedProps} /></ProtectedRoute>} />
         <Route path="/leagues-management" element={<ProtectedRoute allowedPath="/leagues-management"><LeaguesManagement {...sharedProps} /></ProtectedRoute>} />
