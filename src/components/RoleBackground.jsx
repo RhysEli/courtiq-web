@@ -2,8 +2,21 @@ import { Box } from '@mui/material';
 import { motion } from 'framer-motion';
 import { getRoleTheme } from '../theme/themeConfig';
 import { useThemePreferences } from '../contexts/ThemeContext';
+import {
+  AthleteIllustration,
+  CoachIllustration,
+  StatisticianIllustration,
+  TeamManagerIllustration,
+} from '../assets/role-illustrations';
 
 const INTENSITY_OPACITY = { subtle: 0.35, medium: 0.55, vivid: 0.75 };
+
+const ROLE_ILLUSTRATIONS = {
+  Athlete: AthleteIllustration,
+  Coach: CoachIllustration,
+  Statistician: StatisticianIllustration,
+  'Team Manager': TeamManagerIllustration,
+};
 
 function CourtLines({ color, opacity }) {
   return (
@@ -131,6 +144,20 @@ function RoleBackground({ role }) {
     ? `linear-gradient(135deg, ${roleTheme.gradient[0]}ee 0%, ${roleTheme.gradient[1]}cc 50%, ${roleTheme.gradient[2]}ee 100%)`
     : `linear-gradient(135deg, ${teamColors.secondary}22 0%, ${teamColors.primary}18 50%, ${teamColors.secondary}15 100%)`;
 
+  // "More lively" per lecturer feedback: a large per-role hero
+  // illustration sitting behind everything else. Bright role.particle
+  // in dark mode (same color the existing pattern/particle layers
+  // already use, proven readable against the dark gradient); the deep
+  // role.gradient[1] tone in light mode instead -- particle is tuned
+  // for a dark backdrop and reads as too pale/washed-out on light.
+  // Opacity scales off the same backgroundIntensity dial as everything
+  // else here (INTENSITY_OPACITY), just scaled down so a large-scale
+  // illustration doesn't overpower the existing subtle layers -- not a
+  // separate hardcoded number.
+  const Illustration = ROLE_ILLUSTRATIONS[role] || ROLE_ILLUSTRATIONS.Statistician;
+  const illustrationColor = isDark ? roleTheme.particle : roleTheme.gradient[1];
+  const illustrationOpacity = opacity * 0.35;
+
   return (
     <Box
       sx={{
@@ -148,6 +175,21 @@ function RoleBackground({ role }) {
           background: overlayGradient,
         }}
       />
+
+      <Box
+        sx={{
+          position: 'absolute',
+          right: '-8%',
+          bottom: '-8%',
+          width: { xs: '110vw', md: '55vw' },
+          height: { xs: '110vw', md: '55vw' },
+          maxWidth: 760,
+          maxHeight: 760,
+          opacity: illustrationOpacity,
+        }}
+      >
+        <Illustration color={illustrationColor} style={{ width: '100%', height: '100%' }} />
+      </Box>
 
       <Box
         sx={{
