@@ -1,68 +1,132 @@
-import { Box, Grid, Card, CardContent, Typography, TextField, Button, Chip, Stack, Avatar, Divider, Alert } from '@mui/material';
+import { Alert, Avatar, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, Grid, Stack, TextField, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/layout';
-import { createTeam, getTeams, updateTeam } from '../services/managementService';
+import { backendApi } from '../api/client';
+
+// FR-11: real team data against the backend `teams` table
+// (backend/src/routes/teams.js), replacing the old localStorage-only
+// managementService.js version of this page. Mirrors teams-management.jsx's
+// finding that the real backend has no "create team" action -- teams are
+// created as a side effect of Bulk Import/game data, not from this UI --
+// so the old "Save Team" (create) form is dropped. "Update Selected Team"
+// is kept, matching teams-management.jsx's real editable columns
+// (coach/manager/statistician/colours/logo). League, season, and roster
+// (comma-separated free text) never had a real column and are dropped;
+// roster count is now the real count from the team's actual roster.
+
+const emptyForm = { coachName: '', managerName: '', statisticianName: '', colorPrimary: '', colorSecondary: '', logoUrl: '' };
 
 function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const [teams, setTeams] = useState([]);
-  const [form, setForm] = useState({ name: '', institution: '', category: 'Men', gender: 'Men', primaryColour: '#ff7a1a', secondaryColour: '#38bdf8', league: '', season: selectedSeason || '', coach: '', teamManager: '', statistician: '', roster: '' });
+  const [teamsLoading, setTeamsLoading] = useState(true);
+  const [teamsError, setTeamsError] = useState('');
+
+  const [rosterCount, setRosterCount] = useState(null);
+  const [rosterCountError, setRosterCountError] = useState('');
+
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [notice, setNotice] = useState('');
 
   const canManage = role === 'Statistician' || role === 'Team Manager';
-  const activeTeam = useMemo(() => teams.find((team) => team.id === selectedTeam) || teams[0], [teams, selectedTeam]);
+
+  const loadTeams = () => {
+    setTeamsLoading(true);
+    setTeamsError('');
+    return backendApi.getTeams()
+      .then((data) => { setTeams(data); return data; })
+      .catch((err) => { setTeamsError(err.message || 'Could not load teams.'); return []; })
+      .finally(() => setTeamsLoading(false));
+  };
 
   useEffect(() => {
-    const storedTeams = getTeams();
-    setTeams(storedTeams);
+    loadTeams();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const saveTeam = () => {
-    if (!form.name.trim()) return;
-    const team = createTeam({ ...form, roster: form.roster.split(',').map((entry) => entry.trim()).filter(Boolean) });
-    setTeams((prev) => [...prev, team]);
-    onTeamChange?.(team.id);
-    setForm({ ...form, name: '', institution: '', category: 'Men', gender: 'Men', primaryColour: '#ff7a1a', secondaryColour: '#38bdf8', league: '', season: selectedSeason || '', coach: '', teamManager: '', statistician: '', roster: '' });
-    setNotice(`Saved ${team.name}`);
+  const activeTeam = useMemo(() => {
+    const guess = teams.find((t) => t.name?.toLowerCase().includes(String(selectedTeam || '').toLowerCase().replace(/-/g, ' ')));
+    return guess || teams[0];
+  }, [teams, selectedTeam]);
+
+  // Populate the edit form from whichever team is currently active.
+  useEffect(() => {
+    setForm(activeTeam ? {
+      coachName: activeTeam.coach_name || '',
+      managerName: activeTeam.manager_name || '',
+      statisticianName: activeTeam.statistician_name || '',
+      colorPrimary: activeTeam.color_primary || '',
+      colorSecondary: activeTeam.color_secondary || '',
+      logoUrl: activeTeam.logo_url || '',
+    } : emptyForm);
+  }, [activeTeam]);
+
+  useEffect(() => {
+    if (!activeTeam) { setRosterCount(null); return; }
+    setRosterCountError('');
+    backendApi.getTeamPlayers(activeTeam.id)
+      .then((data) => setRosterCount(data.length))
+      .catch((err) => setRosterCountError(err.message || 'Could not load roster count.'));
+  }, [activeTeam]);
+
+  const updateActiveTeam = async () => {
+    if (!activeTeam) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      await backendApi.updateTeam(activeTeam.id, form);
+      await loadTeams();
+      setNotice(`Updated ${activeTeam.name}`);
+    } catch (err) {
+      setSaveError(err.message || 'Could not save team.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const updateSelectedTeam = () => {
-    if (!activeTeam) return;
-    const updatedTeams = updateTeam(activeTeam.id, { institution: form.institution || activeTeam.institution, league: form.league || activeTeam.league, season: form.season || activeTeam.season, coach: form.coach || activeTeam.coach, teamManager: form.teamManager || activeTeam.teamManager, statistician: form.statistician || activeTeam.statistician });
-    setTeams(updatedTeams);
-    setNotice(`Updated ${activeTeam.name}`);
-  };
+  if (teamsLoading) {
+    return (
+      <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
+        <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress /></Stack>
+      </Layout>
+    );
+  }
 
   return (
     <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
+      {teamsError && <Alert severity="error" sx={{ mb: 2 }}>{teamsError}</Alert>}
       <Grid container spacing={3}>
         <Grid item xs={12} md={7}>
           <Card>
             <CardContent>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography variant="h5" fontWeight={700}>{activeTeam?.name || 'No team selected'}</Typography>
-                  <Typography color="text.secondary">{activeTeam?.institution || 'Create a team to start managing roster operations.'}</Typography>
+                  <Typography variant="h5" fontWeight={700}>{activeTeam?.name || 'No team found'}</Typography>
+                  <Typography color="text.secondary">{activeTeam?.gender_category || 'No real teams found for this organisation yet.'}</Typography>
                 </Box>
                 <Avatar sx={{ width: 72, height: 72, bgcolor: 'primary.main', fontSize: 24 }}>{activeTeam?.name?.slice(0, 2).toUpperCase() || 'TM'}</Avatar>
               </Stack>
               <Divider sx={{ my: 3 }} />
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}><TextField fullWidth label="Team name" value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} /></Grid>
-                <Grid item xs={12} sm={6}><TextField fullWidth label="Institution" value={form.institution} onChange={(event) => setForm((prev) => ({ ...prev, institution: event.target.value }))} /></Grid>
-                <Grid item xs={12} sm={6}><TextField fullWidth label="Category" value={form.category} onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))} /></Grid>
-                <Grid item xs={12} sm={6}><TextField fullWidth label="Gender" value={form.gender} onChange={(event) => setForm((prev) => ({ ...prev, gender: event.target.value }))} /></Grid>
-                <Grid item xs={12} sm={6}><TextField fullWidth label="Primary colour" value={form.primaryColour} onChange={(event) => setForm((prev) => ({ ...prev, primaryColour: event.target.value }))} /></Grid>
-                <Grid item xs={12} sm={6}><TextField fullWidth label="Secondary colour" value={form.secondaryColour} onChange={(event) => setForm((prev) => ({ ...prev, secondaryColour: event.target.value }))} /></Grid>
-                <Grid item xs={12} sm={6}><TextField fullWidth label="League" value={form.league} onChange={(event) => setForm((prev) => ({ ...prev, league: event.target.value }))} /></Grid>
-                <Grid item xs={12} sm={6}><TextField fullWidth label="Season" value={form.season} onChange={(event) => setForm((prev) => ({ ...prev, season: event.target.value }))} /></Grid>
-                <Grid item xs={12} sm={6}><TextField fullWidth label="Coach" value={form.coach} onChange={(event) => setForm((prev) => ({ ...prev, coach: event.target.value }))} /></Grid>
-                <Grid item xs={12} sm={6}><TextField fullWidth label="Team manager" value={form.teamManager} onChange={(event) => setForm((prev) => ({ ...prev, teamManager: event.target.value }))} /></Grid>
-                <Grid item xs={12} sm={6}><TextField fullWidth label="Statistician" value={form.statistician} onChange={(event) => setForm((prev) => ({ ...prev, statistician: event.target.value }))} /></Grid>
-                <Grid item xs={12}><TextField fullWidth label="Roster (comma separated)" value={form.roster} onChange={(event) => setForm((prev) => ({ ...prev, roster: event.target.value }))} /></Grid>
-                <Grid item xs={12}><Button variant="contained" sx={{ mt: 1 }} onClick={saveTeam} disabled={!canManage}>Save Team</Button></Grid>
-                {activeTeam && <Grid item xs={12}><Button variant="outlined" onClick={updateSelectedTeam} disabled={!canManage}>Update Selected Team</Button></Grid>}
-                {notice && <Grid item xs={12}><Alert severity="success">{notice}</Alert></Grid>}
-              </Grid>
+              {activeTeam ? (
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}><TextField fullWidth label="Coach" value={form.coachName} onChange={(event) => setForm((prev) => ({ ...prev, coachName: event.target.value }))} /></Grid>
+                  <Grid item xs={12} sm={6}><TextField fullWidth label="Team manager" value={form.managerName} onChange={(event) => setForm((prev) => ({ ...prev, managerName: event.target.value }))} /></Grid>
+                  <Grid item xs={12} sm={6}><TextField fullWidth label="Statistician" value={form.statisticianName} onChange={(event) => setForm((prev) => ({ ...prev, statisticianName: event.target.value }))} /></Grid>
+                  <Grid item xs={12} sm={6}><TextField fullWidth label="Logo URL" value={form.logoUrl} onChange={(event) => setForm((prev) => ({ ...prev, logoUrl: event.target.value }))} /></Grid>
+                  <Grid item xs={12} sm={6}><TextField fullWidth label="Primary colour" value={form.colorPrimary} onChange={(event) => setForm((prev) => ({ ...prev, colorPrimary: event.target.value }))} /></Grid>
+                  <Grid item xs={12} sm={6}><TextField fullWidth label="Secondary colour" value={form.colorSecondary} onChange={(event) => setForm((prev) => ({ ...prev, colorSecondary: event.target.value }))} /></Grid>
+                  {saveError && <Grid item xs={12}><Alert severity="error">{saveError}</Alert></Grid>}
+                  <Grid item xs={12}>
+                    <Button variant="contained" onClick={updateActiveTeam} disabled={!canManage || saving}>
+                      {saving ? 'Saving…' : `Update ${activeTeam.name}`}
+                    </Button>
+                  </Grid>
+                  {notice && <Grid item xs={12}><Alert severity="success">{notice}</Alert></Grid>}
+                </Grid>
+              ) : (
+                <Typography color="text.secondary">Teams are created automatically from Bulk Import/game data.</Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -73,27 +137,23 @@ function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
               <Typography variant="h6" fontWeight={700}>Team Overview</Typography>
               <Stack spacing={1.5} sx={{ mt: 2 }}>
                 <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'action.hover' }}>
-                  <Typography color="text.secondary">League</Typography>
-                  <Typography fontWeight={600}>{activeTeam?.league || '—'}</Typography>
-                </Box>
-                <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'action.hover' }}>
-                  <Typography color="text.secondary">Season</Typography>
-                  <Typography fontWeight={600}>{activeTeam?.season || '—'}</Typography>
+                  <Typography color="text.secondary">Category</Typography>
+                  <Typography fontWeight={600}>{activeTeam?.gender_category || '—'}</Typography>
                 </Box>
                 <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'action.hover' }}>
                   <Typography color="text.secondary">Roster count</Typography>
-                  <Typography fontWeight={600}>{activeTeam?.roster?.length || 0} players</Typography>
+                  <Typography fontWeight={600}>{rosterCountError ? '—' : rosterCount === null ? '…' : `${rosterCount} players`}</Typography>
                 </Box>
               </Stack>
               <Divider sx={{ my: 2 }} />
               <Typography variant="subtitle1" fontWeight={700}>Team Contacts</Typography>
               <Stack spacing={1} sx={{ mt: 1 }}>
                 {activeTeam && [
-                  { name: activeTeam.coach, role: 'Coach', access: 'Read' },
-                  { name: activeTeam.teamManager, role: 'Team Manager', access: 'Manage' },
-                  { name: activeTeam.statistician, role: 'Statistician', access: 'Technical' },
+                  { name: activeTeam.coach_name, role: 'Coach', access: 'Read' },
+                  { name: activeTeam.manager_name, role: 'Team Manager', access: 'Manage' },
+                  { name: activeTeam.statistician_name, role: 'Statistician', access: 'Technical' },
                 ].filter((member) => member.name).map((member) => (
-                  <Box key={member.name} sx={{ p: 1.5, borderRadius: 2, bgcolor: 'action.hover', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box key={member.role} sx={{ p: 1.5, borderRadius: 2, bgcolor: 'action.hover', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Box>
                       <Typography fontWeight={600}>{member.name}</Typography>
                       <Typography color="text.secondary" variant="body2">{member.role}</Typography>
@@ -101,6 +161,9 @@ function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
                     <Chip label={member.access} color="primary" variant="outlined" />
                   </Box>
                 ))}
+                {activeTeam && ![activeTeam.coach_name, activeTeam.manager_name, activeTeam.statistician_name].some(Boolean) && (
+                  <Typography color="text.secondary">No contacts configured for this team yet.</Typography>
+                )}
               </Stack>
             </CardContent>
           </Card>
