@@ -140,9 +140,11 @@ function RoleBackground({ role }) {
   const opacity = INTENSITY_OPACITY[backgroundIntensity] || 0.55;
   const isDark = mode === 'dark';
 
-  const overlayGradient = isDark
-    ? `linear-gradient(135deg, ${roleTheme.gradient[0]}ee 0%, ${roleTheme.gradient[1]}cc 50%, ${roleTheme.gradient[2]}ee 100%)`
-    : `linear-gradient(135deg, ${teamColors.secondary}22 0%, ${teamColors.primary}18 50%, ${teamColors.secondary}15 100%)`;
+  // Bold, saturated, and deliberately mode-independent: this flat base
+  // wash is the one layer that should look identical whether the user is
+  // in light or dark mode, so it renders straight off role.heroGradient
+  // with no isDark branch.
+  const overlayGradient = `linear-gradient(135deg, ${roleTheme.heroGradient[0]} 0%, ${roleTheme.heroGradient[1]} 50%, ${roleTheme.heroGradient[2]} 100%)`;
 
   // "More lively" per lecturer feedback: a large per-role hero
   // illustration sitting behind everything else. Bright role.particle
