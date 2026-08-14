@@ -47,6 +47,18 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
 
   const requests = useMemo(() => JSON.parse(window.localStorage.getItem('courtiq-access-requests') || '[]'), [refreshToken]);
 
+  // The "Institution" button assigns a user to whichever institution is
+  // currently selected in the Invite user panel's Team dropdown above --
+  // this used to be its own free-text field (`inviteInstitution` state,
+  // removed in a01a19d when the invite form switched to a real Team
+  // picker), so the equivalent value now comes from that team's
+  // institution. Uses institution_id, not institution_name -- GET /teams
+  // (backend/src/routes/teams.js) never actually returns institution_name,
+  // only institution_id, so institution_name is always undefined here
+  // (same reason the Team dropdown's own institution_name prefix below is
+  // silently blank -- a separate, pre-existing gap, not touched here).
+  const inviteInstitution = teams.find((t) => t.id === inviteTeamId)?.institution_id || '';
+
   const createInviteCode = async () => {
     if (!inviteEmail || !inviteTeamId) return;
     setSendingInvite(true);
@@ -189,7 +201,14 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
                       <Stack direction="row" spacing={1}>
                         <Button size="small" variant="outlined" onClick={() => toggleUserStatus(user.id, user.status === 'active' ? 'inactive' : 'active')}>{user.status === 'active' ? 'Deactivate' : 'Reactivate'}</Button>
                         <Button size="small" variant="outlined" onClick={() => resetUserPassword(user.id)}>Reset</Button>
-                        <Button size="small" variant="outlined" onClick={() => changeInstitution(user.id, inviteInstitution)}>Institution</Button>
+                        <Button
+                          size="small" variant="outlined"
+                          disabled={!inviteInstitution}
+                          title={inviteInstitution ? `Assign to ${inviteInstitution}` : 'Select a team with a known institution in the Invite user panel above first'}
+                          onClick={() => changeInstitution(user.id, inviteInstitution)}
+                        >
+                          Institution
+                        </Button>
                       </Stack>
                     </TableCell>
                   </TableRow>
