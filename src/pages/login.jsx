@@ -1,29 +1,14 @@
-import { Box, Button, Card, CardContent, Checkbox, FormControlLabel, MenuItem, Snackbar, Stack, TextField, Typography, Alert } from '@mui/material';
+import { Box, Button, Card, CardContent, Checkbox, FormControlLabel, Snackbar, Stack, TextField, Typography, Alert } from '@mui/material';
 import SportsBasketballIcon from '@mui/icons-material/SportsBasketball';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { registerUser } from '../auth/authService';
 
 function Login() {
   const navigate = useNavigate();
   const { login, isAuthenticated } = useAuth();
   const [mode, setMode] = useState('signin');
   const [signInForm, setSignInForm] = useState({ email: 'manager@courtiq.com', password: 'demo123', rememberMe: true });
-  const [signUpForm, setSignUpForm] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    role: 'Coach',
-    rememberMe: true,
-    createOrganization: true,
-    institution: '',
-    team: '',
-    country: 'Kenya',
-    sport: 'Basketball',
-    inviteCode: '',
-  });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -38,34 +23,6 @@ function Login() {
 
     setError(result.error);
   };
-
-  const handleSignUp = () => {
-    const result = registerUser({
-      username: signUpForm.username,
-      email: signUpForm.email,
-      password: signUpForm.password,
-      confirmPassword: signUpForm.confirmPassword,
-      role: signUpForm.role,
-      rememberMe: signUpForm.rememberMe,
-      createOrganization: signUpForm.createOrganization,
-      institution: signUpForm.institution,
-      team: signUpForm.team,
-      country: signUpForm.country,
-      sport: signUpForm.sport,
-      inviteCode: signUpForm.inviteCode,
-    });
-
-    if (result.success) {
-      setError('');
-      setMessage(signUpForm.createOrganization ? 'Account created and organization setup is ready.' : 'Account created. Your organization request is pending review.');
-      navigate('/dashboard');
-      return;
-    }
-
-    setError(result.error);
-  };
-
-  const roleOptions = useMemo(() => ['Statistician', 'Team Manager', 'Coach', 'Athlete'], []);
 
   if (isAuthenticated) {
     navigate('/dashboard');
@@ -109,32 +66,9 @@ function Login() {
             </Box>
           ) : (
             <Box>
-              <TextField fullWidth label="Username" margin="normal" value={signUpForm.username} onChange={(event) => setSignUpForm((prev) => ({ ...prev, username: event.target.value }))} />
-              <TextField fullWidth label="Email" margin="normal" value={signUpForm.email} onChange={(event) => setSignUpForm((prev) => ({ ...prev, email: event.target.value }))} />
-              <TextField fullWidth label="Password" type="password" margin="normal" value={signUpForm.password} onChange={(event) => setSignUpForm((prev) => ({ ...prev, password: event.target.value }))} />
-              <TextField fullWidth label="Confirm Password" type="password" margin="normal" value={signUpForm.confirmPassword} onChange={(event) => setSignUpForm((prev) => ({ ...prev, confirmPassword: event.target.value }))} />
-              <TextField select fullWidth label="Role" margin="normal" value={signUpForm.role} onChange={(event) => setSignUpForm((prev) => ({ ...prev, role: event.target.value }))}>
-                {roleOptions.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
-              </TextField>
-              <FormControlLabel control={<Checkbox checked={signUpForm.rememberMe} onChange={(event) => setSignUpForm((prev) => ({ ...prev, rememberMe: event.target.checked }))} />} label="Remember me" sx={{ mt: 1 }} />
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 2 }}>
-                <Button fullWidth variant={signUpForm.createOrganization ? 'contained' : 'outlined'} onClick={() => setSignUpForm((prev) => ({ ...prev, createOrganization: true }))}>Create Organization</Button>
-                <Button fullWidth variant={!signUpForm.createOrganization ? 'contained' : 'outlined'} onClick={() => setSignUpForm((prev) => ({ ...prev, createOrganization: false }))}>Join Existing</Button>
-              </Stack>
-              {!signUpForm.createOrganization && (
-                <TextField fullWidth label="Invite Code" margin="normal" value={signUpForm.inviteCode} onChange={(event) => setSignUpForm((prev) => ({ ...prev, inviteCode: event.target.value }))} />
-              )}
-              {signUpForm.createOrganization && (
-                <Box sx={{ mt: 2 }}>
-                  <TextField fullWidth label="Institution" margin="normal" value={signUpForm.institution} onChange={(event) => setSignUpForm((prev) => ({ ...prev, institution: event.target.value }))} />
-                  <TextField fullWidth label="Team" margin="normal" value={signUpForm.team} onChange={(event) => setSignUpForm((prev) => ({ ...prev, team: event.target.value }))} />
-                  <TextField fullWidth label="Country" margin="normal" value={signUpForm.country} onChange={(event) => setSignUpForm((prev) => ({ ...prev, country: event.target.value }))} />
-                  <TextField fullWidth label="Sport" margin="normal" value={signUpForm.sport} onChange={(event) => setSignUpForm((prev) => ({ ...prev, sport: event.target.value }))} />
-                </Box>
-              )}
-              {error && <Typography color="error.main" sx={{ mt: 2 }}>{error}</Typography>}
-              {message && <Alert severity="success" sx={{ mt: 2 }}>{message}</Alert>}
-              <Button fullWidth variant="contained" sx={{ mt: 3, bgcolor: '#ff7a1a', '&:hover': { bgcolor: '#e96b10' } }} onClick={handleSignUp}>Create Account</Button>
+              <Typography color="grey.300">
+                Accounts are created by invite. Contact your Team Manager or Statistician to receive an invite link.
+              </Typography>
             </Box>
           )}
         </CardContent>

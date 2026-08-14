@@ -21,7 +21,7 @@ const createLocalStorage = () => {
 
 global.localStorage = createLocalStorage();
 
-const { loginUser, logoutUser, getStoredAuth, registerUser } = await import('./authService.js');
+const { loginUser, logoutUser, getStoredAuth } = await import('./authService.js');
 
 test('loginUser authenticates a known manager account', () => {
   localStorage.clear();
@@ -31,26 +31,6 @@ test('loginUser authenticates a known manager account', () => {
   assert.equal(result.success, true);
   assert.equal(result.user.role, 'Team Manager');
   assert.equal(getStoredAuth().currentUser.email, 'manager@courtiq.com');
-});
-
-test('registerUser stores a new user and authenticates it', () => {
-  localStorage.clear();
-
-  const result = registerUser({
-    username: 'newuser',
-    email: 'new.user@courtiq.com',
-    password: 'demo123',
-    confirmPassword: 'demo123',
-    role: 'Coach',
-    rememberMe: true,
-    createOrganization: false,
-    inviteCode: 'INV-DEMO',
-    institution: 'USIU',
-    team: 'USIU Tigers Men',
-  });
-
-  assert.equal(result.success, true);
-  assert.equal(getStoredAuth().currentUser.email, 'new.user@courtiq.com');
 });
 
 test('logoutUser clears persisted auth', () => {

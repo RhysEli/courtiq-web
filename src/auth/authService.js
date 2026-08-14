@@ -1,4 +1,4 @@
-import { createOrganization, createUserAccount, getUsers, getOrganizations, getInvites } from '../services/accountService.js';
+import { getUsers } from '../services/accountService.js';
 import { backendApi } from '../api/client';
 
 const AUTH_STORAGE_KEY = 'courtiq-auth';
@@ -213,75 +213,6 @@ export async function loginUser({ email, password, rememberMe = false }) {
   persistAuth(authState);
 
   return { success: true, user: authState.currentUser };
-}
-
-export function registerUser(userData) {
-  ensureDemoUsers();
-  const normalizedEmail = normalizeEmail(userData.email);
-  const existingUser = getUsers().find((user) => normalizeEmail(user.email) === normalizedEmail);
-
-  if (existingUser) {
-    return { success: false, error: 'An account already exists for this email.' };
-  }
-
-  if (!userData.username || !normalizedEmail || !userData.password || !userData.confirmPassword) {
-    return { success: false, error: 'Please complete all required fields.' };
-  }
-
-  if (userData.password !== userData.confirmPassword) {
-    return { success: false, error: 'Passwords do not match.' };
-  }
-
-  const organizations = getOrganizations();
-  const shouldCreateOrganization = Boolean(userData.createOrganization || !organizations.length);
-
-  const account = createUserAccount({
-    username: userData.username,
-    firstName: userData.firstName || '',
-    lastName: userData.lastName || '',
-    email: normalizedEmail,
-    phoneNumber: userData.phoneNumber || '',
-    password: userData.password,
-    role: userData.role || 'Coach',
-    institution: userData.institution || '',
-    team: userData.team || '',
-    status: 'active',
-    lastLogin: 'Just now',
-    profilePhoto: 'mock-avatar',
-  });
-
-  let organization = null;
-  if (shouldCreateOrganization) {
-    organization = createOrganization({ name: userData.institution || userData.username, country: userData.country || 'Kenya', sport: userData.sport || 'Basketball', description: `${userData.username}'s organization` }, account.id);
-  }
-
-  if (!shouldCreateOrganization && userData.inviteCode) {
-    const invite = getInvites().find((entry) => entry.code === userData.inviteCode && entry.status === 'pending');
-    if (invite) {
-      const users = getUsers().map((entry) => (entry.id === account.id ? { ...entry, institution: invite.institution, team: invite.team, role: invite.role } : entry));
-      const storage = getStorage();
-      if (storage) {
-        storage.setItem(USER_STORAGE_KEY, JSON.stringify(users));
-      }
-    }
-  }
-
-  const authState = {
-    currentUser: {
-      id: account.id,
-      email: account.email,
-      name: account.username,
-      role: account.role,
-      institution: account.institution,
-      team: account.team,
-    },
-    role: account.role,
-    rememberMe: Boolean(userData.rememberMe),
-  };
-
-  persistAuth(authState);
-
-  return { success: true, user: authState.currentUser, organization };
 }
 
 export function logoutUser() {
