@@ -1,57 +1,31 @@
 import { useState } from 'react';
-import { Box, Grid, Typography, Switch, FormControlLabel, TextField, Button, Stack, Avatar, Chip, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Box, Grid, Typography, Switch, FormControlLabel, TextField, Stack, Avatar, Chip, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { motion } from 'framer-motion';
 import Layout from '../components/layout';
 import GlassCard, { GlassCardContent } from '../components/GlassCard';
 import { useAuth } from '../contexts/AuthContext';
 import { useThemePreferences } from '../contexts/ThemeContext';
-import { TEAM_PRESETS, getRoleTheme } from '../theme/themeConfig';
-import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
-import PaletteRoundedIcon from '@mui/icons-material/PaletteRounded';
+import { getRoleTheme } from '../theme/themeConfig';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 
-function ColorSwatch({ color, label, selected, onClick }) {
-  return (
-    <Box
-      onClick={onClick}
-      sx={{
-        cursor: 'pointer',
-        textAlign: 'center',
-        transition: 'transform 0.2s',
-        '&:hover': { transform: 'scale(1.08)' },
-      }}
-    >
-      <Box
-        sx={{
-          width: 48,
-          height: 48,
-          borderRadius: 2,
-          bgcolor: color,
-          border: selected ? '3px solid #fff' : '2px solid rgba(255,255,255,0.2)',
-          boxShadow: selected ? `0 0 16px ${color}` : 'none',
-          mx: 'auto',
-        }}
-      />
-      <Typography variant="caption" sx={{ mt: 0.5, display: 'block', color: 'text.secondary' }}>{label}</Typography>
-    </Box>
-  );
-}
+// The "Team Colors" editor that used to live here (presets + custom hex +
+// an "Apply Colors" button) was removed -- it only ever wrote to
+// ThemeContext's local, per-browser teamColors preference (never the
+// backend), but was worded as if it edited the team's real brand identity
+// ("Customize your team's visual identity", "Primary (Jersey)"), which is
+// actually Step 1/2's DB-backed system (backend PATCH /teams/:teamId/brand,
+// Team Manager only, edited from team-brand-settings.jsx). Having both
+// made it look like this screen could repaint the real team colors for
+// everyone, for any role -- it couldn't. See settings.jsx for the
+// Team-Manager-gated link to the real editor.
 
 function Profile({ selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
   const { currentUser: authUser } = useAuth();
   const user = currentUser || authUser;
   const roleTheme = getRoleTheme(role);
-  const {
-    mode, toggleTheme, teamColors, teamPreset, setTeamPreset, setTeamColors,
-    backgroundIntensity, setBackgroundIntensity,
-  } = useThemePreferences();
+  const { mode, toggleTheme, teamColors, backgroundIntensity, setBackgroundIntensity } = useThemePreferences();
 
-  const [localColors, setLocalColors] = useState({ ...teamColors });
   const [displayName, setDisplayName] = useState(user?.name || '');
-
-  const handleSave = () => {
-    setTeamColors(localColors);
-  };
 
   return (
     <Layout selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout} currentUser={user}>
@@ -87,77 +61,6 @@ function Profile({ selectedTeam, onTeamChange, role, selectedSeason, logout, cur
         </motion.div>
 
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <GlassCard glowColor={teamColors.primary}>
-              <GlassCardContent>
-                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                  <PaletteRoundedIcon sx={{ color: teamColors.primary }} />
-                  <Typography variant="h6" fontWeight={700}>Team Colors</Typography>
-                </Stack>
-                <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
-                  Customize your team's visual identity. These colors apply across the app while keeping your role's unique atmosphere.
-                </Typography>
-
-                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Presets</Typography>
-                <Stack direction="row" flexWrap="wrap" gap={2} sx={{ mb: 3 }}>
-                  {Object.values(TEAM_PRESETS).map((preset) => (
-                    <ColorSwatch
-                      key={preset.id}
-                      color={preset.primary}
-                      label={preset.name}
-                      selected={teamPreset === preset.id}
-                      onClick={() => {
-                        setTeamPreset(preset.id);
-                        setLocalColors({ primary: preset.primary, secondary: preset.secondary, accent: preset.accent });
-                      }}
-                    />
-                  ))}
-                </Stack>
-
-                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Custom Colors</Typography>
-                <Grid container spacing={2} sx={{ mb: 2 }}>
-                  {[
-                    { key: 'primary', label: 'Primary (Jersey)' },
-                    { key: 'secondary', label: 'Secondary (Accent)' },
-                    { key: 'accent', label: 'Highlight' },
-                  ].map(({ key, label }) => (
-                    <Grid item xs={4} key={key}>
-                      <Typography variant="caption" color="text.secondary">{label}</Typography>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <Box
-                          component="input"
-                          type="color"
-                          value={localColors[key]}
-                          onChange={(e) => setLocalColors((prev) => ({ ...prev, [key]: e.target.value }))}
-                          sx={{ width: 40, height: 40, border: 'none', borderRadius: 1, cursor: 'pointer', bgcolor: 'transparent' }}
-                        />
-                        <TextField
-                          size="small"
-                          value={localColors[key]}
-                          onChange={(e) => setLocalColors((prev) => ({ ...prev, [key]: e.target.value }))}
-                          sx={{ flex: 1 }}
-                        />
-                      </Stack>
-                    </Grid>
-                  ))}
-                </Grid>
-
-                <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)', mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary">Preview</Typography>
-                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                    <Box sx={{ flex: 1, height: 32, borderRadius: 1, bgcolor: localColors.primary }} />
-                    <Box sx={{ flex: 1, height: 32, borderRadius: 1, bgcolor: localColors.secondary }} />
-                    <Box sx={{ flex: 1, height: 32, borderRadius: 1, bgcolor: localColors.accent, border: '1px solid rgba(255,255,255,0.2)' }} />
-                  </Stack>
-                </Box>
-
-                <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={handleSave} sx={{ bgcolor: localColors.primary, color: '#000', '&:hover': { bgcolor: localColors.primary, filter: 'brightness(1.1)' } }}>
-                  Apply Colors
-                </Button>
-              </GlassCardContent>
-            </GlassCard>
-          </Grid>
-
           <Grid item xs={12} md={6}>
             <GlassCard glowColor={roleTheme.glow}>
               <GlassCardContent>

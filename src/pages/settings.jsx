@@ -7,10 +7,12 @@ import { TEAM_PRESETS } from '../theme/themeConfig';
 import { ACCENT_OPTIONS, persistUserPreference } from '../theme/userPreference';
 import { applyTheme, getCurrentBrand } from '../theme/applyTheme';
 import { backendApi } from '../api/client';
+import { isRouteAllowed } from '../auth/roleAccess';
 import { useNavigate } from 'react-router-dom';
 import PaletteRoundedIcon from '@mui/icons-material/PaletteRounded';
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
+import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 
 // Visual overhaul step 2: personal preference (theme_mode + accent_override
 // on `users`), self-service for every role via backendApi.getMyPreferences/
@@ -96,7 +98,7 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
                 <Typography variant="h6" fontWeight={700}>Profile & Customization</Typography>
               </Stack>
               <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
-                Manage your profile, team colors, and visual preferences from your profile page.
+                Manage your display name and visual preferences from your profile page.
               </Typography>
               <Button variant="contained" onClick={() => navigate('/profile')} sx={{ bgcolor: teamColors.primary, color: '#000' }}>
                 Open Profile
@@ -104,6 +106,25 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
             </GlassCardContent>
           </GlassCard>
         </Grid>
+
+        {isRouteAllowed(role, '/team-brand-settings') && (
+          <Grid item xs={12} md={6}>
+            <GlassCard glowColor={teamColors.primary}>
+              <GlassCardContent>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                  <GroupsRoundedIcon sx={{ color: teamColors.primary }} />
+                  <Typography variant="h6" fontWeight={700}>Team Brand</Typography>
+                </Stack>
+                <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
+                  Set your team's real primary, secondary, and accent colors -- visible to everyone on the team, everywhere in the app.
+                </Typography>
+                <Button variant="contained" onClick={() => navigate('/team-brand-settings')} sx={{ bgcolor: teamColors.primary, color: '#000' }}>
+                  Open Team Brand
+                </Button>
+              </GlassCardContent>
+            </GlassCard>
+          </Grid>
+        )}
 
         <Grid item xs={12} md={6}>
           <GlassCard glowColor={teamColors.secondary}>
@@ -120,6 +141,9 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
               </Typography>
 
               <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>Quick Team Preset</Typography>
+              <Typography color="text.secondary" variant="body2" sx={{ mb: 1.5 }}>
+                Personal preview only -- doesn't change your team's real colors for anyone else.
+              </Typography>
               <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
                 {Object.values(TEAM_PRESETS).slice(0, 4).map((preset) => (
                   <Box
