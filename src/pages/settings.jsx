@@ -51,6 +51,20 @@ const ACCENT_TOGGLE_SX = {
     filter: 'brightness(0.92)',
   },
 };
+// Notifications' two Switches and the "Save preferences" button below were
+// still bare MUI defaults (theme.palette.primary, itself bound to the
+// unrelated Quick Team Preset -- not literally hardcoded, but never
+// intentionally set to accent either, unlike everything else on this
+// page). Same personal-preference-panel reasoning as ACCENT_TOGGLE_SX.
+const ACCENT_SWITCH_SX = {
+  '& .MuiSwitch-switchBase.Mui-checked': { color: 'var(--user-accent)' },
+  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: 'var(--user-accent)', opacity: 0.5 },
+};
+const ACCENT_OUTLINED_BUTTON_SX = {
+  borderColor: 'var(--user-accent)',
+  color: 'var(--user-accent)',
+  '&:hover': { borderColor: 'var(--user-accent)', bgcolor: 'color-mix(in srgb, var(--user-accent) 12%, transparent)' },
+};
 
 function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
   const navigate = useNavigate();
@@ -263,9 +277,9 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
           <GlassCard>
             <GlassCardContent>
               <Typography variant="h6" fontWeight={700}>Notifications</Typography>
-              <FormControlLabel control={<Switch defaultChecked />} label="Game reminders" sx={{ mt: 2, display: 'block' }} />
-              <FormControlLabel control={<Switch defaultChecked />} label="AI analysis updates" sx={{ display: 'block' }} />
-              <Button variant="outlined" sx={{ mt: 2 }}>Save preferences</Button>
+              <FormControlLabel control={<Switch defaultChecked sx={ACCENT_SWITCH_SX} />} label="Game reminders" sx={{ mt: 2, display: 'block' }} />
+              <FormControlLabel control={<Switch defaultChecked sx={ACCENT_SWITCH_SX} />} label="AI analysis updates" sx={{ display: 'block' }} />
+              <Button variant="outlined" sx={{ mt: 2, ...ACCENT_OUTLINED_BUTTON_SX }}>Save preferences</Button>
             </GlassCardContent>
           </GlassCard>
         </Grid>

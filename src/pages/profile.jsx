@@ -48,7 +48,7 @@ function Profile({ selectedTeam, onTeamChange, role, selectedSeason, logout, cur
   const { currentUser: authUser } = useAuth();
   const user = currentUser || authUser;
   const roleTheme = getRoleTheme(role);
-  const { mode, toggleTheme, teamColors, backgroundIntensity, setBackgroundIntensity } = useThemePreferences();
+  const { mode, toggleTheme, backgroundIntensity, setBackgroundIntensity } = useThemePreferences();
 
   const [displayName, setDisplayName] = useState(user?.name || '');
 
@@ -59,15 +59,19 @@ function Profile({ selectedTeam, onTeamChange, role, selectedSeason, logout, cur
           <GlassCard glowColor={roleTheme.glow}>
             <GlassCardContent>
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="center">
+                {/* Personal accent, not the local-only Quick Team Preset --
+                    same user-identity-marker treatment as the topbar avatar
+                    and sidebar "CI" badge (this is that same category of
+                    element, just on this page). */}
                 <Avatar
                   sx={{
                     width: 96,
                     height: 96,
                     fontSize: '2.5rem',
                     fontWeight: 800,
-                    bgcolor: `${teamColors.primary}33`,
-                    border: `4px solid ${teamColors.primary}`,
-                    color: teamColors.primary,
+                    bgcolor: 'var(--user-accent)',
+                    border: '4px solid var(--user-accent)',
+                    color: 'var(--user-accent-fg)',
                   }}
                 >
                   {(displayName || 'U').charAt(0).toUpperCase()}
