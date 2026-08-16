@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Grid, Typography, Switch, FormControlLabel, TextField, Stack, Avatar, Chip, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Box, Grid, Typography, Switch, FormControlLabel, TextField, Stack, Avatar, Chip, ToggleButton, ToggleButtonGroup, ThemeProvider, createTheme } from '@mui/material';
 import { motion } from 'framer-motion';
 import Layout from '../components/layout';
 import GlassCard, { GlassCardContent } from '../components/GlassCard';
@@ -32,6 +32,40 @@ const ACCENT_SWITCH_SX = {
   '& .MuiSwitch-switchBase.Mui-checked': { color: 'var(--user-accent)' },
   '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: 'var(--user-accent)', opacity: 0.5 },
 };
+
+// TextField/OutlinedInput's focus ring follows theme.palette.primary by
+// default -- itself bound app-wide to the local Quick Team Preset (see
+// buildMuiTheme in theme/themeConfig.js), same root cause as everything
+// else in this sweep. But palette.primary backs a LOT more than focus
+// rings across the app (104 TextFields, 20+ contained Buttons that don't
+// already have an explicit accent override, checkboxes/radios/tabs/
+// progress spinners/sliders in 20-30+ files) -- reassigning it wholesale
+// would silently recolor all of that, unaudited, just to fix four text
+// fields on this one page. A nested ThemeProvider scopes the override to
+// just the "Profile Details" TextFields below via createTheme(outerTheme,
+// overrides), MUI's documented merge pattern for exactly this -- it deep-
+// merges onto the real app theme (still the same palette, mode, every
+// other component override) rather than replacing it, so nothing outside
+// this subtree is affected. This is the first nested ThemeProvider in the
+// app; App.jsx's is still the only theme driving everything else.
+const withAccentFocusRing = (outerTheme) => createTheme(outerTheme, {
+  components: {
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--user-accent)' },
+        },
+      },
+    },
+    MuiInputLabel: {
+      styleOverrides: {
+        root: {
+          '&.Mui-focused': { color: 'var(--user-accent)' },
+        },
+      },
+    },
+  },
+});
 
 // The "Team Colors" editor that used to live here (presets + custom hex +
 // an "Apply Colors" button) was removed -- it only ever wrote to
@@ -137,20 +171,22 @@ function Profile({ selectedTeam, onTeamChange, role, selectedSeason, logout, cur
             <GlassCard>
               <GlassCardContent>
                 <Typography variant="h6" fontWeight={700}>Profile Details</Typography>
-                <Grid container spacing={2} sx={{ mt: 1 }}>
-                  <Grid item xs={12} md={6}>
-                    <TextField fullWidth label="Display name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+                <ThemeProvider theme={withAccentFocusRing}>
+                  <Grid container spacing={2} sx={{ mt: 1 }}>
+                    <Grid item xs={12} md={6}>
+                      <TextField fullWidth label="Display name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField fullWidth label="Email" value={user?.email || ''} disabled />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField fullWidth label="Role" value={role || ''} disabled />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField fullWidth label="Team" value={user?.team || ''} disabled />
+                    </Grid>
                   </Grid>
-                  <Grid item xs={12} md={6}>
-                    <TextField fullWidth label="Email" value={user?.email || ''} disabled />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <TextField fullWidth label="Role" value={role || ''} disabled />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <TextField fullWidth label="Team" value={user?.team || ''} disabled />
-                  </Grid>
-                </Grid>
+                </ThemeProvider>
               </GlassCardContent>
             </GlassCard>
           </Grid>
