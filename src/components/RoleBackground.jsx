@@ -140,11 +140,34 @@ function RoleBackground({ role }) {
   const opacity = INTENSITY_OPACITY[backgroundIntensity] || 0.55;
   const isDark = mode === 'dark';
 
-  // Bold, saturated, and deliberately mode-independent: this flat base
-  // wash is the one layer that should look identical whether the user is
-  // in light or dark mode, so it renders straight off role.heroGradient
-  // with no isDark branch.
-  const overlayGradient = `linear-gradient(135deg, ${roleTheme.heroGradient[0]} 0%, ${roleTheme.heroGradient[1]} 50%, ${roleTheme.heroGradient[2]} 100%)`;
+  // Dark mode: bold and saturated, straight off role.heroGradient, same as
+  // before -- unchanged.
+  //
+  // Light mode used to render this SAME role gradient (the comment here
+  // used to say "deliberately mode-independent"), but investigation showed
+  // that was never actually team-branded in either mode -- role.heroGradient
+  // is a hardcoded per-role palette with no tie to the team's real
+  // color_primary/color_secondary at all. In dark mode a vivid hue under
+  // near-opaque dark glass (buildMuiTheme's background.paper) still reads
+  // as rich and intentional; the identical hue under near-opaque WHITE
+  // glass in light mode reads as diluted and generic regardless of which
+  // team you're on, since nothing here ever varied by team to begin with.
+  // Light mode now derives from the team's actual --brand-primary/
+  // --brand-secondary instead, lightened toward white for a pastel wash
+  // that stays readable under content -- so two teams with different real
+  // brand colors now visibly look different in light mode, which they
+  // never did before.
+  // First attempt used 40%/32% brand mixes fading to pure white at the far
+  // stop -- confirmed via screenshot comparison (two teams, orange vs blue)
+  // that it was too subtle to read as on-brand once layered under the
+  // sidebar/topbar/card glass panels' own near-opaque white fills (0.55-
+  // 0.78 opacity, buildMuiTheme + the glassStyle objects in sidebar.jsx/
+  // topbar.jsx) -- both teams looked like the same neutral gray-lavender.
+  // Pushed the mix ratios up and replaced the pure-white far stop with a
+  // faint tint of its own so the wash never fully bottoms out to white.
+  const overlayGradient = isDark
+    ? `linear-gradient(135deg, ${roleTheme.heroGradient[0]} 0%, ${roleTheme.heroGradient[1]} 50%, ${roleTheme.heroGradient[2]} 100%)`
+    : 'linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 65%, white) 0%, color-mix(in srgb, var(--brand-secondary) 55%, white) 55%, color-mix(in srgb, var(--brand-primary) 25%, white) 100%)';
 
   // "More lively" per lecturer feedback: a large per-role hero
   // illustration sitting behind everything else. Bright role.particle
@@ -230,9 +253,12 @@ function RoleBackground({ role }) {
         sx={{
           position: 'absolute',
           inset: 0,
+          // Light branch's opacity dropped from 0.3 -- at the old value this
+          // vignette alone re-diluted the strengthened brand tint above
+          // right back toward white at the edges, undoing it.
           background: isDark
             ? 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.4) 100%)'
-            : 'radial-gradient(ellipse at center, transparent 50%, rgba(255,255,255,0.3) 100%)',
+            : 'radial-gradient(ellipse at center, transparent 50%, rgba(255,255,255,0.15) 100%)',
         }}
       />
     </Box>
