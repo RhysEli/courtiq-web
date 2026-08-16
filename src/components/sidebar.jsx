@@ -161,8 +161,8 @@ function Sidebar({ role, selectedSeason, logout, currentUser }) {
                 justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                 px: sidebarCollapsed ? 1 : 2,
                 bgcolor: active ? alpha(teamColors.primary, 0.18) : 'transparent',
-                color: active ? teamColors.primary : 'text.secondary',
-                borderLeft: active ? `3px solid ${teamColors.primary}` : '3px solid transparent',
+                color: active ? 'var(--brand-primary)' : 'text.secondary',
+                borderLeft: active ? '3px solid var(--brand-primary)' : '3px solid transparent',
                 '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.05)' },
               }}
             >

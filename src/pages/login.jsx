@@ -57,7 +57,7 @@ function Login() {
               </IconButton>
             </Stack>
             <Box textAlign="center" mb={3} mt={-2}>
-              <SportsBasketballIcon sx={{ fontSize: 70, color: '#ff7a1a' }} />
+              <SportsBasketballIcon sx={{ fontSize: 70, color: 'var(--brand-primary)' }} />
               <Typography variant="h4" fontWeight="bold">
                 CourtIQ
               </Typography>
@@ -76,7 +76,7 @@ function Login() {
                 <FormControlLabel control={<Checkbox checked={signInForm.rememberMe} onChange={(event) => setSignInForm((prev) => ({ ...prev, rememberMe: event.target.checked }))} />} label="Remember me" sx={{ mt: 1 }} />
                 {error && <Typography color="error.main" sx={{ mt: 2 }}>{error}</Typography>}
                 {message && <Alert severity="success" sx={{ mt: 2 }}>{message}</Alert>}
-                <Button fullWidth variant="contained" sx={{ mt: 3, bgcolor: '#ff7a1a', '&:hover': { bgcolor: '#e96b10' } }} onClick={handleLogin}>Enter CourtIQ</Button>
+                <Button fullWidth variant="contained" sx={{ mt: 3, bgcolor: 'var(--brand-primary)', '&:hover': { bgcolor: 'var(--brand-primary)', filter: 'brightness(0.9)' } }} onClick={handleLogin}>Enter CourtIQ</Button>
               </Box>
             ) : (
               <Box>

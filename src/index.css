@@ -7,6 +7,16 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   --sidebar-width: 260px;
+
+  /* Team-level brand colors -- overwritten synchronously by
+     src/theme/brandColors.js (main.jsx) before first paint using the
+     logged-in team's real values; these are just the static fallback for
+     the narrow window before that JS runs (and for a fresh browser with
+     no team logged in yet). Keep in sync with DEFAULT_BRAND_COLORS
+     there and the schema.sql backfill. */
+  --brand-primary: #ff7a1a;
+  --brand-secondary: #38bdf8;
+  --brand-accent: #f8fafc;
 }
 
 * {

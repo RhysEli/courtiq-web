@@ -64,7 +64,7 @@ async function getUserTeams(user) {
   if (user.role === 'Administrator') {
     const rows = await db.prepare(`
       SELECT t.id, t.name, t.gender_category, t.color_primary, t.color_secondary,
-             t.institution_id, i.name AS institution_name
+             t.brand_accent, t.logo_url, t.institution_id, i.name AS institution_name
       FROM teams t
       LEFT JOIN institutions i ON i.id = t.institution_id
       ORDER BY i.name, t.gender_category, t.name
@@ -73,7 +73,7 @@ async function getUserTeams(user) {
   }
   const rows = await db.prepare(`
     SELECT t.id, t.name, t.gender_category, t.color_primary, t.color_secondary,
-           t.institution_id, i.name AS institution_name
+           t.brand_accent, t.logo_url, t.institution_id, i.name AS institution_name
     FROM user_teams ut
     JOIN teams t ON t.id = ut.team_id
     LEFT JOIN institutions i ON i.id = t.institution_id

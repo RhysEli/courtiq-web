@@ -108,6 +108,27 @@ ALTER TABLE teams ADD COLUMN IF NOT EXISTS manager_name TEXT;
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS statistician_name TEXT;
 ALTER TABLE teams ADD COLUMN IF NOT EXISTS logo_url TEXT;
 
+-- Visual overhaul step 1: team-level brand colors. color_primary and
+-- color_secondary already existed above (FR-11); brand_accent is the one
+-- genuinely new color -- a team's palette is color_primary/color_secondary/
+-- brand_accent (mixed naming is intentional: the first two keep their
+-- original column names rather than being renamed to brand_primary/
+-- brand_secondary, so existing code that already reads/writes them
+-- --backend/src/routes/teams.js's PATCH, src/pages/teams.jsx,
+-- src/pages/teams-management.jsx -- doesn't need to change).
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS brand_accent TEXT;
+
+-- Backfill any team that has never been configured (still NULL) with
+-- CourtIQ's own default brand palette -- the "Classic Orange" identity
+-- already used elsewhere in the app (TEAM_PRESETS.classic in
+-- src/theme/themeConfig.js; the same orange is also the login page's
+-- hardcoded icon/button color) -- rather than leaving real teams with no
+-- color and pushing an empty-default problem onto the frontend. Only
+-- touches NULL rows, so safe to leave running on every startup.
+UPDATE teams SET color_primary = '#ff7a1a' WHERE color_primary IS NULL;
+UPDATE teams SET color_secondary = '#38bdf8' WHERE color_secondary IS NULL;
+UPDATE teams SET brand_accent = '#f8fafc' WHERE brand_accent IS NULL;
+
 -- One row per uploaded FIBA LiveStats report file for a game.
 CREATE TABLE IF NOT EXISTS reports (
   id SERIAL PRIMARY KEY,

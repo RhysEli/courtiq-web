@@ -75,11 +75,11 @@ function Topbar({ selectedTeam, onTeamChange, role, selectedInstitution, selecte
         <Avatar
           sx={{
             bgcolor: alpha(teamColors.primary, 0.2),
-            color: teamColors.primary,
+            color: 'var(--brand-primary)',
             width: 38,
             height: 38,
             fontWeight: 700,
-            border: `2px solid ${teamColors.primary}`,
+            border: '2px solid var(--brand-primary)',
             cursor: 'pointer',
           }}
           onClick={() => navigate('/profile')}

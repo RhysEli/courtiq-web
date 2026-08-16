@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, requireTeamAccess } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -21,7 +21,7 @@ router.use(requireAuth);
 router.get('/', async (req, res) => {
   try {
     const teams = await db.prepare(
-      'SELECT id, name, institution_id, gender_category, coach_name, manager_name, statistician_name, color_primary, color_secondary, logo_url FROM teams ORDER BY name',
+      'SELECT id, name, institution_id, gender_category, coach_name, manager_name, statistician_name, color_primary, color_secondary, brand_accent, logo_url FROM teams ORDER BY name',
     ).all();
     res.json(teams);
   } catch (err) {
@@ -67,6 +67,50 @@ router.patch('/:teamId', requireRole('Statistician', 'Team Manager'), async (req
     res.json(team);
   } catch (err) {
     console.error('update team failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Visual overhaul step 1: dedicated brand-identity update, separate from
+// the general team-config PATCH above. Deliberately narrower than that
+// endpoint in two ways: gated to Team Manager only (not Statistician too
+// -- brand identity is a Team Manager call, per the brief), and
+// requireTeamAccess'd so a Team Manager can only rebrand their own
+// team(s), not any team in the system (the general PATCH above has no
+// such scoping -- a pre-existing gap this doesn't attempt to fix).
+// color_primary/color_secondary are the same columns the general PATCH
+// already edits (see schema.sql for why they weren't renamed to
+// brand_primary/brand_secondary) -- this endpoint is an additional, more
+// tightly-scoped way to set the same two fields, plus brand_accent and
+// logo_url. Partial update, same as the general PATCH.
+router.patch('/:teamId/brand', requireRole('Team Manager'), requireTeamAccess('teamId'), async (req, res) => {
+  try {
+    const { teamId } = req.params;
+
+    const existing = await db.prepare(
+      'SELECT color_primary, color_secondary, brand_accent, logo_url FROM teams WHERE id = ?',
+    ).get(teamId);
+    if (!existing) {
+      return res.status(404).json({ error: 'Team not found' });
+    }
+
+    const {
+      colorPrimary = existing.color_primary,
+      colorSecondary = existing.color_secondary,
+      brandAccent = existing.brand_accent,
+      logoUrl = existing.logo_url,
+    } = req.body;
+
+    const team = await db.prepare(`
+      UPDATE teams
+      SET color_primary = ?, color_secondary = ?, brand_accent = ?, logo_url = ?
+      WHERE id = ?
+      RETURNING id, name, color_primary, color_secondary, brand_accent, logo_url
+    `).get(colorPrimary, colorSecondary, brandAccent, logoUrl, teamId);
+
+    res.json(team);
+  } catch (err) {
+    console.error('update team brand failed:', err);
     res.status(500).json({ error: err.message });
   }
 });
