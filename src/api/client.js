@@ -169,4 +169,7 @@ export const backendApi = {
   deleteLeague: (id) => request(`/leagues/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   // FR-14: real audit trail of upload/compute/narrative actions (backend/src/routes/auditLog.js).
   getAuditLog: () => request('/audit-log'),
+  // Visual overhaul step 2: self-service personal preference (backend/src/routes/users.js). No role gate -- scoped to the caller's own row.
+  getMyPreferences: () => request('/users/me/preferences'),
+  updateMyPreferences: (data) => request('/users/me/preferences', { method: 'PATCH', body: data }),
 };

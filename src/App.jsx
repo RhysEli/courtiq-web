@@ -29,6 +29,7 @@ import SeasonsManagement from './pages/seasons-management';
 import TeamsManagement from './pages/teams-management';
 import PlayersManagement from './pages/players-management';
 import AuditLog from './pages/audit-log';
+import TeamBrandSettings from './pages/team-brand-settings';
 import { isRouteAllowed } from './auth/roleAccess';
 
 const initialInstitutions = [
@@ -149,6 +150,7 @@ function AppRoutes() {
         <Route path="/bulk-import" element={<ProtectedRoute allowedPath="/bulk-import"><BulkImport {...sharedProps} /></ProtectedRoute>} />
         <Route path="/opponent-analysis" element={<ProtectedRoute allowedPath="/opponent-analysis"><OpponentAnalysis {...sharedProps} /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute allowedPath="/settings"><Settings {...sharedProps} /></ProtectedRoute>} />
+        <Route path="/team-brand-settings" element={<ProtectedRoute allowedPath="/team-brand-settings"><TeamBrandSettings {...sharedProps} /></ProtectedRoute>} />
         <Route path="/institutions" element={<ProtectedRoute allowedPath="/institutions"><Institutions {...sharedProps} institutions={institutions} setInstitutions={setInstitutions} /></ProtectedRoute>} />
         <Route path="/leagues" element={<ProtectedRoute allowedPath="/leagues"><Leagues {...sharedProps} leagues={leagues} setLeagues={setLeagues} /></ProtectedRoute>} />
         <Route path="/seasons" element={<ProtectedRoute allowedPath="/seasons"><Seasons {...sharedProps} seasons={seasons} setSeasons={setSeasons} /></ProtectedRoute>} />

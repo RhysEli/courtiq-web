@@ -25,6 +25,7 @@ import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
+import PaletteRoundedIcon from '@mui/icons-material/PaletteRounded';
 const navItems = [
   { label: 'Dashboard', path: '/dashboard', icon: DashboardRoundedIcon },
   { label: 'Profile', path: '/profile', icon: AccountCircleRoundedIcon },
@@ -55,6 +56,7 @@ const navItems = [
   { label: 'Reports', path: '/reports', icon: ArticleRoundedIcon },
   { label: 'Audit Log', path: '/audit-log', icon: HistoryRoundedIcon },
   { label: 'Settings', path: '/settings', icon: SettingsRoundedIcon },
+  { label: 'Team Brand', path: '/team-brand-settings', icon: PaletteRoundedIcon },
 ];
 
 function Sidebar({ role, selectedSeason, logout, currentUser }) {

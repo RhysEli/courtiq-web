@@ -11,7 +11,7 @@ import RoleBackground from '../components/RoleBackground';
 function Login() {
   const navigate = useNavigate();
   const { login, isAuthenticated } = useAuth();
-  const { mode, toggleTheme } = useThemePreferences();
+  const { mode, toggleTheme, setThemeMode } = useThemePreferences();
   const [tabMode, setTabMode] = useState('signin');
   const [signInForm, setSignInForm] = useState({ email: 'manager@courtiq.com', password: 'demo123', rememberMe: true });
   const [message, setMessage] = useState('');
@@ -22,6 +22,12 @@ function Login() {
     if (result.success) {
       setError('');
       setMessage('Signed in successfully.');
+      // Brand colors/accent are already live (authService.js applies them
+      // via plain DOM calls, no React needed) -- theme_mode is React
+      // state owned by ThemeContext, a sibling context authService.js
+      // can't reach directly, so it's applied here instead for a
+      // same-tab live update (no reload) on a fresh login.
+      if (result.user?.themeMode) setThemeMode(result.user.themeMode);
       navigate('/dashboard');
       return;
     }

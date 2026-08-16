@@ -21,7 +21,12 @@ router.post('/login', async (req, res) => {
   const token = signToken(user, teamIds);
   res.json({
     token,
-    user: { id: user.id, name: user.name, email: user.email, role: user.role, teams },
+    // themeMode/accentOverride: visual overhaul step 2's personal
+    // preference layer, already on `user` since the SELECT above is `*`.
+    user: {
+      id: user.id, name: user.name, email: user.email, role: user.role, teams,
+      themeMode: user.theme_mode, accentOverride: user.accent_override,
+    },
   });
 });
 

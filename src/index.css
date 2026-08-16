@@ -17,6 +17,14 @@
   --brand-primary: #ff7a1a;
   --brand-secondary: #38bdf8;
   --brand-accent: #f8fafc;
+
+  /* Visual overhaul step 2: resolved personal accent (team's brand_accent,
+     or the user's accent_override if they've set one) -- see
+     src/theme/applyTheme.js. Same fallback-until-JS-runs reasoning as the
+     --brand-* vars above. Not consumed anywhere yet (the ambient
+     background this is for doesn't exist yet); it's just resolved and
+     available for a future component to read. */
+  --user-accent: #f8fafc;
 }
 
 * {

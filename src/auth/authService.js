@@ -1,6 +1,9 @@
 import { getUsers } from '../services/accountService.js';
 import { backendApi } from '../api/client.js';
-import { applyBrandColors, persistBrandColors } from '../theme/brandColors.js';
+import { applyTheme } from '../theme/applyTheme.js';
+import { persistBrandColors } from '../theme/brandColors.js';
+import { persistUserPreference } from '../theme/userPreference.js';
+import { seedThemeModeForNextLoad } from '../contexts/ThemeContext.jsx';
 
 const AUTH_STORAGE_KEY = 'courtiq-auth';
 const USER_STORAGE_KEY = 'courtiq-users';
@@ -173,6 +176,13 @@ export async function loginUser({ email, password, rememberMe = false }) {
         role: data.user.role,
         institution: data.user.teams?.[0]?.institution_name || '',
         team: data.user.teams?.[0]?.name || '',
+        // Visual overhaul step 2: carried through so login.jsx can call
+        // setThemeMode() for a same-tab live update -- ThemeContext is a
+        // sibling of AuthContext in main.jsx's provider tree (not a
+        // descendant), so this service module can't call its hook
+        // directly. See seedThemeModeForNextLoad below for the
+        // next-page-load path.
+        themeMode: data.user.themeMode,
       },
       role: data.user.role,
       rememberMe,
@@ -180,23 +190,25 @@ export async function loginUser({ email, password, rememberMe = false }) {
 
     persistAuth(authState);
 
-    // Visual overhaul step 1: this user's first (primary) real team's
-    // brand colors, applied immediately so a fresh login doesn't need a
-    // reload to pick them up, and persisted so the NEXT app load (see
-    // main.jsx) can apply them synchronously before first paint. A demo
-    // account (the fallback path below) has no real team row, so no
-    // brand colors to apply there -- the existing persisted/default ones
-    // stand.
+    // Visual overhaul step 1/2: this user's first (primary) real team's
+    // brand colors plus their own theme_mode/accent_override, applied
+    // immediately so a fresh login doesn't need a reload to pick them up,
+    // and persisted so the NEXT app load (main.jsx / ThemeContext) can
+    // apply/resolve them before first paint. A demo account (the fallback
+    // path below) has no real team or preference row, so nothing to apply
+    // there -- the existing persisted/default ones stand.
     const primaryTeam = data.user.teams?.[0];
-    if (primaryTeam) {
-      const brandColors = {
-        colorPrimary: primaryTeam.color_primary,
-        colorSecondary: primaryTeam.color_secondary,
-        brandAccent: primaryTeam.brand_accent,
-      };
-      persistBrandColors(brandColors);
-      applyBrandColors(brandColors);
-    }
+    const brandColors = primaryTeam ? {
+      colorPrimary: primaryTeam.color_primary,
+      colorSecondary: primaryTeam.color_secondary,
+      brandAccent: primaryTeam.brand_accent,
+    } : null;
+    const userPref = { themeMode: data.user.themeMode, accentOverride: data.user.accentOverride };
+
+    if (brandColors) persistBrandColors(brandColors);
+    persistUserPreference(userPref);
+    seedThemeModeForNextLoad(userPref.themeMode);
+    applyTheme({ brand: brandColors || {}, userPref });
 
     return { success: true, user: authState.currentUser };
   } catch {
