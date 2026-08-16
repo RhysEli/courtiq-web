@@ -1,7 +1,7 @@
 ﻿import { useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Box, List, ListItemButton, ListItemIcon, ListItemText, Typography, Divider, Avatar, Button, Tooltip, IconButton, Stack } from '@mui/material';
-import { alpha, useTheme } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 import { motion, AnimatePresence } from 'framer-motion';
 import { isRouteAllowed } from '../auth/roleAccess';
 import { getRoleTheme } from '../theme/themeConfig';
@@ -162,9 +162,12 @@ function Sidebar({ role, selectedSeason, logout, currentUser }) {
                 minHeight: 44,
                 justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                 px: sidebarCollapsed ? 1 : 2,
-                bgcolor: active ? alpha(teamColors.primary, 0.18) : 'transparent',
-                color: active ? 'var(--brand-primary)' : 'text.secondary',
-                borderLeft: active ? '3px solid var(--brand-primary)' : '3px solid transparent',
+                // Personal accent, not team brand -- this is a per-user "where
+                // am I" affordance, not the team's real visual identity, so it
+                // reads var(--user-accent) rather than var(--brand-primary).
+                bgcolor: active ? 'color-mix(in srgb, var(--user-accent) 18%, transparent)' : 'transparent',
+                color: active ? 'var(--user-accent)' : 'text.secondary',
+                borderLeft: active ? '3px solid var(--user-accent)' : '3px solid transparent',
                 '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.05)' },
               }}
             >

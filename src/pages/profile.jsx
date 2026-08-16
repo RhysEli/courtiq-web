@@ -8,6 +8,26 @@ import { useThemePreferences } from '../contexts/ThemeContext';
 import { getRoleTheme } from '../theme/themeConfig';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 
+// Accent footprint expansion: the dark-mode Switch and Background Intensity
+// ToggleButtonGroup below duplicate settings.jsx's Theme mode / Background
+// Intensity controls (same underlying preference, different entry point),
+// so they pick up the same var(--user-accent) selected-state styling for
+// consistency -- personal-preference-panel UI only, no team data touched.
+const ACCENT_TOGGLE_SX = {
+  '& .MuiToggleButton-root.Mui-selected': {
+    bgcolor: 'color-mix(in srgb, var(--user-accent) 22%, transparent)',
+    borderColor: 'var(--user-accent)',
+    color: 'var(--user-accent)',
+  },
+  '& .MuiToggleButton-root.Mui-selected:hover': {
+    bgcolor: 'color-mix(in srgb, var(--user-accent) 32%, transparent)',
+  },
+};
+const ACCENT_SWITCH_SX = {
+  '& .MuiSwitch-switchBase.Mui-checked': { color: 'var(--user-accent)' },
+  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: 'var(--user-accent)', opacity: 0.5 },
+};
+
 // The "Team Colors" editor that used to live here (presets + custom hex +
 // an "Apply Colors" button) was removed -- it only ever wrote to
 // ThemeContext's local, per-browser teamColors preference (never the
@@ -70,7 +90,7 @@ function Profile({ selectedTeam, onTeamChange, role, selectedSeason, logout, cur
                 </Stack>
 
                 <FormControlLabel
-                  control={<Switch checked={mode === 'dark'} onChange={toggleTheme} />}
+                  control={<Switch checked={mode === 'dark'} onChange={toggleTheme} sx={ACCENT_SWITCH_SX} />}
                   label={mode === 'dark' ? 'Dark mode' : 'Light mode'}
                   sx={{ display: 'block', mb: 3 }}
                 />
@@ -84,7 +104,7 @@ function Profile({ selectedTeam, onTeamChange, role, selectedSeason, logout, cur
                   exclusive
                   onChange={(_, val) => val && setBackgroundIntensity(val)}
                   size="small"
-                  sx={{ mb: 3 }}
+                  sx={{ mb: 3, ...ACCENT_TOGGLE_SX }}
                 >
                   <ToggleButton value="subtle">Subtle</ToggleButton>
                   <ToggleButton value="medium">Medium</ToggleButton>

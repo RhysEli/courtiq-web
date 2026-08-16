@@ -44,11 +44,16 @@ CREATE TABLE IF NOT EXISTS users (
 -- resolved client-side ('auto' checks prefers-color-scheme). Defaults to
 -- 'auto' (not a hardcoded 'dark') so a brand-new account follows the
 -- device's own light/dark setting until they explicitly choose otherwise.
--- accent_override is deliberately constrained to a fixed 6-color palette
--- via CHECK, not free text -- keep this exact list in sync with
--- ACCENT_OPTIONS in src/theme/userPreference.js and the validation in
--- backend/src/routes/users.js. NULL means "no override, use the team's
--- brand_accent" -- see src/theme/applyTheme.js for the resolution order.
+-- accent_override was originally constrained to a fixed 6-color palette
+-- via CHECK, matching the team-brand caution around free-text color data.
+-- That caution doesn't apply here -- accent_override is purely personal
+-- (see src/theme/applyTheme.js's resolution order: it never overrides
+-- team brand for anyone else), so the rich picker added afterward (full
+-- saturation/value + hue + RGB + eyedropper, src/components/
+-- FullColorPicker.jsx) needed the constraint relaxed to any valid hex
+-- color rather than the original 6-swatch enum. Still rejects garbage --
+-- just format-validated (#rrggbb), not enum-limited. NULL still means "no
+-- override, use the team's brand_accent".
 -- ADD COLUMN IF NOT EXISTS skips the whole clause (including the inline
 -- CHECK/DEFAULT) once the column already exists -- confirmed empirically:
 -- changing the DEFAULT here alone did NOT change the live column's actual
@@ -61,7 +66,19 @@ CREATE TABLE IF NOT EXISTS users (
 -- that part can't be a rerunning statement here.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS theme_mode TEXT NOT NULL DEFAULT 'auto' CHECK (theme_mode IN ('light', 'dark', 'auto'));
 ALTER TABLE users ALTER COLUMN theme_mode SET DEFAULT 'auto';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS accent_override TEXT CHECK (accent_override IS NULL OR accent_override IN ('#f43f5e', '#f59e0b', '#22c55e', '#0ea5e9', '#8b5cf6', '#ec4899'));
+ALTER TABLE users ADD COLUMN IF NOT EXISTS accent_override TEXT;
+-- A CHECK constraint has no ADD CONSTRAINT IF NOT EXISTS in Postgres, so
+-- (like the theme_mode default above) redefining one on a column that may
+-- already exist needs an explicit DROP + re-ADD pair -- safe to rerun on
+-- every startup, same reasoning as the ALTER COLUMN SET DEFAULT above.
+-- ~* (not ~) is deliberate -- case-INsensitive, matching CSS's own
+-- treatment of hex colors and backend/src/routes/users.js's /i-flagged
+-- regex. The picker itself only ever emits lowercase (RGB->hex always goes
+-- through Number.toString(16), which is lowercase), so this never actually
+-- sees an uppercase value in practice -- but a client isn't the only way a
+-- row gets written, so the constraint doesn't rely on that.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_accent_override_check;
+ALTER TABLE users ADD CONSTRAINT users_accent_override_check CHECK (accent_override IS NULL OR accent_override ~* '^#[0-9a-f]{6}$');
 
 -- One-time backfill note (deliberately NOT a statement below, since this
 -- file re-runs in full on every server startup -- an UPDATE here would

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/layout';
 import GlassCard, { GlassCardContent } from '../components/GlassCard';
 import NamedColorGrid from '../components/NamedColorGrid';
+import FullColorPicker from '../components/FullColorPicker';
 import { useThemePreferences } from '../contexts/ThemeContext';
 import { TEAM_PRESETS } from '../theme/themeConfig';
 import { ACCENT_OPTIONS, persistUserPreference } from '../theme/userPreference';
@@ -23,6 +24,24 @@ import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 // the backend -- that's the "live preview that doesn't require re-login"
 // this step asked for. Team brand colors themselves aren't editable here
 // -- see team-brand-settings.jsx (Team Manager only).
+//
+// Accent footprint expansion: --user-accent used to only paint this page's
+// own preview strip. It now also drives the Theme mode / Background
+// Intensity toggle groups' selected state (below) and the two CTA buttons
+// in this file -- all squarely personal-preference-panel UI, not team
+// data, so this doesn't touch the "team brand stays exactly as is"
+// boundary. Sidebar active-nav highlight is the other new consumer, see
+// components/sidebar.jsx.
+const ACCENT_TOGGLE_SX = {
+  '& .MuiToggleButton-root.Mui-selected': {
+    bgcolor: 'color-mix(in srgb, var(--user-accent) 22%, transparent)',
+    borderColor: 'var(--user-accent)',
+    color: 'var(--user-accent)',
+  },
+  '& .MuiToggleButton-root.Mui-selected:hover': {
+    bgcolor: 'color-mix(in srgb, var(--user-accent) 32%, transparent)',
+  },
+};
 
 function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
   const navigate = useNavigate();
@@ -101,7 +120,7 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
               <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
                 Manage your display name and visual preferences from your profile page.
               </Typography>
-              <Button variant="contained" onClick={() => navigate('/profile')} sx={{ bgcolor: teamColors.primary, color: '#000' }}>
+              <Button variant="contained" onClick={() => navigate('/profile')} sx={{ bgcolor: 'var(--user-accent)', color: '#000' }}>
                 Open Profile
               </Button>
             </GlassCardContent>
@@ -119,7 +138,7 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
                 <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
                   Set your team's real primary, secondary, and accent colors -- visible to everyone on the team, everywhere in the app.
                 </Typography>
-                <Button variant="contained" onClick={() => navigate('/team-brand-settings')} sx={{ bgcolor: teamColors.primary, color: '#000' }}>
+                <Button variant="contained" onClick={() => navigate('/team-brand-settings')} sx={{ bgcolor: 'var(--user-accent)', color: '#000' }}>
                   Open Team Brand
                 </Button>
               </GlassCardContent>
@@ -132,7 +151,7 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
             <GlassCardContent>
               <Typography variant="h6" fontWeight={700}>Theme</Typography>
               <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>Theme mode</Typography>
-              <ToggleButtonGroup value={themeMode} exclusive onChange={changeThemeMode} size="small" disabled={savingField === 'themeMode'}>
+              <ToggleButtonGroup value={themeMode} exclusive onChange={changeThemeMode} size="small" disabled={savingField === 'themeMode'} sx={ACCENT_TOGGLE_SX}>
                 <ToggleButton value="light">Light</ToggleButton>
                 <ToggleButton value="dark">Dark</ToggleButton>
                 <ToggleButton value="auto">Auto</ToggleButton>
@@ -184,10 +203,18 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
                     <Box sx={{ width: 20, height: 20, borderRadius: '50%', border: '2px dashed rgba(255,255,255,0.5)' }} />
                     <Typography variant="body2">Use team default</Typography>
                   </Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Quick picks</Typography>
                   <NamedColorGrid
                     options={ACCENT_OPTIONS.map((option) => ({ hex: option.hex, name: option.label }))}
                     value={accentOverride}
                     onChange={changeAccentOverride}
+                  />
+
+                  <Typography variant="subtitle2" sx={{ mt: 3, mb: 1.5 }}>Custom color</Typography>
+                  <FullColorPicker
+                    value={accentOverride || getCurrentBrand().brandAccent}
+                    onPreview={(hex) => applyTheme({ brand: getCurrentBrand(), userPref: { accentOverride: hex } })}
+                    onCommit={changeAccentOverride}
                   />
                   {saveError && <Alert severity="error" sx={{ mt: 2 }}>{saveError}</Alert>}
 
@@ -214,7 +241,7 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
                 <PaletteRoundedIcon />
                 <Typography variant="h6" fontWeight={700}>Background Intensity</Typography>
               </Stack>
-              <ToggleButtonGroup value={backgroundIntensity} exclusive onChange={(_, val) => val && setBackgroundIntensity(val)} size="small">
+              <ToggleButtonGroup value={backgroundIntensity} exclusive onChange={(_, val) => val && setBackgroundIntensity(val)} size="small" sx={ACCENT_TOGGLE_SX}>
                 <ToggleButton value="subtle">Subtle</ToggleButton>
                 <ToggleButton value="medium">Medium</ToggleButton>
                 <ToggleButton value="vivid">Vivid</ToggleButton>

@@ -12,9 +12,12 @@ router.use(requireAuth);
 // from the JWT (not a route param), so there's no cross-user surface to
 // even gate -- a user can only ever read/write their own row.
 
-// Keep this exact list in sync with schema.sql's accent_override CHECK
-// constraint and src/theme/userPreference.js's ACCENT_OPTIONS.
-const ACCENT_OPTIONS = ['#f43f5e', '#f59e0b', '#22c55e', '#0ea5e9', '#8b5cf6', '#ec4899'];
+// accent_override is personal-only (never overrides team brand for anyone
+// else, see src/theme/applyTheme.js), so unlike team brand colors it isn't
+// enum-constrained -- just format-validated as a #rrggbb hex string,
+// matching schema.sql's CHECK constraint on the column (also deliberately
+// case-insensitive there, same reasoning as the /i flag here).
+const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 const THEME_MODES = ['light', 'dark', 'auto'];
 
 router.get('/me/preferences', async (req, res) => {
@@ -48,8 +51,8 @@ router.patch('/me/preferences', async (req, res) => {
     if (!THEME_MODES.includes(themeMode)) {
       return res.status(400).json({ error: `themeMode must be one of: ${THEME_MODES.join(', ')}` });
     }
-    if (accentOverride !== null && !ACCENT_OPTIONS.includes(accentOverride)) {
-      return res.status(400).json({ error: `accentOverride must be one of: ${ACCENT_OPTIONS.join(', ')}, or null` });
+    if (accentOverride !== null && !HEX_COLOR_RE.test(accentOverride)) {
+      return res.status(400).json({ error: 'accentOverride must be a #rrggbb hex color, or null' });
     }
 
     const updated = await db.prepare(`

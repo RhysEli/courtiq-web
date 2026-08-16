@@ -1,8 +1,10 @@
 // Visual overhaul step 2: personal preference layer (users.theme_mode /
-// users.accent_override). accent_override is deliberately constrained to
-// this fixed palette, never free text -- keep ACCENT_OPTIONS in exact sync
-// with the CHECK constraint in backend/src/db/schema.sql and the
-// validation in backend/src/routes/users.js.
+// users.accent_override). accent_override now accepts any #rrggbb hex
+// (backend/src/db/schema.sql's CHECK is format-only, not enum-limited --
+// see FullColorPicker.jsx for the rich picker this unblocked). This list
+// is kept only as curated quick-pick swatches alongside that picker, not
+// as a validation boundary -- picking a color not on this list is normal,
+// expected usage now, not an edge case.
 //
 // Persisted to localStorage under its own key (separate from
 // src/theme/brandColors.js's team-brand key, and separate from
