@@ -2,6 +2,7 @@ import { Alert, Box, Grid, Typography, Switch, FormControlLabel, Button, Stack, 
 import { useEffect, useState } from 'react';
 import Layout from '../components/layout';
 import GlassCard, { GlassCardContent } from '../components/GlassCard';
+import NamedColorGrid from '../components/NamedColorGrid';
 import { useThemePreferences } from '../contexts/ThemeContext';
 import { TEAM_PRESETS } from '../theme/themeConfig';
 import { ACCENT_OPTIONS, persistUserPreference } from '../theme/userPreference';
@@ -25,7 +26,7 @@ import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 
 function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
   const navigate = useNavigate();
-  const { themeMode, setThemeMode, teamColors, teamPreset, setTeamPreset, backgroundIntensity, setBackgroundIntensity } = useThemePreferences();
+  const { themeMode, setThemeMode, teamColors, setTeamPreset, backgroundIntensity, setBackgroundIntensity } = useThemePreferences();
 
   const [accentOverride, setAccentOverride] = useState(null);
   const [prefsLoading, setPrefsLoading] = useState(true);
@@ -144,23 +145,14 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
               <Typography color="text.secondary" variant="body2" sx={{ mb: 1.5 }}>
                 Personal preview only -- doesn't change your team's real colors for anyone else.
               </Typography>
-              <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
-                {Object.values(TEAM_PRESETS).slice(0, 4).map((preset) => (
-                  <Box
-                    key={preset.id}
-                    onClick={() => setTeamPreset(preset.id)}
-                    sx={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: '50%',
-                      bgcolor: preset.primary,
-                      cursor: 'pointer',
-                      border: teamPreset === preset.id ? '3px solid #fff' : '2px solid transparent',
-                      boxShadow: teamPreset === preset.id ? `0 0 12px ${preset.primary}` : 'none',
-                    }}
-                  />
-                ))}
-              </Stack>
+              <NamedColorGrid
+                options={Object.values(TEAM_PRESETS).slice(0, 4).map((preset) => ({ hex: preset.primary, name: preset.name }))}
+                value={teamColors.primary}
+                onChange={(hex) => {
+                  const preset = Object.values(TEAM_PRESETS).find((p) => p.primary === hex);
+                  if (preset) setTeamPreset(preset.id);
+                }}
+              />
             </GlassCardContent>
           </GlassCard>
         </Grid>
@@ -181,43 +173,22 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
               ) : (
                 <>
                   {prefsError && <Alert severity="error" sx={{ mb: 2 }}>{prefsError}</Alert>}
-                  <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="center">
-                    <Box
-                      onClick={() => changeAccentOverride(null)}
-                      title="Use team default"
-                      sx={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: '50%',
-                        cursor: 'pointer',
-                        bgcolor: 'transparent',
-                        border: accentOverride === null ? '3px solid #fff' : '2px dashed rgba(255,255,255,0.4)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '0.6rem',
-                        color: 'text.secondary',
-                      }}
-                    >
-                      Team
-                    </Box>
-                    {ACCENT_OPTIONS.map((option) => (
-                      <Box
-                        key={option.id}
-                        onClick={() => changeAccentOverride(option.hex)}
-                        title={option.label}
-                        sx={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: '50%',
-                          bgcolor: option.hex,
-                          cursor: 'pointer',
-                          border: accentOverride === option.hex ? '3px solid #fff' : '2px solid transparent',
-                          boxShadow: accentOverride === option.hex ? `0 0 12px ${option.hex}` : 'none',
-                        }}
-                      />
-                    ))}
-                  </Stack>
+                  <Box
+                    onClick={() => changeAccentOverride(null)}
+                    sx={{
+                      display: 'inline-flex', alignItems: 'center', gap: 1, cursor: 'pointer', mb: 1.5,
+                      px: 1.5, py: 0.5, borderRadius: 2,
+                      border: accentOverride === null ? '2px solid #fff' : '2px dashed rgba(255,255,255,0.4)',
+                    }}
+                  >
+                    <Box sx={{ width: 20, height: 20, borderRadius: '50%', border: '2px dashed rgba(255,255,255,0.5)' }} />
+                    <Typography variant="body2">Use team default</Typography>
+                  </Box>
+                  <NamedColorGrid
+                    options={ACCENT_OPTIONS.map((option) => ({ hex: option.hex, name: option.label }))}
+                    value={accentOverride}
+                    onChange={changeAccentOverride}
+                  />
                   {saveError && <Alert severity="error" sx={{ mt: 2 }}>{saveError}</Alert>}
 
                   <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>Live preview</Typography>

@@ -1,6 +1,7 @@
-import { Alert, Avatar, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, Grid, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Avatar, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, FormControlLabel, Grid, Stack, Switch, TextField, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/layout';
+import ColorField from '../components/ColorField';
 import { backendApi } from '../api/client';
 
 // FR-11: real team data against the backend `teams` table
@@ -25,6 +26,7 @@ function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
   const [rosterCountError, setRosterCountError] = useState('');
 
   const [form, setForm] = useState(emptyForm);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [notice, setNotice] = useState('');
@@ -129,8 +131,24 @@ function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
                   <Grid item xs={12} sm={6}><TextField fullWidth label="Team manager" value={form.managerName} onChange={(event) => setForm((prev) => ({ ...prev, managerName: event.target.value }))} /></Grid>
                   <Grid item xs={12} sm={6}><TextField fullWidth label="Statistician" value={form.statisticianName} onChange={(event) => setForm((prev) => ({ ...prev, statisticianName: event.target.value }))} /></Grid>
                   <Grid item xs={12} sm={6}><TextField fullWidth label="Logo URL" value={form.logoUrl} onChange={(event) => setForm((prev) => ({ ...prev, logoUrl: event.target.value }))} /></Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Primary colour" value={form.colorPrimary} onChange={(event) => setForm((prev) => ({ ...prev, colorPrimary: event.target.value }))} /></Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Secondary colour" value={form.colorSecondary} onChange={(event) => setForm((prev) => ({ ...prev, colorSecondary: event.target.value }))} /></Grid>
+                  <Grid item xs={12}>
+                    <ColorField label="Primary colour" value={form.colorPrimary} onChange={(hex) => setForm((prev) => ({ ...prev, colorPrimary: hex }))} />
+                    <ColorField label="Secondary colour" value={form.colorSecondary} onChange={(hex) => setForm((prev) => ({ ...prev, colorSecondary: hex }))} />
+                    <FormControlLabel
+                      control={<Switch checked={advancedOpen} onChange={(event) => setAdvancedOpen(event.target.checked)} />}
+                      label="Advanced: enter custom hex codes"
+                    />
+                    {advancedOpen && (
+                      <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField fullWidth label="Primary hex" value={form.colorPrimary} onChange={(event) => setForm((prev) => ({ ...prev, colorPrimary: event.target.value }))} helperText="e.g. #ff7a1a" />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField fullWidth label="Secondary hex" value={form.colorSecondary} onChange={(event) => setForm((prev) => ({ ...prev, colorSecondary: event.target.value }))} helperText="e.g. #111827" />
+                        </Grid>
+                      </Grid>
+                    )}
+                  </Grid>
                   {saveError && <Grid item xs={12}><Alert severity="error">{saveError}</Alert></Grid>}
                   <Grid item xs={12}>
                     <Button variant="contained" onClick={updateActiveTeam} disabled={!canManage || saving}>

@@ -1,6 +1,7 @@
-import { Alert, Box, Button, Card, CardContent, CircularProgress, Grid, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, CircularProgress, FormControlLabel, Grid, Stack, Switch, TextField, Typography } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Layout from '../components/layout';
+import ColorField from '../components/ColorField';
 import { backendApi } from '../api/client';
 import { applyTheme, getCurrentBrand } from '../theme/applyTheme';
 import { persistBrandColors, loadPersistedBrandColors } from '../theme/brandColors';
@@ -15,6 +16,17 @@ import { loadPersistedUserPreference } from '../theme/userPreference';
 // login-button colors visibly change as you type -- Save persists to the
 // database; navigating away without saving reverts the live preview back
 // to the last-saved colors (see the cleanup effect below).
+//
+// Color entry is name-based by default (NamedColorGrid, a curated ~32-
+// color palette) rather than raw hex -- nobody managing a team wants to
+// type or know a hex code. Advanced hex entry is still available behind
+// a toggle for the rare exact-brand-match case; the backend is unchanged
+// either way (color_primary/color_secondary/brand_accent are plain TEXT,
+// no format constraint), so this is purely a UI change. A saved color
+// that doesn't land on a named swatch (a custom hex, or non-hex legacy
+// data like the real "YELLOW"/"BLUE" strings on one seeded team) just
+// shows as its own current-color preview with no swatch highlighted --
+// still displayed honestly, not hidden or coerced onto the nearest name.
 
 function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
   const [teams, setTeams] = useState([]);
@@ -22,6 +34,7 @@ function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, l
   const [teamsError, setTeamsError] = useState('');
 
   const [form, setForm] = useState({ colorPrimary: '', colorSecondary: '', brandAccent: '', logoUrl: '' });
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [notice, setNotice] = useState('');
@@ -47,15 +60,6 @@ function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, l
   }, []);
 
   // Matched by currentUser.teamId -- a real, stable id, not a name string.
-  // A prior version of this matched on currentUser.team (the display
-  // name) against t.name, which broke silently the moment the two
-  // disagreed on formatting (a stale cached session's "USIU Tigers Men"
-  // vs the real team's actual name "USIU Tigers (Men)") -- exact-string
-  // matching is still just as fragile as fuzzy matching once the two
-  // sides can drift, it just fails differently. Never a fallback to
-  // teams[0] (the alphabetically-first team in the whole system's
-  // unscoped list, which this account may have no relationship to at
-  // all). No match means no team is shown, not a wrong one.
   const activeTeam = useMemo(
     () => teams.find((t) => t.id === currentUser?.teamId),
     [teams, currentUser],
@@ -84,8 +88,8 @@ function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, l
     }
   }, []);
 
-  const updateField = (field) => (event) => {
-    const next = { ...form, [field]: event.target.value };
+  const setFieldValue = (field, value) => {
+    const next = { ...form, [field]: value };
     setForm(next);
     applyTheme({ brand: next, userPref: { accentOverride: myAccentOverride.current } });
   };
@@ -126,7 +130,7 @@ function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, l
 
   return (
     <Layout selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout} currentUser={currentUser}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 720 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 760 }}>
         <Box>
           <Typography variant="h4" fontWeight={700}>Team brand</Typography>
           <Typography color="text.secondary">
@@ -139,33 +143,30 @@ function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, l
         {activeTeam ? (
           <Card>
             <CardContent>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <TextField fullWidth label="Primary color" value={form.colorPrimary} onChange={updateField('colorPrimary')} helperText="Hex, e.g. #ff7a1a" />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField fullWidth label="Secondary color" value={form.colorSecondary} onChange={updateField('colorSecondary')} helperText="Hex, e.g. #111827" />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField fullWidth label="Accent color" value={form.brandAccent} onChange={updateField('brandAccent')} helperText="Hex, e.g. #f8fafc" />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField fullWidth label="Logo URL" value={form.logoUrl} onChange={updateField('logoUrl')} />
-                </Grid>
-              </Grid>
+              <ColorField label="Primary color" value={form.colorPrimary} onChange={(hex) => setFieldValue('colorPrimary', hex)} />
+              <ColorField label="Secondary color" value={form.colorSecondary} onChange={(hex) => setFieldValue('colorSecondary', hex)} />
+              <ColorField label="Accent color" value={form.brandAccent} onChange={(hex) => setFieldValue('brandAccent', hex)} />
 
-              <Stack direction="row" spacing={1.5} sx={{ mt: 3 }}>
-                {[
-                  { label: 'Primary', value: form.colorPrimary },
-                  { label: 'Secondary', value: form.colorSecondary },
-                  { label: 'Accent', value: form.brandAccent },
-                ].map(({ label, value }) => (
-                  <Box key={label} sx={{ textAlign: 'center' }}>
-                    <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: value || 'transparent', border: '2px solid rgba(255,255,255,0.2)' }} />
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>{label}</Typography>
-                  </Box>
-                ))}
-              </Stack>
+              <TextField fullWidth label="Logo URL" value={form.logoUrl} onChange={(event) => setFieldValue('logoUrl', event.target.value)} sx={{ mb: 1 }} />
+
+              <FormControlLabel
+                sx={{ mt: 1, display: 'block' }}
+                control={<Switch checked={advancedOpen} onChange={(event) => setAdvancedOpen(event.target.checked)} />}
+                label="Advanced: enter custom hex codes"
+              />
+              {advancedOpen && (
+                <Grid container spacing={2} sx={{ mt: 0.5, mb: 1 }}>
+                  <Grid item xs={12} sm={4}>
+                    <TextField fullWidth label="Primary hex" value={form.colorPrimary} onChange={(event) => setFieldValue('colorPrimary', event.target.value)} helperText="e.g. #ff7a1a" />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField fullWidth label="Secondary hex" value={form.colorSecondary} onChange={(event) => setFieldValue('colorSecondary', event.target.value)} helperText="e.g. #111827" />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField fullWidth label="Accent hex" value={form.brandAccent} onChange={(event) => setFieldValue('brandAccent', event.target.value)} helperText="e.g. #f8fafc" />
+                  </Grid>
+                </Grid>
+              )}
 
               {saveError && <Alert severity="error" sx={{ mt: 2 }}>{saveError}</Alert>}
               {notice && <Alert severity="success" sx={{ mt: 2 }}>{notice}</Alert>}
