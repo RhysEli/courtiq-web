@@ -15,9 +15,20 @@ const fadeIn = {
   transition: { duration: 0.4 },
 };
 
+// Personal accent, not role theming -- the heading, role Chip, and avatar
+// orb below are the one place on the dashboard that reflects the user's
+// own var(--user-accent) rather than roleTheme.glow. Everything else on
+// this page (the GlassCard's own ambient glow right below, every StatTile,
+// every other card) is untouched and still role-themed, same as the
+// animated background (RoleBackground.jsx) -- this card's outer glow stays
+// roleTheme.glow too, so it still matches its siblings; only the three
+// elements explicitly called out (heading text, chip, orb) switch. Solid
+// fill + --user-accent-fg (not a translucent tint of itself) for the chip
+// and avatar, same reasoning as every other badge/avatar fix: a pale
+// accent rendered as its own color on a faint tint of itself barely reads
+// as legible at all.
 function HeroBanner({ role, userName, teamName, season }) {
   const roleTheme = getRoleTheme(role);
-  const { teamColors } = useThemePreferences();
 
   return (
     <motion.div {...fadeIn}>
@@ -27,15 +38,15 @@ function HeroBanner({ role, userName, teamName, season }) {
             <Box>
               <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
                 <Typography variant="h3" sx={{ fontSize: '2rem' }}>{roleTheme.icon}</Typography>
-                <Chip label={roleTheme.label} size="small" sx={{ bgcolor: `${teamColors.primary}33`, color: teamColors.primary, fontWeight: 700, border: `1px solid ${teamColors.primary}55` }} />
+                <Chip label={roleTheme.label} size="small" sx={{ bgcolor: 'var(--user-accent)', color: 'var(--user-accent-fg)', fontWeight: 700, border: '1px solid var(--user-accent)' }} />
               </Stack>
-              <Typography variant="h4" fontWeight={800} sx={{ background: `linear-gradient(135deg, ${teamColors.primary}, ${teamColors.accent})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <Typography variant="h4" fontWeight={800} sx={{ color: 'var(--user-accent)' }}>
                 Welcome, {userName}
               </Typography>
               <Typography color="text.secondary" sx={{ mt: 0.5, fontStyle: 'italic' }}>{roleTheme.tagline}</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{teamName} • Season {season}</Typography>
             </Box>
-            <Avatar sx={{ width: 72, height: 72, bgcolor: `${teamColors.primary}33`, border: `3px solid ${teamColors.primary}`, fontSize: '1.8rem', fontWeight: 700 }}>
+            <Avatar sx={{ width: 72, height: 72, bgcolor: 'var(--user-accent)', color: 'var(--user-accent-fg)', border: '3px solid var(--user-accent)', fontSize: '1.8rem', fontWeight: 700 }}>
               {userName?.charAt(0)?.toUpperCase() || 'A'}
             </Avatar>
           </Stack>
