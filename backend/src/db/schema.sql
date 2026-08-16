@@ -27,6 +27,13 @@ CREATE TABLE IF NOT EXISTS players (
   position TEXT
 );
 
+-- Staff-curated player photo (Statistician/Team Manager only, never
+-- self-service -- players don't log in and edit their own row here).
+-- Real Supabase Storage URL, same shape as teams.logo_url -- see
+-- backend/src/services/imageUpload.js and the PATCH .../photo route in
+-- players.js.
+ALTER TABLE players ADD COLUMN IF NOT EXISTS photo_url TEXT;
+
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -79,6 +86,12 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS accent_override TEXT;
 -- row gets written, so the constraint doesn't rely on that.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_accent_override_check;
 ALTER TABLE users ADD CONSTRAINT users_accent_override_check CHECK (accent_override IS NULL OR accent_override ~* '^#[0-9a-f]{6}$');
+
+-- Staff-curated profile photo -- Statistician/Team Manager only, applies
+-- to every role including the uploader's own row; never self-service (no
+-- upload control on profile.jsx, only on the staff-facing Users page).
+-- Same real Supabase Storage URL shape as teams.logo_url/players.photo_url.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT;
 
 -- One-time backfill note (deliberately NOT a statement below, since this
 -- file re-runs in full on every server startup -- an UPDATE here would

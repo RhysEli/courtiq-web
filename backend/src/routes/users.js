@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { imageUpload, uploadImage } = require('../services/imageUpload');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -36,7 +37,7 @@ const ASSIGNABLE_ROLES = ['Team Manager', 'Statistician', 'Coach', 'Athlete'];
 router.get('/', requireRole('Statistician', 'Team Manager'), async (req, res) => {
   try {
     const users = await db.prepare(`
-      SELECT id, name, email, role, created_at
+      SELECT id, name, email, role, photo_url, created_at
       FROM users
       ORDER BY name
     `).all();
@@ -100,7 +101,7 @@ router.patch('/:userId', requireRole('Statistician', 'Team Manager'), async (req
       await db.prepare('UPDATE users SET team_id = ? WHERE id = ?').run(teamId, userId);
     }
 
-    const updated = await db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(userId);
+    const updated = await db.prepare('SELECT id, name, email, role, photo_url FROM users WHERE id = ?').get(userId);
     const teams = await db.prepare(`
       SELECT t.id, t.name FROM user_teams ut JOIN teams t ON t.id = ut.team_id WHERE ut.user_id = ?
     `).all(userId);
@@ -108,6 +109,44 @@ router.patch('/:userId', requireRole('Statistician', 'Team Manager'), async (req
     res.json({ ...updated, teams });
   } catch (err) {
     console.error('update user failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Staff-curated user photo -- same two roles as every other staff-only
+// action here, and deliberately NOT scoped to "my own team's users":
+// GET/PATCH /users above already let staff manage any user system-wide
+// (no requireTeamAccess), so this matches that existing gating rather
+// than introducing a narrower rule just for photos. Applies to every
+// role, including the uploader's own row -- there is no separate "upload
+// my own photo" self-service path anywhere (profile.jsx doesn't get one),
+// by design: staff curate every photo, including their own.
+router.patch('/:userId/photo', requireRole('Statistician', 'Team Manager'), imageUpload.single('photo'), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!req.file) {
+      return res.status(400).json({ error: 'No photo file uploaded (expected multipart field "photo")' });
+    }
+
+    const existing = await db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+    if (!existing) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const photoUrl = await uploadImage({
+      entityType: 'user-photos',
+      entityId: userId,
+      buffer: req.file.buffer,
+      mimeType: req.file.mimetype,
+    });
+
+    const user = await db.prepare(
+      'UPDATE users SET photo_url = ? WHERE id = ? RETURNING id, name, email, role, photo_url',
+    ).get(photoUrl, userId);
+
+    res.json(user);
+  } catch (err) {
+    console.error('user photo upload failed:', err);
     res.status(500).json({ error: err.message });
   }
 });

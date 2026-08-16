@@ -4,15 +4,19 @@ import {
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import Layout from '../components/layout';
+import PhotoUpload from '../components/PhotoUpload';
 import { backendApi } from '../api/client';
 
 // FR-11: real roster assignment against the backend `players` table
 // (backend/src/routes/players.js), replacing the old localStorage-only
 // version of this page (which wrote to 'courtiq-players' and was never
-// read by anything real). The form is limited to the columns that
-// actually exist on `players` -- id, team_id, full_name, jersey_number,
-// position -- rather than carrying over fields (photo, DOB, medical
-// notes, etc.) that have nowhere real to be stored.
+// read by anything real). The create form is still limited to the
+// columns that exist -- full_name, jersey_number, position -- but the
+// roster table below now also has a real Photo column (players.photo_url,
+// staff-curated via PATCH .../photo, same gating as add/remove: only
+// Statistician/Team Manager, never self-service since players don't have
+// accounts here at all). DOB/medical notes/etc. still have nowhere real
+// to be stored -- not part of this change.
 
 function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
   const [teams, setTeams] = useState([]);
@@ -104,6 +108,11 @@ function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
     }
   };
 
+  const uploadPlayerPhoto = async (playerId, blob) => {
+    await backendApi.uploadPlayerPhoto(teamId, playerId, blob);
+    loadRoster(teamId);
+  };
+
   return (
     <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -146,6 +155,7 @@ function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
                 <Table size="small" sx={{ mt: 2 }}>
                   <TableHead>
                     <TableRow>
+                      <TableCell>Photo</TableCell>
                       <TableCell>Name</TableCell>
                       <TableCell>Jersey Number</TableCell>
                       <TableCell>Position</TableCell>
@@ -155,6 +165,14 @@ function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
                   <TableBody>
                     {roster.map((player) => (
                       <TableRow key={player.id}>
+                        <TableCell>
+                          <PhotoUpload
+                            value={player.photo_url}
+                            onUpload={(blob) => uploadPlayerPhoto(player.id, blob)}
+                            size={40}
+                            fallback={player.full_name?.charAt(0)?.toUpperCase()}
+                          />
+                        </TableCell>
                         <TableCell>{player.full_name}</TableCell>
                         <TableCell>{player.jersey_number ?? '—'}</TableCell>
                         <TableCell>{player.position || '—'}</TableCell>
@@ -170,7 +188,7 @@ function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
                       </TableRow>
                     ))}
                     {roster.length === 0 && (
-                      <TableRow><TableCell colSpan={4}>No players on this roster yet.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5}>No players on this roster yet.</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>

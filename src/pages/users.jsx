@@ -1,6 +1,7 @@
 import { Alert, Box, Button, Card, CardContent, Grid, MenuItem, Snackbar, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/layout';
+import PhotoUpload from '../components/PhotoUpload';
 import { getAccessRequests } from '../services/accountService';
 import { backendApi } from '../api/client';
 
@@ -130,6 +131,15 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
     }
   };
 
+  // Staff-curated photo -- applies to every role including the uploader's
+  // own row (this table has no notion of "is this me", it's the same
+  // staff-managed action either way). No self-service equivalent anywhere
+  // else in the app (profile.jsx never gets an upload control).
+  const uploadUserPhoto = async (userId, blob) => {
+    await backendApi.uploadUserPhoto(userId, blob);
+    setRefreshToken((prev) => prev + 1);
+  };
+
   const revokeInvite = async (token) => {
     try {
       await backendApi.revokeInvite(token);
@@ -197,6 +207,7 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
               <Table size="small" sx={{ mt: 2 }}>
                 <TableHead>
                   <TableRow>
+                    <TableCell>Photo</TableCell>
                     <TableCell>Name</TableCell>
                     <TableCell>Email</TableCell>
                     <TableCell>Role</TableCell>
@@ -206,6 +217,14 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
                 <TableBody>
                   {users.map((user) => (
                     <TableRow key={user.id}>
+                      <TableCell>
+                        <PhotoUpload
+                          value={user.photo_url}
+                          onUpload={(blob) => uploadUserPhoto(user.id, blob)}
+                          size={40}
+                          fallback={user.name?.charAt(0)?.toUpperCase()}
+                        />
+                      </TableCell>
                       <TableCell>{user.name}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>
@@ -238,7 +257,7 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
                     </TableRow>
                   ))}
                   {users.length === 0 && (
-                    <TableRow><TableCell colSpan={4}>No users match.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5}>No users match.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

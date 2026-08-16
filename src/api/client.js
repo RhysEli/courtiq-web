@@ -169,6 +169,13 @@ export const backendApi = {
   getTeamPlayers: (teamId) => request(`/teams/${teamId}/players`),
   addPlayer: (teamId, data) => request(`/teams/${teamId}/players`, { method: 'POST', body: data }),
   removePlayer: (teamId, playerId) => request(`/teams/${teamId}/players/${playerId}`, { method: 'DELETE' }),
+  // Staff-curated player photo (Statistician/Team Manager only, never
+  // self-service -- players don't have accounts here at all).
+  uploadPlayerPhoto: (teamId, playerId, blob) => {
+    const form = new FormData();
+    form.append('photo', blob, 'photo.jpg');
+    return request(`/teams/${teamId}/players/${playerId}/photo`, { method: 'PATCH', body: form, isForm: true });
+  },
   // FR-11: real season CRUD against the `seasons` table (backend/src/routes/seasons.js).
   getSeasons: () => request('/seasons'),
   createSeason: (data) => request('/seasons', { method: 'POST', body: data }),
@@ -187,4 +194,12 @@ export const backendApi = {
   // Manager only, enforced server-side.
   getUsers: () => request('/users'),
   updateUser: (userId, data) => request(`/users/${encodeURIComponent(userId)}`, { method: 'PATCH', body: data }),
+  // Staff-curated user photo -- same staff-only gating as updateUser
+  // above, applies to every role including the uploader's own row. No
+  // self-service equivalent exists (profile.jsx never calls this).
+  uploadUserPhoto: (userId, blob) => {
+    const form = new FormData();
+    form.append('photo', blob, 'photo.jpg');
+    return request(`/users/${encodeURIComponent(userId)}/photo`, { method: 'PATCH', body: form, isForm: true });
+  },
 };

@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth, requireRole, requireTeamAccess } = require('../middleware/auth');
+const { imageUpload, uploadImage } = require('../services/imageUpload');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -27,7 +28,7 @@ router.get('/:teamId/players', requireTeamAccess('teamId'), async (req, res) => 
   try {
     const { teamId } = req.params;
     const players = await db.prepare(
-      'SELECT id, team_id, full_name, jersey_number, position FROM players WHERE team_id = ? ORDER BY jersey_number NULLS LAST, full_name',
+      'SELECT id, team_id, full_name, jersey_number, position, photo_url FROM players WHERE team_id = ? ORDER BY jersey_number NULLS LAST, full_name',
     ).all(teamId);
     res.json(players);
   } catch (err) {
@@ -54,6 +55,41 @@ router.post('/:teamId/players', requireRole('Statistician', 'Team Manager'), req
     res.status(201).json(player);
   } catch (err) {
     console.error('add player failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Staff-curated player photo -- Statistician/Team Manager only (same
+// gating as add/remove above), never self-service: players don't have
+// accounts that log into this app, so there's no self-service path to
+// even offer. Editable anytime, not just at creation -- calling this
+// again on an existing player simply replaces their photo.
+router.patch('/:teamId/players/:playerId/photo', requireRole('Statistician', 'Team Manager'), requireTeamAccess('teamId'), imageUpload.single('photo'), async (req, res) => {
+  try {
+    const { teamId, playerId } = req.params;
+    if (!req.file) {
+      return res.status(400).json({ error: 'No photo file uploaded (expected multipart field "photo")' });
+    }
+
+    const existing = await db.prepare('SELECT id FROM players WHERE id = ? AND team_id = ?').get(playerId, teamId);
+    if (!existing) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
+
+    const photoUrl = await uploadImage({
+      entityType: 'player-photos',
+      entityId: playerId,
+      buffer: req.file.buffer,
+      mimeType: req.file.mimetype,
+    });
+
+    const player = await db.prepare(
+      'UPDATE players SET photo_url = ? WHERE id = ? RETURNING id, team_id, full_name, jersey_number, position, photo_url',
+    ).get(photoUrl, playerId);
+
+    res.json(player);
+  } catch (err) {
+    console.error('player photo upload failed:', err);
     res.status(500).json({ error: err.message });
   }
 });

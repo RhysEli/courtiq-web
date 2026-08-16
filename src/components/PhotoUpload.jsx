@@ -19,6 +19,12 @@ import { resizeImageFile } from '../utils/resizeImage';
 // MUI default styling, same as the rest of the team-editing pages this
 // also appears on.
 function PhotoUpload({ value, onUpload, size = 96, shape = 'circle', fallback, disabled }) {
+  // Scales with `size` (clamped) rather than a fixed 28px -- at small
+  // sizes (e.g. a 40px roster-row thumbnail) a fixed-size button ends up
+  // nearly as big as the avatar itself and swamps it.
+  const buttonSize = Math.round(Math.min(28, Math.max(16, size * 0.42)));
+  const iconSize = Math.round(buttonSize * 0.58);
+
   const inputRef = useRef(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -75,12 +81,12 @@ function PhotoUpload({ value, onUpload, size = 96, shape = 'circle', fallback, d
           onClick={pickFile}
           disabled={disabled || uploading}
           sx={{
-            position: 'absolute', bottom: -4, right: -4, width: 28, height: 28,
+            position: 'absolute', bottom: -2, right: -2, width: buttonSize, height: buttonSize,
             bgcolor: 'background.paper', border: '1px solid rgba(148,163,184,0.4)',
             '&:hover': { bgcolor: 'action.hover' },
           }}
         >
-          <PhotoCameraRoundedIcon sx={{ fontSize: 16 }} />
+          <PhotoCameraRoundedIcon sx={{ fontSize: iconSize }} />
         </IconButton>
         <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={handleFileChange} />
       </Box>
