@@ -41,17 +41,38 @@ CREATE TABLE IF NOT EXISTS users (
 -- Visual overhaul step 2: personal preference layer on top of team brand
 -- (see the teams.color_primary/color_secondary/brand_accent columns
 -- below). theme_mode is independent of brand colors entirely -- it's
--- resolved client-side ('auto' checks prefers-color-scheme).
+-- resolved client-side ('auto' checks prefers-color-scheme). Defaults to
+-- 'auto' (not a hardcoded 'dark') so a brand-new account follows the
+-- device's own light/dark setting until they explicitly choose otherwise.
 -- accent_override is deliberately constrained to a fixed 6-color palette
 -- via CHECK, not free text -- keep this exact list in sync with
 -- ACCENT_OPTIONS in src/theme/userPreference.js and the validation in
 -- backend/src/routes/users.js. NULL means "no override, use the team's
 -- brand_accent" -- see src/theme/applyTheme.js for the resolution order.
 -- ADD COLUMN IF NOT EXISTS skips the whole clause (including the inline
--- CHECK) when the column already exists, so this stays idempotent across
--- every startup exactly like the other ALTERs in this file.
-ALTER TABLE users ADD COLUMN IF NOT EXISTS theme_mode TEXT NOT NULL DEFAULT 'dark' CHECK (theme_mode IN ('light', 'dark', 'auto'));
+-- CHECK/DEFAULT) once the column already exists -- confirmed empirically:
+-- changing the DEFAULT here alone did NOT change the live column's actual
+-- default (information_schema still showed 'dark'::text). The separate
+-- ALTER COLUMN ... SET DEFAULT below is what actually takes effect on an
+-- existing column, and unlike a backfill UPDATE, safely reruns forever
+-- (setting the same default repeatedly is a no-op). See the one-time
+-- (not schema.sql-tracked) backfill note below for how already-existing
+-- ROWS were handled when this default changed from 'dark' to 'auto' --
+-- that part can't be a rerunning statement here.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS theme_mode TEXT NOT NULL DEFAULT 'auto' CHECK (theme_mode IN ('light', 'dark', 'auto'));
+ALTER TABLE users ALTER COLUMN theme_mode SET DEFAULT 'auto';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS accent_override TEXT CHECK (accent_override IS NULL OR accent_override IN ('#f43f5e', '#f59e0b', '#22c55e', '#0ea5e9', '#8b5cf6', '#ec4899'));
+
+-- One-time backfill note (deliberately NOT a statement below, since this
+-- file re-runs in full on every server startup -- an UPDATE here would
+-- keep re-firing forever and silently overwrite a real future user's
+-- deliberate choice of 'dark' back to 'auto' on every redeploy). At the
+-- time theme_mode's default changed from 'dark' to 'auto', every existing
+-- row was already 'dark' -- purely as a side effect of the ADD COLUMN
+-- DEFAULT above, not any real choice (the settings UI to choose
+-- theme_mode didn't exist before this same change), so those rows were
+-- moved to 'auto' with a single manual UPDATE run once, outside this
+-- file, rather than left inconsistent with new accounts going forward.
 
 -- A user can belong to more than one team (e.g. a Statistician covering
 -- both the Men's and Women's side of one institution). users.team_id above

@@ -78,8 +78,11 @@ export const ROLE_THEMES = {
 export const DEFAULT_PREFERENCES = {
   // 'light' | 'dark' | 'auto' -- visual overhaul step 2's DB-backed
   // personal preference (users.theme_mode). 'auto' is resolved to a
-  // concrete light/dark value in ThemeContext.jsx, not here.
-  themeMode: 'dark',
+  // concrete light/dark value in ThemeContext.jsx, not here. Matches
+  // users.theme_mode's own DEFAULT 'auto' in schema.sql -- a brand-new
+  // account (or a first-ever visit before any login at all) should follow
+  // the device's light/dark setting, not silently land on dark.
+  themeMode: 'auto',
   teamPreset: 'usiu',
   teamColors: { ...TEAM_PRESETS.usiu },
   backgroundIntensity: 'medium',
