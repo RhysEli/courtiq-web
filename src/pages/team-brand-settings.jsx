@@ -2,6 +2,7 @@ import { Alert, Box, Button, Card, CardContent, CircularProgress, FormControlLab
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Layout from '../components/layout';
 import ColorField from '../components/ColorField';
+import PhotoUpload from '../components/PhotoUpload';
 import { backendApi } from '../api/client';
 import { applyTheme, getCurrentBrand } from '../theme/applyTheme';
 import { persistBrandColors, loadPersistedBrandColors } from '../theme/brandColors';
@@ -94,6 +95,14 @@ function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, l
     applyTheme({ brand: next, userPref: { accentOverride: myAccentOverride.current } });
   };
 
+  const uploadLogo = async (blob) => {
+    if (!activeTeam) return;
+    const updated = await backendApi.uploadTeamLogo(activeTeam.id, blob);
+    setForm((prev) => ({ ...prev, logoUrl: updated.logo_url || '' }));
+    savedBrand.current = { ...savedBrand.current, logoUrl: updated.logo_url || '' };
+    setNotice(`Updated ${activeTeam.name}'s logo.`);
+  };
+
   const save = async () => {
     if (!activeTeam) return;
     setSaving(true);
@@ -147,7 +156,15 @@ function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, l
               <ColorField label="Secondary color" value={form.colorSecondary} onChange={(hex) => setFieldValue('colorSecondary', hex)} />
               <ColorField label="Accent color" value={form.brandAccent} onChange={(hex) => setFieldValue('brandAccent', hex)} />
 
-              <TextField fullWidth label="Logo URL" value={form.logoUrl} onChange={(event) => setFieldValue('logoUrl', event.target.value)} sx={{ mb: 1 }} />
+              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Team logo</Typography>
+              <Box sx={{ mb: 2 }}>
+                <PhotoUpload
+                  value={form.logoUrl}
+                  onUpload={uploadLogo}
+                  shape="square"
+                  fallback={activeTeam?.name?.slice(0, 2).toUpperCase() || 'TM'}
+                />
+              </Box>
 
               <FormControlLabel
                 sx={{ mt: 1, display: 'block' }}

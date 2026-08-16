@@ -16,6 +16,7 @@ const seasonRoutes = require('./routes/seasons');
 const leagueRoutes = require('./routes/leagues');
 const auditLogRoutes = require('./routes/auditLog');
 const userRoutes = require('./routes/users');
+const { ensureBucketExists } = require('./services/imageUpload');
 
 const app = express();
 app.use(cors());
@@ -51,14 +52,18 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 4000;
 
 // Postgres migration is async (unlike the old SQLite exec-at-require-time),
-// so the server only starts listening once the schema is confirmed applied.
+// so the server only starts listening once the schema is confirmed applied
+// AND the Storage bucket photo uploads write to is confirmed to exist --
+// same "fail loudly at startup, not on the first real request" reasoning
+// as the DB migration.
 db.migrate()
+  .then(() => ensureBucketExists())
   .then(() => {
     app.listen(PORT, () => {
       console.log(`CourtIQ backend listening on http://localhost:${PORT}`);
     });
   })
   .catch((err) => {
-    console.error('Failed to run database migration on startup:', err);
+    console.error('Failed to start up (migration or storage bucket check):', err);
     process.exit(1);
   });

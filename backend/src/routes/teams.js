@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth, requireRole, requireTeamAccess } = require('../middleware/auth');
+const { imageUpload, uploadImage } = require('../services/imageUpload');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -112,6 +113,45 @@ router.patch('/:teamId/brand', requireRole('Team Manager'), requireTeamAccess('t
     res.json(team);
   } catch (err) {
     console.error('update team brand failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Real logo upload -- replaces the plain "Logo URL" text field's manual
+// paste-a-URL flow. Same gating as the brand PATCH just above (Team
+// Manager only, own team only): a logo is part of brand identity, not
+// general team config. multer's imageUpload.single('photo') parses the
+// multipart body (this route accepts ONLY the file, not the other brand
+// fields -- keeps the "upload a file" and "save these text/color fields"
+// concerns in separate requests, same shape as reports.js/bulkImport.js's
+// existing upload endpoints, rather than one route juggling both a JSON
+// and multipart body depending on what's attached).
+router.patch('/:teamId/logo', requireRole('Team Manager'), requireTeamAccess('teamId'), imageUpload.single('photo'), async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    if (!req.file) {
+      return res.status(400).json({ error: 'No photo file uploaded (expected multipart field "photo")' });
+    }
+
+    const existing = await db.prepare('SELECT id FROM teams WHERE id = ?').get(teamId);
+    if (!existing) {
+      return res.status(404).json({ error: 'Team not found' });
+    }
+
+    const logoUrl = await uploadImage({
+      entityType: 'team-logos',
+      entityId: teamId,
+      buffer: req.file.buffer,
+      mimeType: req.file.mimetype,
+    });
+
+    const team = await db.prepare(
+      'UPDATE teams SET logo_url = ? WHERE id = ? RETURNING id, name, logo_url',
+    ).get(logoUrl, teamId);
+
+    res.json(team);
+  } catch (err) {
+    console.error('team logo upload failed:', err);
     res.status(500).json({ error: err.message });
   }
 });

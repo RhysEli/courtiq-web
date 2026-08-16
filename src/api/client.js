@@ -153,6 +153,16 @@ export const backendApi = {
   // only, own team only). No settings UI calls this yet -- added now so
   // the endpoint is actually usable once that UI exists.
   updateTeamBrand: (teamId, data) => request(`/teams/${encodeURIComponent(teamId)}/brand`, { method: 'PATCH', body: data }),
+  // Photo uploads: real file upload against Supabase Storage
+  // (backend/src/services/imageUpload.js), replacing the old plain
+  // "paste a URL" text fields. Each takes an already-resized Blob (see
+  // src/utils/resizeImage.js) and returns the updated row with its new
+  // *_url.
+  uploadTeamLogo: (teamId, blob) => {
+    const form = new FormData();
+    form.append('photo', blob, 'logo.jpg');
+    return request(`/teams/${encodeURIComponent(teamId)}/logo`, { method: 'PATCH', body: form, isForm: true });
+  },
   getTeamSeasonStats: (teamId) => request(`/teams/${teamId}/season-stats`),
   getPlayerDevelopment: (teamId, playerName) => request(`/teams/${teamId}/players/${encodeURIComponent(playerName)}/development`),
   // FR-11: real roster CRUD against the `players` table (backend/src/routes/players.js).
