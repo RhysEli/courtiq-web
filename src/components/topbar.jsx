@@ -72,14 +72,18 @@ function Topbar({ selectedTeam, onTeamChange, role, selectedInstitution, selecte
           </Badge>
         </IconButton>
 
+        {/* Personal accent, not team brand -- this is the logged-in user's
+            own initial badge, not a team identity marker, so it reads
+            var(--user-accent) rather than the team's real --brand-primary
+            or the unrelated local-only teamColors preset. */}
         <Avatar
           sx={{
-            bgcolor: alpha(teamColors.primary, 0.2),
-            color: 'var(--brand-primary)',
+            bgcolor: 'var(--user-accent)',
+            color: 'var(--user-accent-fg)',
             width: 38,
             height: 38,
             fontWeight: 700,
-            border: '2px solid var(--brand-primary)',
+            border: '2px solid var(--user-accent)',
             cursor: 'pointer',
           }}
           onClick={() => navigate('/profile')}

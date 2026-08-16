@@ -21,10 +21,13 @@
   /* Visual overhaul step 2: resolved personal accent (team's brand_accent,
      or the user's accent_override if they've set one) -- see
      src/theme/applyTheme.js. Same fallback-until-JS-runs reasoning as the
-     --brand-* vars above. Not consumed anywhere yet (the ambient
-     background this is for doesn't exist yet); it's just resolved and
-     available for a future component to read. */
+     --brand-* vars above. Consumed by sidebar active-nav, topbar avatar,
+     selected toggle pills, and a few CTA buttons. --user-accent-fg is the
+     matching readable foreground for text/icons drawn on a solid
+     --user-accent fill -- #0f172a is the correct pre-JS fallback since
+     --user-accent's own fallback (#f8fafc) is pale. */
   --user-accent: #f8fafc;
+  --user-accent-fg: #0f172a;
 }
 
 * {

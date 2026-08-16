@@ -131,7 +131,7 @@ function Sidebar({ role, selectedSeason, logout, currentUser }) {
         <AnimatePresence>
           {!sidebarCollapsed && (
             <motion.div initial={{ opacity: 0, width: 0 }} animate={{ opacity: 1, width: 'auto' }} exit={{ opacity: 0, width: 0 }}>
-              <Typography variant="h6" sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}>CourtIQ</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 800, whiteSpace: 'nowrap', color: 'var(--user-accent)' }}>CourtIQ</Typography>
               <Typography variant="caption" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>Basketball analytics</Typography>
             </motion.div>
           )}

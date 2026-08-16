@@ -13,14 +13,19 @@ import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 // Intensity controls (same underlying preference, different entry point),
 // so they pick up the same var(--user-accent) selected-state styling for
 // consistency -- personal-preference-panel UI only, no team data touched.
+// Solid fill + computed --user-accent-fg foreground (not a translucent
+// self-tint), same reasoning as settings.jsx's ACCENT_TOGGLE_SX: a pale
+// accent rendered as its own color on a faint tint of itself barely reads
+// as "selected" at all.
 const ACCENT_TOGGLE_SX = {
   '& .MuiToggleButton-root.Mui-selected': {
-    bgcolor: 'color-mix(in srgb, var(--user-accent) 22%, transparent)',
+    bgcolor: 'var(--user-accent)',
+    color: 'var(--user-accent-fg)',
     borderColor: 'var(--user-accent)',
-    color: 'var(--user-accent)',
   },
   '& .MuiToggleButton-root.Mui-selected:hover': {
-    bgcolor: 'color-mix(in srgb, var(--user-accent) 32%, transparent)',
+    bgcolor: 'var(--user-accent)',
+    filter: 'brightness(0.92)',
   },
 };
 const ACCENT_SWITCH_SX = {

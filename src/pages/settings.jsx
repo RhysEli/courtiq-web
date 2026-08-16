@@ -30,16 +30,25 @@ import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 // Intensity toggle groups' selected state (below) and the two CTA buttons
 // in this file -- all squarely personal-preference-panel UI, not team
 // data, so this doesn't touch the "team brand stays exactly as is"
-// boundary. Sidebar active-nav highlight is the other new consumer, see
-// components/sidebar.jsx.
+// boundary. Sidebar active-nav highlight and the topbar avatar are the
+// other new consumers, see components/sidebar.jsx and topbar.jsx.
+//
+// A solid fill, not a translucent tint of itself -- a light/pale accent
+// (a real example: USIU Tigers' yellow) rendered as text-in-its-own-color
+// on a faint tint of that same color barely registers as "selected" at
+// all, since foreground and background are the same hue just at
+// different opacities. --user-accent-fg (applyTheme.js, WCAG-luminance-
+// computed) guarantees a readable foreground against the solid fill
+// regardless of how light or dark the chosen accent is.
 const ACCENT_TOGGLE_SX = {
   '& .MuiToggleButton-root.Mui-selected': {
-    bgcolor: 'color-mix(in srgb, var(--user-accent) 22%, transparent)',
+    bgcolor: 'var(--user-accent)',
+    color: 'var(--user-accent-fg)',
     borderColor: 'var(--user-accent)',
-    color: 'var(--user-accent)',
   },
   '& .MuiToggleButton-root.Mui-selected:hover': {
-    bgcolor: 'color-mix(in srgb, var(--user-accent) 32%, transparent)',
+    bgcolor: 'var(--user-accent)',
+    filter: 'brightness(0.92)',
   },
 };
 
@@ -120,7 +129,7 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
               <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
                 Manage your display name and visual preferences from your profile page.
               </Typography>
-              <Button variant="contained" onClick={() => navigate('/profile')} sx={{ bgcolor: 'var(--user-accent)', color: '#000' }}>
+              <Button variant="contained" onClick={() => navigate('/profile')} sx={{ bgcolor: 'var(--user-accent)', color: 'var(--user-accent-fg)' }}>
                 Open Profile
               </Button>
             </GlassCardContent>
@@ -138,7 +147,7 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
                 <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
                   Set your team's real primary, secondary, and accent colors -- visible to everyone on the team, everywhere in the app.
                 </Typography>
-                <Button variant="contained" onClick={() => navigate('/team-brand-settings')} sx={{ bgcolor: 'var(--user-accent)', color: '#000' }}>
+                <Button variant="contained" onClick={() => navigate('/team-brand-settings')} sx={{ bgcolor: 'var(--user-accent)', color: 'var(--user-accent-fg)' }}>
                   Open Team Brand
                 </Button>
               </GlassCardContent>
