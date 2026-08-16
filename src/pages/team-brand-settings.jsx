@@ -46,10 +46,18 @@ function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, l
       .finally(() => setTeamsLoading(false));
   }, []);
 
-  const activeTeam = useMemo(() => {
-    const guess = teams.find((t) => t.name?.toLowerCase().includes(String(selectedTeam || '').toLowerCase().replace(/-/g, ' ')));
-    return guess || teams[0];
-  }, [teams, selectedTeam]);
+  // Matched by exact identity against currentUser.team -- the real,
+  // backend-scoped team name from getUserTeams() at login -- never a
+  // fuzzy guess against the team-switcher's mock value, and never a
+  // fallback to teams[0] (the alphabetically-first team in the whole
+  // system's unscoped list, which this account may have no relationship
+  // to at all -- confirmed live: this used to resolve to a team this
+  // account had no access to, and the Save button would have targeted
+  // it). No match means no team is shown, not a wrong one.
+  const activeTeam = useMemo(
+    () => teams.find((t) => t.name === currentUser?.team),
+    [teams, currentUser],
+  );
 
   useEffect(() => {
     if (!activeTeam) return;
@@ -166,7 +174,9 @@ function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, l
             </CardContent>
           </Card>
         ) : (
-          <Typography color="text.secondary">No team found to configure.</Typography>
+          <Alert severity="error">
+            Could not find your team ({currentUser?.team || 'unknown'}) in the team list.
+          </Alert>
         )}
       </Box>
     </Layout>

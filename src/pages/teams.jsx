@@ -16,7 +16,7 @@ import { backendApi } from '../api/client';
 
 const emptyForm = { coachName: '', managerName: '', statisticianName: '', colorPrimary: '', colorSecondary: '', logoUrl: '' };
 
-function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
+function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
   const [teams, setTeams] = useState([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [teamsError, setTeamsError] = useState('');
@@ -45,10 +45,16 @@ function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const activeTeam = useMemo(() => {
-    const guess = teams.find((t) => t.name?.toLowerCase().includes(String(selectedTeam || '').toLowerCase().replace(/-/g, ' ')));
-    return guess || teams[0];
-  }, [teams, selectedTeam]);
+  // Matched by exact identity against currentUser.team -- the real,
+  // backend-scoped team name from getUserTeams() at login -- never a
+  // fuzzy guess against the team-switcher's mock value, and never a
+  // fallback to teams[0] (the alphabetically-first team in the whole
+  // system's unscoped list, which this account may have no relationship
+  // to at all). No match means no team is shown, not a wrong one.
+  const activeTeam = useMemo(
+    () => teams.find((t) => t.name === currentUser?.team),
+    [teams, currentUser],
+  );
 
   // Populate the edit form from whichever team is currently active.
   useEffect(() => {
@@ -96,6 +102,11 @@ function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
   return (
     <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       {teamsError && <Alert severity="error" sx={{ mb: 2 }}>{teamsError}</Alert>}
+      {!teamsError && !activeTeam && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Could not find your team ({currentUser?.team || 'unknown'}) in the team list.
+        </Alert>
+      )}
       <Grid container spacing={3}>
         <Grid item xs={12} md={7}>
           <Card>

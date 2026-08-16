@@ -14,7 +14,7 @@ import { backendApi } from '../api/client';
 // position -- rather than carrying over fields (photo, DOB, medical
 // notes, etc.) that have nowhere real to be stored.
 
-function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
+function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
   const [teams, setTeams] = useState([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [teamsError, setTeamsError] = useState('');
@@ -36,8 +36,20 @@ function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
       .then((data) => {
         if (cancelled) return;
         setTeams(data);
-        const guess = data.find((t) => t.name?.toLowerCase().includes(String(selectedTeam || '').toLowerCase().replace(/-/g, ' ')));
-        setTeamId(guess?.id || data[0]?.id || '');
+        // Matched by exact identity against currentUser.team -- the real,
+        // backend-scoped team name from getUserTeams() at login -- never
+        // a fuzzy guess against the team-switcher's mock value, and never
+        // a fallback to data[0] (the alphabetically-first team in the
+        // whole system's unscoped list, which this account may have no
+        // relationship to at all). No match leaves teamId empty (the
+        // Team dropdown below still lets them pick one manually) rather
+        // than silently loading the wrong team's real roster.
+        const myTeam = data.find((t) => t.name === currentUser?.team);
+        if (myTeam) {
+          setTeamId(myTeam.id);
+        } else {
+          setTeamsError(`Could not find your team (${currentUser?.team || 'unknown'}) in the team list.`);
+        }
       })
       .catch((err) => { if (!cancelled) setTeamsError(err.message || 'Could not load teams.'); })
       .finally(() => { if (!cancelled) setTeamsLoading(false); });
