@@ -63,7 +63,7 @@ function Sidebar({ role, selectedSeason, logout, currentUser }) {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
-  const { teamColors, sidebarCollapsed, toggleSidebar } = useThemePreferences();
+  const { sidebarCollapsed, toggleSidebar } = useThemePreferences();
   const roleTheme = getRoleTheme(role);
   const allowedItems = navItems.filter((item) => isRouteAllowed(role, item.path));
   const isDark = theme.palette.mode === 'dark';
@@ -114,10 +114,13 @@ function Sidebar({ role, selectedSeason, logout, currentUser }) {
           minHeight: 64,
         }}
       >
+        {/* Personal accent, not the local-only Quick Team Preset -- same
+            mechanism as the wordmark right next to it and the topbar
+            avatar (topbar.jsx). */}
         <Avatar
           sx={{
-            bgcolor: teamColors.primary,
-            color: '#000',
+            bgcolor: 'var(--user-accent)',
+            color: 'var(--user-accent-fg)',
             width: sidebarCollapsed ? 40 : 42,
             height: sidebarCollapsed ? 40 : 42,
             fontWeight: 800,
