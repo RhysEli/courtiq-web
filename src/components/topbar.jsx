@@ -75,8 +75,12 @@ function Topbar({ selectedTeam, onTeamChange, role, selectedInstitution, selecte
         {/* Personal accent, not team brand -- this is the logged-in user's
             own initial badge, not a team identity marker, so it reads
             var(--user-accent) rather than the team's real --brand-primary
-            or the unrelated local-only teamColors preset. */}
+            or the unrelated local-only teamColors preset. src falls back
+            to the letter automatically (MUI Avatar's own behavior) when
+            no staff-curated photo has been set -- read-only here, upload
+            only ever happens from the staff-facing Users page. */}
         <Avatar
+          src={currentUser?.photoUrl || undefined}
           sx={{
             bgcolor: 'var(--user-accent)',
             color: 'var(--user-accent-fg)',

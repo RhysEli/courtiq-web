@@ -96,8 +96,13 @@ function Profile({ selectedTeam, onTeamChange, role, selectedSeason, logout, cur
                 {/* Personal accent, not the local-only Quick Team Preset --
                     same user-identity-marker treatment as the topbar avatar
                     and sidebar "CI" badge (this is that same category of
-                    element, just on this page). */}
+                    element, just on this page). src falls back to the
+                    letter automatically when no staff-curated photo has
+                    been set -- read-only here, same as topbar/dashboard;
+                    upload only ever happens from the staff-facing Users
+                    page, never self-service. */}
                 <Avatar
+                  src={user?.photoUrl || undefined}
                   sx={{
                     width: 96,
                     height: 96,

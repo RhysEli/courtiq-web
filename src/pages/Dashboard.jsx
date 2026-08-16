@@ -33,7 +33,14 @@ export default function Dashboard({ selectedTeam, onTeamChange, role, selectedSe
   }, [matches]);
 
   const userName = user?.name?.split(' ')[0] || role || 'there';
-  const dashboardProps = { data, summary, matches, analysisEntries, reports, userName, season: selectedSeason || data.profile.season };
+  const dashboardProps = {
+    data, summary, matches, analysisEntries, reports, userName,
+    // Staff-curated (backend PATCH /users/:userId/photo) -- read-only
+    // here, HeroBanner just displays it. Falls back to the initial-letter
+    // avatar automatically when unset.
+    photoUrl: user?.photoUrl,
+    season: selectedSeason || data.profile.season,
+  };
 
   const roleDashboard = {
     Athlete: <AthleteDashboard {...dashboardProps} />,

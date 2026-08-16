@@ -27,7 +27,7 @@ const fadeIn = {
 // and avatar, same reasoning as every other badge/avatar fix: a pale
 // accent rendered as its own color on a faint tint of itself barely reads
 // as legible at all.
-function HeroBanner({ role, userName, teamName, season }) {
+function HeroBanner({ role, userName, teamName, season, photoUrl }) {
   const roleTheme = getRoleTheme(role);
 
   return (
@@ -46,7 +46,10 @@ function HeroBanner({ role, userName, teamName, season }) {
               <Typography color="text.secondary" sx={{ mt: 0.5, fontStyle: 'italic' }}>{roleTheme.tagline}</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{teamName} • Season {season}</Typography>
             </Box>
-            <Avatar sx={{ width: 72, height: 72, bgcolor: 'var(--user-accent)', color: 'var(--user-accent-fg)', border: '3px solid var(--user-accent)', fontSize: '1.8rem', fontWeight: 700 }}>
+            <Avatar
+              src={photoUrl || undefined}
+              sx={{ width: 72, height: 72, bgcolor: 'var(--user-accent)', color: 'var(--user-accent-fg)', border: '3px solid var(--user-accent)', fontSize: '1.8rem', fontWeight: 700 }}
+            >
               {userName?.charAt(0)?.toUpperCase() || 'A'}
             </Avatar>
           </Stack>
@@ -77,7 +80,7 @@ function StatTile({ title, value, subtitle, icon: Icon, color, delay = 0 }) {
   );
 }
 
-export function AthleteDashboard({ data, summary, matches, userName, season }) {
+export function AthleteDashboard({ data, summary, matches, userName, season, photoUrl }) {
   const { teamColors } = useThemePreferences();
   const roleTheme = getRoleTheme('Athlete');
 
@@ -90,7 +93,7 @@ export function AthleteDashboard({ data, summary, matches, userName, season }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <HeroBanner role="Athlete" userName={userName} teamName={data.profile.name} season={season} />
+      <HeroBanner role="Athlete" userName={userName} teamName={data.profile.name} season={season} photoUrl={photoUrl} />
 
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6} md={3}><StatTile title="My Games" value={summary.completed} subtitle="Completed this season" icon={SportsBasketballRoundedIcon} color={teamColors.primary} delay={0.1} /></Grid>
@@ -158,14 +161,14 @@ export function AthleteDashboard({ data, summary, matches, userName, season }) {
   );
 }
 
-export function CoachDashboard({ data, summary, matches, analysisEntries, userName, season }) {
+export function CoachDashboard({ data, summary, matches, analysisEntries, userName, season, photoUrl }) {
   const { teamColors } = useThemePreferences();
   const roleTheme = getRoleTheme('Coach');
   const nextMatch = matches.find((m) => m.status === 'Scheduled');
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <HeroBanner role="Coach" userName={userName} teamName={data.profile.name} season={season} />
+      <HeroBanner role="Coach" userName={userName} teamName={data.profile.name} season={season} photoUrl={photoUrl} />
 
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Upcoming" value={summary.upcoming} subtitle="Scheduled matches" icon={SportsBasketballRoundedIcon} color={roleTheme.glow} delay={0.1} /></Grid>
@@ -233,13 +236,13 @@ export function CoachDashboard({ data, summary, matches, analysisEntries, userNa
   );
 }
 
-export function StatisticianDashboard({ data, summary, reports, userName, season }) {
+export function StatisticianDashboard({ data, summary, reports, userName, season, photoUrl }) {
   const { teamColors } = useThemePreferences();
   const roleTheme = getRoleTheme('Statistician');
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <HeroBanner role="Statistician" userName={userName} teamName={data.profile.name} season={season} />
+      <HeroBanner role="Statistician" userName={userName} teamName={data.profile.name} season={season} photoUrl={photoUrl} />
 
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Total Matches" value={summary.total} subtitle="In database" icon={SportsBasketballRoundedIcon} color={roleTheme.glow} delay={0.1} /></Grid>
@@ -311,13 +314,13 @@ export function StatisticianDashboard({ data, summary, reports, userName, season
   );
 }
 
-export function TeamManagerDashboard({ data, summary, matches, userName, season }) {
+export function TeamManagerDashboard({ data, summary, matches, userName, season, photoUrl }) {
   const { teamColors } = useThemePreferences();
   const roleTheme = getRoleTheme('Team Manager');
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <HeroBanner role="Team Manager" userName={userName} teamName={data.profile.name} season={season} />
+      <HeroBanner role="Team Manager" userName={userName} teamName={data.profile.name} season={season} photoUrl={photoUrl} />
 
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Active Teams" value="2" subtitle="Under management" icon={SportsBasketballRoundedIcon} color={roleTheme.glow} delay={0.1} /></Grid>

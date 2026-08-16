@@ -122,7 +122,13 @@ function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
                   <Typography variant="h5" fontWeight={700}>{activeTeam?.name || 'No team found'}</Typography>
                   <Typography color="text.secondary">{activeTeam?.gender_category || 'No real teams found for this organisation yet.'}</Typography>
                 </Box>
-                <Avatar sx={{ width: 72, height: 72, bgcolor: 'primary.main', fontSize: 24 }}>{activeTeam?.name?.slice(0, 2).toUpperCase() || 'TM'}</Avatar>
+                {/* Real uploaded team logo (team-brand-settings.jsx) when
+                    set -- falls back to the initials automatically
+                    (MUI Avatar's own behavior) for a team with no logo
+                    uploaded yet. */}
+                <Avatar src={activeTeam?.logo_url || undefined} sx={{ width: 72, height: 72, bgcolor: 'primary.main', fontSize: 24 }}>
+                  {activeTeam?.name?.slice(0, 2).toUpperCase() || 'TM'}
+                </Avatar>
               </Stack>
               <Divider sx={{ my: 3 }} />
               {activeTeam ? (

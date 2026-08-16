@@ -26,6 +26,10 @@ router.post('/login', async (req, res) => {
     user: {
       id: user.id, name: user.name, email: user.email, role: user.role, teams,
       themeMode: user.theme_mode, accentOverride: user.accent_override,
+      // Staff-curated (see PATCH /users/:userId/photo) -- never set by
+      // the user themselves, but read back here the same as any other
+      // profile field so avatars everywhere can show it.
+      photoUrl: user.photo_url,
     },
   });
 });

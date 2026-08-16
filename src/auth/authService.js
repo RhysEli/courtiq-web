@@ -183,6 +183,12 @@ export async function loginUser({ email, password, rememberMe = false }) {
         // here. Prefer this over `team` (the display name) wherever both
         // are available.
         teamId: data.user.teams?.[0]?.id || '',
+        // Staff-curated photo (backend PATCH /users/:userId/photo) --
+        // read back at login like any other profile field. A fresh
+        // upload made to this same account while already logged in
+        // won't show until next login, same as a role/team change --
+        // currentUser is a login-time snapshot, not live-refreshed.
+        photoUrl: data.user.photoUrl || '',
         // Visual overhaul step 2: carried through so login.jsx can call
         // setThemeMode() for a same-tab live update -- ThemeContext is a
         // sibling of AuthContext in main.jsx's provider tree (not a
