@@ -182,4 +182,9 @@ export const backendApi = {
   // Visual overhaul step 2: self-service personal preference (backend/src/routes/users.js). No role gate -- scoped to the caller's own row.
   getMyPreferences: () => request('/users/me/preferences'),
   updateMyPreferences: (data) => request('/users/me/preferences', { method: 'PATCH', body: data }),
+  // Staff-facing user directory (backend/src/routes/users.js), replacing
+  // users.jsx's old entirely-localStorage user list. Statistician/Team
+  // Manager only, enforced server-side.
+  getUsers: () => request('/users'),
+  updateUser: (userId, data) => request(`/users/${encodeURIComponent(userId)}`, { method: 'PATCH', body: data }),
 };
