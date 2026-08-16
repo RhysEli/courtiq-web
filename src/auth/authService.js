@@ -176,6 +176,13 @@ export async function loginUser({ email, password, rememberMe = false }) {
         role: data.user.role,
         institution: data.user.teams?.[0]?.institution_name || '',
         team: data.user.teams?.[0]?.name || '',
+        // Real, stable identifier for the pages that need to fetch/edit
+        // this exact team's data -- name-string matching (even exact)
+        // breaks silently on formatting drift (e.g. "USIU Tigers Men" vs
+        // the real "USIU Tigers (Men)"), which is exactly what happened
+        // here. Prefer this over `team` (the display name) wherever both
+        // are available.
+        teamId: data.user.teams?.[0]?.id || '',
         // Visual overhaul step 2: carried through so login.jsx can call
         // setThemeMode() for a same-tab live update -- ThemeContext is a
         // sibling of AuthContext in main.jsx's provider tree (not a

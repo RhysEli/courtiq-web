@@ -36,15 +36,17 @@ function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
       .then((data) => {
         if (cancelled) return;
         setTeams(data);
-        // Matched by exact identity against currentUser.team -- the real,
-        // backend-scoped team name from getUserTeams() at login -- never
-        // a fuzzy guess against the team-switcher's mock value, and never
-        // a fallback to data[0] (the alphabetically-first team in the
-        // whole system's unscoped list, which this account may have no
-        // relationship to at all). No match leaves teamId empty (the
-        // Team dropdown below still lets them pick one manually) rather
-        // than silently loading the wrong team's real roster.
-        const myTeam = data.find((t) => t.name === currentUser?.team);
+        // Matched by currentUser.teamId -- a real, stable id, not a name
+        // string. Matching on the display name (currentUser.team vs
+        // t.name) broke silently the moment the two disagreed on
+        // formatting (a stale cached session's "USIU Tigers Men" vs the
+        // real team's actual name "USIU Tigers (Men)") -- exact-string
+        // matching is still just as fragile as fuzzy matching once the
+        // two sides can drift, it just fails differently. No match
+        // leaves teamId empty (the Team dropdown below still lets them
+        // pick one manually) rather than silently loading the wrong
+        // team's real roster.
+        const myTeam = data.find((t) => t.id === currentUser?.teamId);
         if (myTeam) {
           setTeamId(myTeam.id);
         } else {
