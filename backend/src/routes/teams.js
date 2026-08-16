@@ -37,7 +37,10 @@ router.get('/', async (req, res) => {
 // creating a bare team with no games attached would be a different,
 // out-of-scope feature. Partial update: any field omitted from the body
 // keeps its current value rather than being nulled out.
-router.patch('/:teamId', requireRole('Statistician', 'Team Manager'), async (req, res) => {
+// requireTeamAccess added so a Statistician/Team Manager can only edit
+// their own team(s) -- previously any authenticated Statistician or Team
+// Manager could edit ANY team's config regardless of membership.
+router.patch('/:teamId', requireRole('Statistician', 'Team Manager'), requireTeamAccess('teamId'), async (req, res) => {
   try {
     const { teamId } = req.params;
 
@@ -72,12 +75,10 @@ router.patch('/:teamId', requireRole('Statistician', 'Team Manager'), async (req
 });
 
 // Visual overhaul step 1: dedicated brand-identity update, separate from
-// the general team-config PATCH above. Deliberately narrower than that
-// endpoint in two ways: gated to Team Manager only (not Statistician too
-// -- brand identity is a Team Manager call, per the brief), and
-// requireTeamAccess'd so a Team Manager can only rebrand their own
-// team(s), not any team in the system (the general PATCH above has no
-// such scoping -- a pre-existing gap this doesn't attempt to fix).
+// the general team-config PATCH above. Narrower than that endpoint in
+// one remaining way: gated to Team Manager only, not Statistician too --
+// brand identity is a Team Manager call, per the brief. (Both endpoints
+// are now requireTeamAccess'd to the caller's own team.)
 // color_primary/color_secondary are the same columns the general PATCH
 // already edits (see schema.sql for why they weren't renamed to
 // brand_primary/brand_secondary) -- this endpoint is an additional, more
