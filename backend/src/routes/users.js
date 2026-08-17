@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, requireSharedTeamWithUser } = require('../middleware/auth');
 const { imageUpload, uploadImage } = require('../services/imageUpload');
 
 const router = express.Router();
@@ -34,6 +34,17 @@ const ASSIGNABLE_ROLES = ['Team Manager', 'Statistician', 'Coach', 'Athlete'];
 // had before their own earlier real-backend passes; this closes it for
 // Users so staff-curated player/user photos (a separate, later change)
 // have real rows to attach to.
+//
+// Team-scoped, same as roster management: a Statistician/Team Manager
+// only sees users who share at least one real team with them (not "all
+// teams" -- see requireSharedTeamWithUser), not every user in the
+// system. There's no single :teamId param on this route to hand
+// requireTeamAccess (this lists across teams, not within one), so the
+// filter happens here instead, after loading each user's real teams.
+// Administrators would see everyone unfiltered, but requireRole above
+// already excludes Administrator from this route entirely, so that
+// branch is currently unreachable -- kept for consistency with
+// requireTeamAccess's own shape, and in case that ever changes.
 router.get('/', requireRole('Statistician', 'Team Manager'), async (req, res) => {
   try {
     const users = await db.prepare(`
@@ -52,7 +63,14 @@ router.get('/', requireRole('Statistician', 'Team Manager'), async (req, res) =>
       (teamsByUser[row.user_id] ||= []).push({ id: row.team_id, name: row.team_name });
     }
 
-    res.json(users.map((u) => ({ ...u, teams: teamsByUser[u.id] || [] })));
+    const visibleUsers = req.user.role === 'Administrator'
+      ? users
+      : users.filter((u) => {
+          const myTeamIds = req.user.teamIds || [];
+          return (teamsByUser[u.id] || []).some((t) => myTeamIds.includes(t.id));
+        });
+
+    res.json(visibleUsers.map((u) => ({ ...u, teams: teamsByUser[u.id] || [] })));
   } catch (err) {
     console.error('list users failed:', err);
     res.status(500).json({ error: err.message });
@@ -61,8 +79,11 @@ router.get('/', requireRole('Statistician', 'Team Manager'), async (req, res) =>
 
 // Edit an existing user's role and/or team -- staff-only, same two roles
 // as every other "manage roster/team config" action in this app
-// (players.js POST/DELETE, teams.js PATCH). Partial update: role and
-// teamId are independently optional.
+// (players.js POST/DELETE, teams.js PATCH), AND now team-scoped via
+// requireSharedTeamWithUser: the caller must share at least one real
+// team with the TARGET user, matching how player/roster management is
+// already scoped by requireTeamAccess. Partial update: role and teamId
+// are independently optional.
 //
 // Team reassignment REPLACES this user's user_teams membership with the
 // one selected team, rather than an add/remove-multiple-teams flow --
@@ -71,7 +92,7 @@ router.get('/', requireRole('Statistician', 'Team Manager'), async (req, res) =>
 // Men's and Women's side) would need real multi-team management UI to
 // set up correctly here -- a bigger feature than this migration covers,
 // flagged rather than half-built.
-router.patch('/:userId', requireRole('Statistician', 'Team Manager'), async (req, res) => {
+router.patch('/:userId', requireRole('Statistician', 'Team Manager'), requireSharedTeamWithUser('userId'), async (req, res) => {
   try {
     const { userId } = req.params;
     const existing = await db.prepare('SELECT id, role FROM users WHERE id = ?').get(userId);
@@ -87,6 +108,14 @@ router.patch('/:userId', requireRole('Statistician', 'Team Manager'), async (req
       const team = await db.prepare('SELECT id FROM teams WHERE id = ?').get(teamId);
       if (!team) {
         return res.status(400).json({ error: 'teamId does not match a real team' });
+      }
+      // requireSharedTeamWithUser above only checked the target's CURRENT
+      // team(s) -- without this, a Statistician/Team Manager could move a
+      // user they do share a team with onto a team they have no
+      // relationship to at all, reaching outside their own scope via the
+      // destination rather than the target.
+      if (req.user.role !== 'Administrator' && !(req.user.teamIds || []).includes(teamId)) {
+        return res.status(403).json({ error: 'You do not have access to that team' });
       }
     }
 
@@ -113,15 +142,15 @@ router.patch('/:userId', requireRole('Statistician', 'Team Manager'), async (req
   }
 });
 
-// Staff-curated user photo -- same two roles as every other staff-only
-// action here, and deliberately NOT scoped to "my own team's users":
-// GET/PATCH /users above already let staff manage any user system-wide
-// (no requireTeamAccess), so this matches that existing gating rather
-// than introducing a narrower rule just for photos. Applies to every
-// role, including the uploader's own row -- there is no separate "upload
-// my own photo" self-service path anywhere (profile.jsx doesn't get one),
-// by design: staff curate every photo, including their own.
-router.patch('/:userId/photo', requireRole('Statistician', 'Team Manager'), imageUpload.single('photo'), async (req, res) => {
+// Staff-curated user photo -- same two roles and same team scoping
+// (requireSharedTeamWithUser) as the role/team PATCH above: a
+// Statistician/Team Manager can only upload a photo for a user they
+// share a real team with. Applies to every role, including the
+// uploader's own row (if they happen to share a team with themselves,
+// which they always do) -- there is no separate "upload my own photo"
+// self-service path anywhere (profile.jsx doesn't get one), by design:
+// staff curate every photo, including their own.
+router.patch('/:userId/photo', requireRole('Statistician', 'Team Manager'), requireSharedTeamWithUser('userId'), imageUpload.single('photo'), async (req, res) => {
   try {
     const { userId } = req.params;
     if (!req.file) {

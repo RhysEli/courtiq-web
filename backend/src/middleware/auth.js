@@ -55,6 +55,40 @@ function requireTeamAccess(paramName = 'teamId') {
   };
 }
 
+// Team-scoped authorization for routes keyed by a TARGET USER, not a
+// :teamId param -- users.js's list/edit/photo endpoints operate on
+// another user's row (e.g. /users/:userId), so there's no team id in the
+// URL for requireTeamAccess to check directly. Instead: look up the
+// target user's own real team(s) via user_teams, and require that the
+// caller shares AT LEAST ONE team with them (not all of them) --
+// matches how a Statistician covering both a team's Men's and Women's
+// side, per schema.sql's own example, would expect to manage users on
+// either side, not need overlap on every team both people happen to be
+// on. Administrators bypass, same as requireTeamAccess.
+function requireSharedTeamWithUser(paramName = 'userId') {
+  return async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (req.user.role === 'Administrator') {
+      return next();
+    }
+    try {
+      const targetUserId = req.params[paramName];
+      const targetTeams = await db.prepare('SELECT team_id FROM user_teams WHERE user_id = ?').all(targetUserId);
+      const targetTeamIds = targetTeams.map((row) => row.team_id);
+      const accessibleTeamIds = req.user.teamIds || [];
+      const sharesATeam = targetTeamIds.some((id) => accessibleTeamIds.includes(id));
+      if (!sharesATeam) {
+        return res.status(403).json({ error: 'You do not share a team with this user' });
+      }
+      next();
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  };
+}
+
 // The real, current list of teams a user can access, enriched with
 // institution and gender info for the frontend switcher. Administrators
 // see every team in the system; everyone else sees only teams they have a
@@ -91,4 +125,4 @@ function signToken(user, teamIds = []) {
   );
 }
 
-module.exports = { requireAuth, requireRole, requireTeamAccess, getUserTeams, signToken, JWT_SECRET };
+module.exports = { requireAuth, requireRole, requireTeamAccess, requireSharedTeamWithUser, getUserTeams, signToken, JWT_SECRET };
