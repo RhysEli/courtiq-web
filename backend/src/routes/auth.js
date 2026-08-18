@@ -12,7 +12,17 @@ router.post('/login', async (req, res) => {
   }
 
   const user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-  if (!user || !verifyPassword(password, user.password_hash)) {
+  // No such account, wrong password, and a deactivated account all
+  // collapse into the exact same check and the exact same message --
+  // deliberately. Splitting "wrong password" from "deactivated account"
+  // (or from "no such account") would let someone probe which emails
+  // belong to real, or specifically deactivated, accounts. This only
+  // blocks the NEXT login attempt -- an already-issued JWT keeps working
+  // until its normal 12h expiry (requireAuth only checks the token's
+  // signature/expiry, not a live is_active lookup on every request) --
+  // accepted tradeoff, not an oversight; see PATCH /users/:userId for
+  // where is_active actually gets toggled.
+  if (!user || !verifyPassword(password, user.password_hash) || !user.is_active) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
 

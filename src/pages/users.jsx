@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Card, CardContent, Grid, MenuItem, Snackbar, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Chip, Grid, MenuItem, Snackbar, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/layout';
 import PhotoUpload from '../components/PhotoUpload';
@@ -11,13 +11,15 @@ import { backendApi } from '../api/client';
 // mock" gap teams.jsx/players-management.jsx had before their own
 // earlier real-backend passes).
 //
-// Deliberately NOT migrated, flagged rather than guessed at:
-//   - Status (active/inactive) column + Deactivate/Reactivate button --
-//     no such column exists on the real `users` table at all. Inventing
-//     one now would mean deciding real semantics (does a deactivated
-//     user's still-valid JWT keep working until it expires? does login
-//     itself get blocked?) that are a separate feature, not implied by
-//     "list/edit users so photos have somewhere to attach to."
+// Status is now real too (users.is_active, backend/src/db/schema.sql) --
+// initially deliberately not migrated pending a decision on what
+// "inactive" should mean; now wired up per that decision: blocks the
+// NEXT login only (POST /auth/login, generic error -- doesn't reveal
+// whether an email is real, has the wrong password, or is deactivated),
+// not live mid-session revocation. An already-issued JWT keeps working
+// until its normal 12h expiry.
+//
+// Still deliberately NOT migrated, flagged rather than guessed at:
 //   - "Institution" button -- wrote to nothing real even in the mock
 //     version's own intent (users have no institution_id column; an
 //     institution is only ever implied via team.institution_id), and is
@@ -131,6 +133,19 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
     }
   };
 
+  // Blocks the user's NEXT login attempt only (POST /auth/login) --
+  // doesn't touch any session already in progress. See schema.sql's
+  // is_active comment for why that's the deliberate scope, not a gap.
+  const toggleActive = async (userId, isActive) => {
+    setUserUpdateError('');
+    try {
+      await backendApi.updateUser(userId, { isActive });
+      setRefreshToken((prev) => prev + 1);
+    } catch (err) {
+      setUserUpdateError(err.message || 'Could not update status.');
+    }
+  };
+
   // Staff-curated photo -- applies to every role including the uploader's
   // own row (this table has no notion of "is this me", it's the same
   // staff-managed action either way). No self-service equivalent anywhere
@@ -212,6 +227,8 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
                     <TableCell>Email</TableCell>
                     <TableCell>Role</TableCell>
                     <TableCell>Team</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -254,10 +271,18 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
                           {teams.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
                         </TextField>
                       </TableCell>
+                      <TableCell>
+                        <Chip label={user.is_active ? 'Active' : 'Inactive'} color={user.is_active ? 'success' : 'default'} size="small" />
+                      </TableCell>
+                      <TableCell>
+                        <Button size="small" variant="outlined" onClick={() => toggleActive(user.id, !user.is_active)}>
+                          {user.is_active ? 'Deactivate' : 'Reactivate'}
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {users.length === 0 && (
-                    <TableRow><TableCell colSpan={5}>No users match.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7}>No users match.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

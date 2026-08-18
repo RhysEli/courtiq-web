@@ -93,6 +93,16 @@ ALTER TABLE users ADD CONSTRAINT users_accent_override_check CHECK (accent_overr
 -- Same real Supabase Storage URL shape as teams.logo_url/players.photo_url.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT;
 
+-- Real Status (active/inactive) -- users.jsx's old mock "Deactivate"
+-- button had no real column behind it at all (not even in the mock's own
+-- login check). A real BOOLEAN, not the older seasons.active INTEGER
+-- flag pattern -- Postgres has a native boolean type, no reason to
+-- follow the legacy convention here. Enforcement is login-blocking only
+-- (POST /auth/login), not live mid-session revocation -- an already-
+-- issued JWT keeps working until its normal 12h expiry; see auth.js for
+-- why that's an accepted tradeoff, not an oversight.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+
 -- One-time backfill note (deliberately NOT a statement below, since this
 -- file re-runs in full on every server startup -- an UPDATE here would
 -- keep re-firing forever and silently overwrite a real future user's

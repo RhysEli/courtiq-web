@@ -60,7 +60,7 @@ const STAFF_ROLES = ['Administrator', 'Statistician', 'Team Manager'];
 router.get('/', requireRole(...STAFF_ROLES), async (req, res) => {
   try {
     const users = await db.prepare(`
-      SELECT id, name, email, role, photo_url, created_at
+      SELECT id, name, email, role, photo_url, is_active, created_at
       FROM users
       ORDER BY name
     `).all();
@@ -89,12 +89,12 @@ router.get('/', requireRole(...STAFF_ROLES), async (req, res) => {
   }
 });
 
-// Edit an existing user's role and/or team -- staff-only (STAFF_ROLES,
-// see above), team-scoped via requireSharedTeamWithUser: the caller must
-// share at least one real team with the TARGET user (or be
-// Administrator), matching how player/roster management is already
-// scoped by requireTeamAccess. Partial update: role and teamId
-// are independently optional.
+// Edit an existing user's role/team/active-status -- staff-only
+// (STAFF_ROLES, see above), team-scoped via requireSharedTeamWithUser:
+// the caller must share at least one real team with the TARGET user (or
+// be Administrator), matching how player/roster management is already
+// scoped by requireTeamAccess. Partial update: role, teamId, and
+// isActive are all independently optional.
 //
 // Team reassignment REPLACES this user's user_teams membership with the
 // one selected team, rather than an add/remove-multiple-teams flow --
@@ -106,14 +106,17 @@ router.get('/', requireRole(...STAFF_ROLES), async (req, res) => {
 router.patch('/:userId', requireRole(...STAFF_ROLES), requireSharedTeamWithUser('userId'), async (req, res) => {
   try {
     const { userId } = req.params;
-    const existing = await db.prepare('SELECT id, role FROM users WHERE id = ?').get(userId);
+    const existing = await db.prepare('SELECT id, role, is_active FROM users WHERE id = ?').get(userId);
     if (!existing) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const { role = existing.role, teamId } = req.body;
+    const { role = existing.role, teamId, isActive = existing.is_active } = req.body;
     if (!ASSIGNABLE_ROLES.includes(role)) {
       return res.status(400).json({ error: `role must be one of: ${ASSIGNABLE_ROLES.join(', ')}` });
+    }
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({ error: 'isActive must be a boolean' });
     }
     if (teamId !== undefined) {
       const team = await db.prepare('SELECT id FROM teams WHERE id = ?').get(teamId);
@@ -130,7 +133,7 @@ router.patch('/:userId', requireRole(...STAFF_ROLES), requireSharedTeamWithUser(
       }
     }
 
-    await db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, userId);
+    await db.prepare('UPDATE users SET role = ?, is_active = ? WHERE id = ?').run(role, isActive, userId);
 
     if (teamId !== undefined) {
       await db.prepare('DELETE FROM user_teams WHERE user_id = ?').run(userId);
@@ -141,7 +144,7 @@ router.patch('/:userId', requireRole(...STAFF_ROLES), requireSharedTeamWithUser(
       await db.prepare('UPDATE users SET team_id = ? WHERE id = ?').run(teamId, userId);
     }
 
-    const updated = await db.prepare('SELECT id, name, email, role, photo_url FROM users WHERE id = ?').get(userId);
+    const updated = await db.prepare('SELECT id, name, email, role, photo_url, is_active FROM users WHERE id = ?').get(userId);
     const teams = await db.prepare(`
       SELECT t.id, t.name FROM user_teams ut JOIN teams t ON t.id = ut.team_id WHERE ut.user_id = ?
     `).all(userId);
