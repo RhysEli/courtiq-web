@@ -16,6 +16,7 @@ const seasonRoutes = require('./routes/seasons');
 const leagueRoutes = require('./routes/leagues');
 const auditLogRoutes = require('./routes/auditLog');
 const userRoutes = require('./routes/users');
+const passwordResetRoutes = require('./routes/passwordReset');
 const { ensureBucketExists } = require('./services/imageUpload');
 
 const app = express();
@@ -35,6 +36,10 @@ app.use('/api/seasons', seasonRoutes);
 app.use('/api/leagues', leagueRoutes);
 app.use('/api/audit-log', auditLogRoutes);
 app.use('/api/users', userRoutes);
+// Public -- the account holder follows a staff-triggered reset link here,
+// unauthenticated (see users.js's POST /:userId/reset-password for the
+// staff-facing trigger).
+app.use('/api/reset-password', passwordResetRoutes);
 // reportRoutes/bulkImportRoutes mount at the broad '/api' prefix (their own
 // paths start with '/games/...') -- keep every specific-prefix router
 // ('/api/teams', '/api/invites', etc.) registered above these two, or a

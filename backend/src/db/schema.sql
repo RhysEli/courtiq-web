@@ -143,6 +143,35 @@ CREATE TABLE IF NOT EXISTS invites (
   accepted_at TIMESTAMPTZ
 );
 
+-- Staff-initiated password reset -- separate from `invites`, deliberately
+-- not reusing that table: invites/:token/accept explicitly rejects when
+-- an account already exists (see invites.js), which is exactly the case
+-- here (a reset is always for an EXISTING account), so the same table/
+-- endpoint shape can't be reused as-is. Structurally similar otherwise:
+-- a random token (crypto.randomBytes(24).toString('hex'), same entropy
+-- as invites.token), an expiry, tied to a real user_id via a real FK.
+-- expires_at is 1 hour, not invites' 7 days -- a much shorter window is
+-- appropriate for a link that can change an existing account's password,
+-- versus one that only creates a brand-new account. consumed_at (not a
+-- text `status` enum like invites) is enough to track "used" -- there's
+-- no revoke/expire lifecycle to distinguish here, just used-or-not, so a
+-- single nullable timestamp is simpler than a status column would be.
+-- This is staff-triggered only (POST /users/:userId/reset-password) --
+-- deliberately no general self-service "forgot password" (request-your-
+-- own-reset) endpoint, matching this feature's staff-curated model. The
+-- schema doesn't rule that out later though: a future self-service
+-- endpoint would just insert into this same table the same way, keyed
+-- off a real email lookup instead of a staff action, and reuse the exact
+-- same POST /reset-password/:token consumption endpoint unchanged.
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  consumed_at TIMESTAMPTZ
+);
+
 CREATE TABLE IF NOT EXISTS leagues (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,

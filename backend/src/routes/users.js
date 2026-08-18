@@ -1,7 +1,29 @@
+const crypto = require('crypto');
 const express = require('express');
 const db = require('../db');
 const { requireAuth, requireRole, requireSharedTeamWithUser } = require('../middleware/auth');
 const { imageUpload, uploadImage } = require('../services/imageUpload');
+const { sendMail } = require('../services/mailer');
+
+const RESET_TOKEN_EXPIRY_HOURS = 1;
+
+// Adapts invites.js's buildInviteEmail wording rather than sharing a
+// forced abstraction with it -- the two emails' actual content differs
+// enough (team/role/institution vs. none of that) that a shared builder
+// would mostly just be optional-parameter plumbing, not real
+// de-duplication. Same terse structure/tone instead.
+function buildPasswordResetEmail({ appUrl, token, name }) {
+  const resetUrl = `${appUrl}/reset-password/${token}`;
+  const subject = 'Reset your CourtIQ password';
+  const html = `
+    <p>Hi ${name},</p>
+    <p>A staff member has triggered a password reset for your CourtIQ account.</p>
+    <p><a href="${resetUrl}">Click here to set a new password</a></p>
+    <p>This link expires in ${RESET_TOKEN_EXPIRY_HOURS} hour${RESET_TOKEN_EXPIRY_HOURS === 1 ? '' : 's'}. If you weren't expecting this, you can ignore this email -- your password won't change unless you open the link and set a new one.</p>
+  `;
+  const text = `A staff member has triggered a password reset for your CourtIQ account. Set a new password here: ${resetUrl} (expires in ${RESET_TOKEN_EXPIRY_HOURS} hour${RESET_TOKEN_EXPIRY_HOURS === 1 ? '' : 's'}.)`;
+  return { subject, html, text };
+}
 
 const router = express.Router();
 router.use(requireAuth);
@@ -190,6 +212,53 @@ router.patch('/:userId/photo', requireRole(...STAFF_ROLES), requireSharedTeamWit
     res.json(user);
   } catch (err) {
     console.error('user photo upload failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Staff-triggered password reset -- same STAFF_ROLES gating and same
+// team scoping (requireSharedTeamWithUser) as every other user route
+// above. Generates a token, invalidates (deletes) any previous unused
+// token for this user first so there's never more than one live reset
+// link, emails it via the same sendMail() invites.js already uses. Does
+// NOT touch the account's password itself -- that only happens when the
+// link is actually followed, see the public POST /reset-password/:token
+// below (backend/src/routes/passwordReset.js).
+router.post('/:userId/reset-password', requireRole(...STAFF_ROLES), requireSharedTeamWithUser('userId'), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { appUrl } = req.body;
+    const user = await db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await db.prepare('DELETE FROM password_reset_tokens WHERE user_id = ? AND consumed_at IS NULL').run(userId);
+
+    const token = crypto.randomBytes(24).toString('hex');
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
+    await db.prepare(`
+      INSERT INTO password_reset_tokens (user_id, token, expires_at)
+      VALUES (?, ?, ?)
+    `).run(userId, token, expiresAt);
+
+    const { subject, html, text } = buildPasswordResetEmail({
+      appUrl: appUrl || 'https://courtiq-web-1.onrender.com',
+      token, name: user.name,
+    });
+
+    try {
+      await sendMail({ to: user.email, subject, html, text });
+    } catch (mailErr) {
+      // Same fallback shape as invites.js's /send -- the token still
+      // exists and is still usable even if the email itself failed, so
+      // the frontend can offer a "copy link" fallback.
+      return res.status(201).json({ ok: true, token, emailSent: false, emailError: mailErr.message });
+    }
+
+    res.status(201).json({ ok: true, token, emailSent: true });
+  } catch (err) {
+    console.error('trigger password reset failed:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -6,6 +6,7 @@ import { useAuth } from './contexts/AuthContext';
 import { useThemePreferences } from './contexts/ThemeContext';
 import Login from './pages/login';
 import AcceptInvite from './pages/accept-invite';
+import ResetPassword from './pages/reset-password';
 import Dashboard from './pages/Dashboard';
 import Teams from './pages/teams';
 import Players from './pages/players';
@@ -138,6 +139,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/accept-invite/:token" element={<AcceptInvite />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/dashboard" element={<ProtectedRoute allowedPath="/dashboard"><Dashboard {...sharedProps} /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute allowedPath="/profile"><Profile {...sharedProps} /></ProtectedRoute>} />
         <Route path="/teams" element={<ProtectedRoute allowedPath="/teams"><Teams {...sharedProps} institutions={institutions} setInstitutions={setInstitutions} /></ProtectedRoute>} />

@@ -19,15 +19,19 @@ import { backendApi } from '../api/client';
 // not live mid-session revocation. An already-issued JWT keeps working
 // until its normal 12h expiry.
 //
+// "Reset" password is now real too, per sign-off after the security
+// investigation: staff-triggered only (POST /users/:userId/reset-
+// password, users.js), emailed link, 1-hour token
+// (password_reset_tokens table, schema.sql), consumed by the public
+// /reset-password/:token page (src/pages/reset-password.jsx). No
+// general self-service "forgot password" request flow -- matches this
+// feature's staff-curated model throughout.
+//
 // Still deliberately NOT migrated, flagged rather than guessed at:
 //   - "Institution" button -- wrote to nothing real even in the mock
 //     version's own intent (users have no institution_id column; an
 //     institution is only ever implied via team.institution_id), and is
 //     now fully redundant with real Team reassignment below.
-//   - "Reset" password button -- real password reset needs secure random
-//     generation, re-hashing, and a notification path (email), i.e. a
-//     whole separate feature with its own security surface, not a
-//     one-line real-backend swap like the others here.
 //   - "Access requests" card below -- still reads/writes
 //     'courtiq-access-requests' via accountService, untouched: a separate,
 //     unrelated feature (the public "request access" flow) that doesn't
@@ -143,6 +147,27 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
       setRefreshToken((prev) => prev + 1);
     } catch (err) {
       setUserUpdateError(err.message || 'Could not update status.');
+    }
+  };
+
+  const [resetStatus, setResetStatus] = useState({ open: false, message: '', severity: 'success' });
+
+  // Staff-triggered only -- there's no self-service "forgot password"
+  // anywhere in this app, matching the rest of this feature's staff-
+  // curated model. Same emailSent/emailError shape as createInviteCode
+  // above, so a failed send still leaves a usable link (mirrors the
+  // Pending Invitations "Copy link" fallback), just without a copy
+  // button here since staff would need to relay it manually in that case.
+  const triggerReset = async (user) => {
+    try {
+      const result = await backendApi.triggerPasswordReset(user.id);
+      if (result.emailSent) {
+        setResetStatus({ open: true, message: `Password reset email sent to ${user.email}.`, severity: 'success' });
+      } else {
+        setResetStatus({ open: true, message: `Reset link created, but the email failed to send: ${result.emailError}`, severity: 'warning' });
+      }
+    } catch (err) {
+      setResetStatus({ open: true, message: `Could not start password reset: ${err.message}`, severity: 'error' });
     }
   };
 
@@ -275,9 +300,12 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
                         <Chip label={user.is_active ? 'Active' : 'Inactive'} color={user.is_active ? 'success' : 'default'} size="small" />
                       </TableCell>
                       <TableCell>
-                        <Button size="small" variant="outlined" onClick={() => toggleActive(user.id, !user.is_active)}>
-                          {user.is_active ? 'Deactivate' : 'Reactivate'}
-                        </Button>
+                        <Stack direction="row" spacing={1}>
+                          <Button size="small" variant="outlined" onClick={() => toggleActive(user.id, !user.is_active)}>
+                            {user.is_active ? 'Deactivate' : 'Reactivate'}
+                          </Button>
+                          <Button size="small" variant="outlined" onClick={() => triggerReset(user)}>Reset password</Button>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -340,6 +368,11 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
       <Snackbar open={inviteStatus.open} autoHideDuration={6000} onClose={() => setInviteStatus((prev) => ({ ...prev, open: false }))}>
         <Alert severity={inviteStatus.severity} onClose={() => setInviteStatus((prev) => ({ ...prev, open: false }))}>
           {inviteStatus.message}
+        </Alert>
+      </Snackbar>
+      <Snackbar open={resetStatus.open} autoHideDuration={6000} onClose={() => setResetStatus((prev) => ({ ...prev, open: false }))}>
+        <Alert severity={resetStatus.severity} onClose={() => setResetStatus((prev) => ({ ...prev, open: false }))}>
+          {resetStatus.message}
         </Alert>
       </Snackbar>
     </Layout>

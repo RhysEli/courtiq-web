@@ -202,4 +202,21 @@ export const backendApi = {
     form.append('photo', blob, 'photo.jpg');
     return request(`/users/${encodeURIComponent(userId)}/photo`, { method: 'PATCH', body: form, isForm: true });
   },
+  // Staff-triggered password reset -- same staff-only gating as
+  // updateUser/uploadUserPhoto. Mirrors sendInviteEmail's emailSent/
+  // emailError response shape.
+  triggerPasswordReset: (userId) => request(`/users/${encodeURIComponent(userId)}/reset-password`, {
+    method: 'POST', body: { appUrl: window.location.origin },
+  }),
+  // Public -- the invited/reset person isn't logged in yet, mirrors
+  // getInvite/acceptInvite's plain-fetch shape (not the normal
+  // authenticated request() flow).
+  resetPassword: (token, password) => fetch(`${BASE_URL}/reset-password/${token}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  }).then((r) => {
+    if (!r.ok) return r.json().then((body) => { throw new Error(body.error || 'Could not reset password'); });
+    return r.json();
+  }),
 };
