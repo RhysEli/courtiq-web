@@ -28,6 +28,20 @@ const THEME_MODES = ['light', 'dark', 'auto'];
 // rather than deciding to newly allow staff to grant Administrator.
 const ASSIGNABLE_ROLES = ['Team Manager', 'Statistician', 'Coach', 'Athlete'];
 
+// Matches invites.js's ROLES_THAT_CAN_INVITE -- the one existing place in
+// this app that explicitly includes Administrator alongside staff roles
+// on a people-management action. player/roster routes (players.js,
+// teams.js) never do this -- every requireRole there is Statistician/
+// Team Manager only, which left requireTeamAccess's own Administrator
+// bypass permanently unreachable in every one of those routes too. Not
+// matched here on purpose: a teamless user (no user_teams row at all) is
+// otherwise unmanageable by ANYONE, since a Statistician/Team Manager can
+// never share a team with someone who has none -- Administrator is the
+// deliberate escape hatch for that gap, so it needs to actually reach
+// requireSharedTeamWithUser's bypass, which was already written
+// defensively but dead code until this list included Administrator.
+const STAFF_ROLES = ['Administrator', 'Statistician', 'Team Manager'];
+
 // Real staff-facing user directory -- users.jsx was entirely localStorage
 // ('courtiq-users') before this, never touching the real `users` table at
 // all. Same "still on the old mock" gap teams.jsx/players-management.jsx
@@ -41,11 +55,9 @@ const ASSIGNABLE_ROLES = ['Team Manager', 'Statistician', 'Coach', 'Athlete'];
 // system. There's no single :teamId param on this route to hand
 // requireTeamAccess (this lists across teams, not within one), so the
 // filter happens here instead, after loading each user's real teams.
-// Administrators would see everyone unfiltered, but requireRole above
-// already excludes Administrator from this route entirely, so that
-// branch is currently unreachable -- kept for consistency with
-// requireTeamAccess's own shape, and in case that ever changes.
-router.get('/', requireRole('Statistician', 'Team Manager'), async (req, res) => {
+// Administrators see everyone unfiltered -- the escape hatch for a
+// teamless user, who no Statistician/Team Manager could ever reach.
+router.get('/', requireRole(...STAFF_ROLES), async (req, res) => {
   try {
     const users = await db.prepare(`
       SELECT id, name, email, role, photo_url, created_at
@@ -77,12 +89,11 @@ router.get('/', requireRole('Statistician', 'Team Manager'), async (req, res) =>
   }
 });
 
-// Edit an existing user's role and/or team -- staff-only, same two roles
-// as every other "manage roster/team config" action in this app
-// (players.js POST/DELETE, teams.js PATCH), AND now team-scoped via
-// requireSharedTeamWithUser: the caller must share at least one real
-// team with the TARGET user, matching how player/roster management is
-// already scoped by requireTeamAccess. Partial update: role and teamId
+// Edit an existing user's role and/or team -- staff-only (STAFF_ROLES,
+// see above), team-scoped via requireSharedTeamWithUser: the caller must
+// share at least one real team with the TARGET user (or be
+// Administrator), matching how player/roster management is already
+// scoped by requireTeamAccess. Partial update: role and teamId
 // are independently optional.
 //
 // Team reassignment REPLACES this user's user_teams membership with the
@@ -92,7 +103,7 @@ router.get('/', requireRole('Statistician', 'Team Manager'), async (req, res) =>
 // Men's and Women's side) would need real multi-team management UI to
 // set up correctly here -- a bigger feature than this migration covers,
 // flagged rather than half-built.
-router.patch('/:userId', requireRole('Statistician', 'Team Manager'), requireSharedTeamWithUser('userId'), async (req, res) => {
+router.patch('/:userId', requireRole(...STAFF_ROLES), requireSharedTeamWithUser('userId'), async (req, res) => {
   try {
     const { userId } = req.params;
     const existing = await db.prepare('SELECT id, role FROM users WHERE id = ?').get(userId);
@@ -142,15 +153,15 @@ router.patch('/:userId', requireRole('Statistician', 'Team Manager'), requireSha
   }
 });
 
-// Staff-curated user photo -- same two roles and same team scoping
-// (requireSharedTeamWithUser) as the role/team PATCH above: a
+// Staff-curated user photo -- same STAFF_ROLES gating and same team
+// scoping (requireSharedTeamWithUser) as the role/team PATCH above: a
 // Statistician/Team Manager can only upload a photo for a user they
-// share a real team with. Applies to every role, including the
+// share a real team with (Administrator bypasses). Applies to every role, including the
 // uploader's own row (if they happen to share a team with themselves,
 // which they always do) -- there is no separate "upload my own photo"
 // self-service path anywhere (profile.jsx doesn't get one), by design:
 // staff curate every photo, including their own.
-router.patch('/:userId/photo', requireRole('Statistician', 'Team Manager'), requireSharedTeamWithUser('userId'), imageUpload.single('photo'), async (req, res) => {
+router.patch('/:userId/photo', requireRole(...STAFF_ROLES), requireSharedTeamWithUser('userId'), imageUpload.single('photo'), async (req, res) => {
   try {
     const { userId } = req.params;
     if (!req.file) {
