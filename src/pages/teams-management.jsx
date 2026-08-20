@@ -16,10 +16,19 @@ import { backendApi } from '../api/client';
 // teams are already correctly created as a side effect of Bulk
 // Import/game creation, so there's no real "create a team" action here.
 // This page is edit-only: pick an existing real team, edit its
-// coach/manager/statistician/colours/logo, save. Dropped fields are
-// noted here rather than inventing schema/endpoints for them.
+// coach/manager/statistician/colours, save. Dropped fields are noted
+// here rather than inventing schema/endpoints for them.
+//
+// Logo editing was removed from here (was a plain "Logo URL" text
+// field writing teams.logo_url directly) once Team Brand
+// (team-brand-settings.jsx) got a real upload control -- two paths to
+// the same column, one validated (staff-curated image upload via
+// Supabase Storage) and one not (paste any string), was worth
+// collapsing to one. Team Brand is Team Manager only, so Statisticians
+// lose logo-editing entirely rather than keeping a lesser, unvalidated
+// path here -- they never had a real one to begin with.
 
-const emptyForm = { coachName: '', managerName: '', statisticianName: '', colorPrimary: '', colorSecondary: '', logoUrl: '' };
+const emptyForm = { coachName: '', managerName: '', statisticianName: '', colorPrimary: '', colorSecondary: '' };
 
 function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const [teams, setTeams] = useState([]);
@@ -57,7 +66,6 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
       statisticianName: team.statistician_name || '',
       colorPrimary: team.color_primary || '',
       colorSecondary: team.color_secondary || '',
-      logoUrl: team.logo_url || '',
     } : emptyForm);
   }, [teamId, teams]);
 
@@ -105,7 +113,6 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
                   <Grid item xs={12} md={6}><TextField fullWidth label="Coach" value={form.coachName} onChange={(event) => setForm((prev) => ({ ...prev, coachName: event.target.value }))} /></Grid>
                   <Grid item xs={12} md={6}><TextField fullWidth label="Team Manager" value={form.managerName} onChange={(event) => setForm((prev) => ({ ...prev, managerName: event.target.value }))} /></Grid>
                   <Grid item xs={12} md={6}><TextField fullWidth label="Statistician" value={form.statisticianName} onChange={(event) => setForm((prev) => ({ ...prev, statisticianName: event.target.value }))} /></Grid>
-                  <Grid item xs={12} md={6}><TextField fullWidth label="Logo URL" value={form.logoUrl} onChange={(event) => setForm((prev) => ({ ...prev, logoUrl: event.target.value }))} /></Grid>
                   <Grid item xs={12}>
                     <ColorField label="Primary Colour" value={form.colorPrimary} onChange={(hex) => setForm((prev) => ({ ...prev, colorPrimary: hex }))} />
                     <ColorField label="Secondary Colour" value={form.colorSecondary} onChange={(hex) => setForm((prev) => ({ ...prev, colorSecondary: hex }))} />
