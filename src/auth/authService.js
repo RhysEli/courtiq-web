@@ -6,6 +6,25 @@ import { persistUserPreference } from '../theme/userPreference.js';
 import { seedThemeModeForNextLoad } from '../contexts/ThemeContext.jsx';
 
 const AUTH_STORAGE_KEY = 'courtiq-auth';
+// Bump whenever currentUser's shape changes in a way pages actually rely
+// on (teamId, most recently photoUrl). This is the root fix for a bug
+// this project has hit repeatedly under different names ("team brand
+// wrong team", "team resolution all pages", "team match regression",
+// and now "Team Brand shows no team on Render"): login.jsx's
+// `if (isAuthenticated) { navigate('/dashboard') }` shortcut trusts
+// whatever's in localStorage forever, without ever re-running a real
+// login, so a session cached before a shape change (e.g. from before
+// teamId existed at all) sits there indefinitely -- every one of those
+// prior fixes added a NEW field (teamId, matched by id not name) but
+// never invalidated OLD cached sessions that predate the field existing.
+// Confirmed by reproducing it directly: a simulated pre-teamId session
+// (no teamId key, the old mock-shaped "USIU Tigers Men" name with no
+// parens) reproduces team-brand-settings.jsx's exact "Could not find
+// your team" error, while a genuinely fresh login does not. Past fixes
+// treated the SYMPTOM (which page, which matching strategy); this treats
+// the actual mechanism -- an old cached blob outliving the code that
+// wrote it -- so the next shape change doesn't need its own bug report.
+const AUTH_STATE_VERSION = 2;
 const USER_STORAGE_KEY = 'courtiq-users';
 const ORGANIZATION_STORAGE_KEY = 'courtiq-organizations';
 const INVITE_STORAGE_KEY = 'courtiq-invites';
@@ -125,6 +144,16 @@ export function getStoredAuth() {
     }
 
     const parsedValue = JSON.parse(storedValue);
+    // A session cached under an older shape (missing fields like teamId
+    // that current pages depend on) is discarded here rather than trusted
+    // -- same "not authenticated" result login.jsx already handles by
+    // showing the real login form, so this doesn't need its own UI state.
+    // Also clears the stale blob itself so it doesn't keep failing this
+    // same check on every future load.
+    if (parsedValue.currentUser && parsedValue.version !== AUTH_STATE_VERSION) {
+      clearAuth();
+      return { currentUser: null, role: null, rememberMe: false };
+    }
     return {
       currentUser: parsedValue.currentUser ?? null,
       role: parsedValue.role ?? null,
@@ -141,7 +170,10 @@ export function persistAuth(authState) {
     return;
   }
 
-  storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
+  // Stamped here (not by each caller) so every current and future
+  // persistAuth() call site is automatically versioned without needing
+  // to remember to add it -- the one thing that was missing before.
+  storage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ ...authState, version: AUTH_STATE_VERSION }));
 }
 
 export function clearAuth() {
