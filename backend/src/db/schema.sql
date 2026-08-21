@@ -284,13 +284,61 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   consumed_at TIMESTAMPTZ
 );
 
-CREATE TABLE IF NOT EXISTS leagues (
+-- Renamed leagues -> competitions: the old name was actively wrong once
+-- this entity also covers Friendlies and Tournaments, which are not
+-- leagues. A table rename preserves the real production row (name,
+-- category, description) and its OID -- existing FK constraints
+-- pointing at it keep working across the rename automatically, only the
+-- column name on games (below) needs its own explicit rename. Guarded so
+-- this only ever fires once: a fresh install has neither table yet, so
+-- the condition is false and CREATE TABLE IF NOT EXISTS competitions
+-- just below creates it directly in the new shape.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'leagues')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'competitions') THEN
+    ALTER TABLE leagues RENAME TO competitions;
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS competitions (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   category TEXT,
-  season TEXT,
+  type TEXT NOT NULL CHECK (type IN ('league_tier', 'custom_recurring', 'friendly', 'tournament')),
+  recurring BOOLEAN NOT NULL DEFAULT false,
   description TEXT
 );
+
+-- The three ALTERs below only do real work against an already-existing
+-- table that just got renamed from `leagues` (which never had type/
+-- recurring, and did have a free-text season column) -- on a fresh
+-- install, CREATE TABLE IF NOT EXISTS above already created the final
+-- shape directly, so these are no-ops there.
+--
+-- type: added nullable first so the one real pre-existing row (the
+-- seeded "Nairobi Basketball League") doesn't violate a NOT NULL/CHECK
+-- on arrival, backfilled to the closest fit (a real regional league is
+-- exactly what 'league_tier' means), then locked down -- same shape as
+-- users.team_id's own NOT NULL retrofit (Step 6).
+ALTER TABLE competitions ADD COLUMN IF NOT EXISTS type TEXT;
+UPDATE competitions SET type = 'league_tier' WHERE type IS NULL;
+ALTER TABLE competitions ALTER COLUMN type SET NOT NULL;
+ALTER TABLE competitions DROP CONSTRAINT IF EXISTS competitions_type_check;
+ALTER TABLE competitions ADD CONSTRAINT competitions_type_check CHECK (type IN ('league_tier', 'custom_recurring', 'friendly', 'tournament'));
+
+-- recurring: category is a different axis (e.g. "Men") and stays as-is,
+-- unchanged by this rename.
+ALTER TABLE competitions ADD COLUMN IF NOT EXISTS recurring BOOLEAN NOT NULL DEFAULT false;
+
+-- A competition no longer belongs to one season by construction -- that
+-- relationship is what team_competition_seasons (below) is for. The real
+-- pre-existing row's season string ('2026/27') is deliberately not
+-- preserved anywhere: there's no real team-membership data to base a
+-- season link on, and fabricating one would be exactly the kind of guess
+-- this project has been avoiding (same reasoning as leaving the player-
+-- identity backfill's fuzzy matches for a human, not silently resolved).
+ALTER TABLE competitions DROP COLUMN IF EXISTS season;
 
 CREATE TABLE IF NOT EXISTS seasons (
   id TEXT PRIMARY KEY,
@@ -298,10 +346,26 @@ CREATE TABLE IF NOT EXISTS seasons (
   active INTEGER DEFAULT 0
 );
 
+-- Same rename discipline as the table itself -- games.league_id becomes
+-- games.competition_id. The FK constraint itself doesn't need touching
+-- (Postgres tracks the referenced table by OID, which survived the
+-- rename above); only the column's own name needs it. Placed here,
+-- before CREATE TABLE IF NOT EXISTS games below, for the same reason as
+-- the table rename above: an already-existing `games` table needs the
+-- column renamed; a fresh install's CREATE TABLE creates it under the
+-- new name directly.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'games' AND column_name = 'league_id')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'games' AND column_name = 'competition_id') THEN
+    ALTER TABLE games RENAME COLUMN league_id TO competition_id;
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS games (
   id SERIAL PRIMARY KEY,
   season_id TEXT REFERENCES seasons(id),
-  league_id INTEGER REFERENCES leagues(id),
+  competition_id INTEGER REFERENCES competitions(id),
   home_team_id TEXT REFERENCES teams(id),
   opponent_team_id TEXT REFERENCES teams(id),
   game_date TEXT,

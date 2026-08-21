@@ -5,12 +5,12 @@ const { hashPassword } = require('../utils/passwords');
 // "INSERT ... ON CONFLICT (<key>) DO NOTHING" -- Postgres needs an actual
 // conflict target (a column with a unique/primary-key constraint), which
 // institutions.id, teams.id, seasons.id, and users.email all have.
-// `leagues` has no natural unique key (id is just a SERIAL), so -- same as
-// the old SQLite version, where "INSERT OR IGNORE" had nothing to conflict
-// against either -- re-running seed.js multiple times will insert a
-// duplicate leagues row each time. Not a new issue introduced by this
-// migration; flagging it here in case it's worth a real UNIQUE constraint
-// later (e.g. on name+category+season).
+// `competitions` has no natural unique key (id is just a SERIAL), so --
+// same as the old SQLite version, where "INSERT OR IGNORE" had nothing to
+// conflict against either -- re-running seed.js multiple times will
+// insert a duplicate competitions row each time. Not a new issue
+// introduced by this migration; flagging it here in case it's worth a
+// real UNIQUE constraint later (e.g. on name+category+type).
 
 async function seed() {
   await db.migrate();
@@ -26,8 +26,8 @@ async function seed() {
   await db.prepare("INSERT INTO seasons (id, name, active) VALUES ('2026/27', '2026/27', 1) ON CONFLICT (id) DO NOTHING").run();
   await db.prepare("INSERT INTO seasons (id, name, active) VALUES ('2025/26', '2025/26', 0) ON CONFLICT (id) DO NOTHING").run();
 
-  await db.prepare(`INSERT INTO leagues (name, category, season, description)
-              VALUES ('Nairobi Basketball League', 'Men', '2026/27', 'Premier men''s competition for college and club teams.')`).run();
+  await db.prepare(`INSERT INTO competitions (name, category, type, description)
+              VALUES ('Nairobi Basketball League', 'Men', 'league_tier', 'Premier men''s competition for college and club teams.')`).run();
 
   const demoUsers = [
     { name: 'Alice Statistician', email: 'stats@courtiq.dev', role: 'Statistician', team_id: 'usiu-men' },

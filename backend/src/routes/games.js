@@ -13,7 +13,7 @@ const REPORT_TYPES = [
 
 // Create a game record (Statistician/Team Manager, per proposal's RBAC design — FR-11 gives Team Manager season/competition administration).
 router.post('/', requireRole('Statistician', 'Team Manager'), async (req, res) => {
-  const { seasonId, leagueId, homeTeamId, gameDate, venue } = req.body;
+  const { seasonId, competitionId, homeTeamId, gameDate, venue } = req.body;
   // Accept either field name: opponentTeamName (typed freely on the Games
   // page) or the older opponentTeamId (still sent by
   // src/services/realAnalysisBridge.js, used by the Analysis Import tab's
@@ -43,10 +43,10 @@ router.post('/', requireRole('Statistician', 'Team Manager'), async (req, res) =
   await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(opponentTeamId, opponentTeamId);
 
   const result = await db.prepare(`
-    INSERT INTO games (season_id, league_id, home_team_id, opponent_team_id, game_date, venue, created_by)
+    INSERT INTO games (season_id, competition_id, home_team_id, opponent_team_id, game_date, venue, created_by)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     RETURNING id
-  `).run(seasonId || null, leagueId || null, homeTeamId, opponentTeamId, gameDate, venue || null, req.user.id);
+  `).run(seasonId || null, competitionId || null, homeTeamId, opponentTeamId, gameDate, venue || null, req.user.id);
 
   res.status(201).json(await getGameWithReportStatus(result.lastInsertRowid));
 });
@@ -72,7 +72,7 @@ router.get('/:id', requireGameAccess('id'), async (req, res) => {
 
 // Remove a duplicate/mistaken game record. Blocked (409) if any real
 // player_game_stats rows are attached -- same delete-guard discipline as
-// seasons.js/leagues.js. A game with reports referencing it but no
+// seasons.js/competitions.js. A game with reports referencing it but no
 // player_game_stats (e.g. only a failed extraction) will still fail here
 // via the games.reports foreign key, which is an acceptable safe failure,
 // not something this route needs to special-case.

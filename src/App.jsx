@@ -20,12 +20,12 @@ import OpponentAnalysis from './pages/opponent-analysis';
 import Settings from './pages/settings';
 import Profile from './pages/profile';
 import Institutions from './pages/institutions';
-import Leagues from './pages/leagues';
+import Competitions from './pages/competitions';
 import Seasons from './pages/seasons';
 import Reports from './pages/reports';
 import Users from './pages/users';
 import Organizations from './pages/organizations';
-import LeaguesManagement from './pages/leagues-management';
+import CompetitionsManagement from './pages/competitions-management';
 import SeasonsManagement from './pages/seasons-management';
 import TeamsManagement from './pages/teams-management';
 import PlayersManagement from './pages/players-management';
@@ -35,11 +35,6 @@ import { isRouteAllowed } from './auth/roleAccess';
 
 const initialInstitutions = [
   { id: 'usiu', name: 'USIU', location: 'Nairobi, Kenya', teams: ['USIU Tigers (Men)', 'USIU Flames (Women)'] },
-];
-
-const initialLeagues = [
-  { id: 1, name: 'Nairobi Basketball League', category: 'Men', season: '2026/27', description: "Premier men's competition for college and club teams." },
-  { id: 2, name: 'Women Premier League', category: 'Women', season: '2026/27', description: "Elite women's competition for university and club sides." },
 ];
 
 const initialSeasons = [
@@ -84,7 +79,6 @@ function AppRoutes() {
   const [selectedSeason, setSelectedSeason] = useState('2026/27');
   const [selectedGame, setSelectedGame] = useState('all');
   const [institutions, setInstitutions] = useState(initialInstitutions);
-  const [leagues, setLeagues] = useState(initialLeagues);
   const [seasons, setSeasons] = useState(initialSeasons);
   const [reports, setReports] = useState(initialReports);
   const { role, currentUser, logout } = useAuth();
@@ -154,7 +148,7 @@ function AppRoutes() {
         <Route path="/settings" element={<ProtectedRoute allowedPath="/settings"><Settings {...sharedProps} /></ProtectedRoute>} />
         <Route path="/team-brand-settings" element={<ProtectedRoute allowedPath="/team-brand-settings"><TeamBrandSettings {...sharedProps} /></ProtectedRoute>} />
         <Route path="/institutions" element={<ProtectedRoute allowedPath="/institutions"><Institutions {...sharedProps} institutions={institutions} setInstitutions={setInstitutions} /></ProtectedRoute>} />
-        <Route path="/leagues" element={<ProtectedRoute allowedPath="/leagues"><Leagues {...sharedProps} leagues={leagues} setLeagues={setLeagues} /></ProtectedRoute>} />
+        <Route path="/competitions" element={<ProtectedRoute allowedPath="/competitions"><Competitions {...sharedProps} /></ProtectedRoute>} />
         <Route path="/seasons" element={<ProtectedRoute allowedPath="/seasons"><Seasons {...sharedProps} seasons={seasons} setSeasons={setSeasons} /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute allowedPath="/reports"><Reports {...sharedProps} reports={reports} setReports={setReports} /></ProtectedRoute>} />
         {/* /account used to render a fake, unauthenticated account/org
@@ -167,7 +161,7 @@ function AppRoutes() {
         <Route path="/account" element={<Navigate to="/" replace />} />
         <Route path="/users" element={<ProtectedRoute allowedPath="/users"><Users {...sharedProps} /></ProtectedRoute>} />
         <Route path="/organizations" element={<ProtectedRoute allowedPath="/organizations"><Organizations {...sharedProps} /></ProtectedRoute>} />
-        <Route path="/leagues-management" element={<ProtectedRoute allowedPath="/leagues-management"><LeaguesManagement {...sharedProps} /></ProtectedRoute>} />
+        <Route path="/competitions-management" element={<ProtectedRoute allowedPath="/competitions-management"><CompetitionsManagement {...sharedProps} /></ProtectedRoute>} />
         <Route path="/seasons-management" element={<ProtectedRoute allowedPath="/seasons-management"><SeasonsManagement {...sharedProps} /></ProtectedRoute>} />
         <Route path="/teams-management" element={<ProtectedRoute allowedPath="/teams-management"><TeamsManagement {...sharedProps} /></ProtectedRoute>} />
         <Route path="/players-management" element={<ProtectedRoute allowedPath="/players-management"><PlayersManagement {...sharedProps} /></ProtectedRoute>} />

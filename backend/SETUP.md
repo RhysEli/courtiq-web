@@ -36,7 +36,7 @@ AI narrative.
   store fine, just aren't parsed yet. Same goes for "Bench Superiority"
   insight tagging, which needs Rotation Summary data.
 - Frontend pages other than Login and Games (Teams, Players, Statistics,
-  Dashboard, Seasons, Leagues, Institutions, Settings, Reports) are still on
+  Dashboard, Seasons, Institutions, Settings, Reports) are still on
   mockData.js and not wired to the backend yet.
 
 ## Box Score parser — needs calibration

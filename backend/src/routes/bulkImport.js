@@ -68,7 +68,7 @@ router.post(
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'At least one PDF file is required (field name: files)' });
     }
-    const { seasonId, leagueId } = req.body;
+    const { seasonId, competitionId } = req.body;
 
     const results = [];
 
@@ -180,10 +180,10 @@ router.post(
         let created = false;
         if (!game) {
           const insertGame = await db.prepare(`
-            INSERT INTO games (season_id, league_id, home_team_id, opponent_team_id, game_date, created_by, status)
+            INSERT INTO games (season_id, competition_id, home_team_id, opponent_team_id, game_date, created_by, status)
             VALUES (?, ?, ?, ?, ?, ?, 'extracted')
             RETURNING id
-          `).run(seasonId || null, leagueId || null, homeTeamId, awayTeamId, gameInfo.matchDate, req.user.id);
+          `).run(seasonId || null, competitionId || null, homeTeamId, awayTeamId, gameInfo.matchDate, req.user.id);
           game = await db.prepare('SELECT * FROM games WHERE id = ?').get(insertGame.lastInsertRowid);
           created = true;
         }

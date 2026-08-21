@@ -14,7 +14,7 @@ const annotationRoutes = require('./routes/annotations');
 const playerRoutes = require('./routes/players');
 const playerIdentityReviewRoutes = require('./routes/playerIdentityReview');
 const seasonRoutes = require('./routes/seasons');
-const leagueRoutes = require('./routes/leagues');
+const competitionRoutes = require('./routes/competitions');
 const auditLogRoutes = require('./routes/auditLog');
 const userRoutes = require('./routes/users');
 const passwordResetRoutes = require('./routes/passwordReset');
@@ -35,7 +35,7 @@ app.use('/api/teams', playerIdentityReviewRoutes);
 app.use('/api/invites', inviteRoutes);
 app.use('/api/annotations', annotationRoutes);
 app.use('/api/seasons', seasonRoutes);
-app.use('/api/leagues', leagueRoutes);
+app.use('/api/competitions', competitionRoutes);
 app.use('/api/audit-log', auditLogRoutes);
 app.use('/api/users', userRoutes);
 // Public -- the account holder follows a staff-triggered reset link here,

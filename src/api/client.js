@@ -110,11 +110,11 @@ export const backendApi = {
   deleteGame: (id) => request(`/games/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getAnnotations: (gameId) => request(`/annotations?gameId=${gameId}`),
   addAnnotation: (gameId, body) => request('/annotations', { method: 'POST', body: { gameId, body } }),
-  bulkImport: (files, { seasonId, leagueId } = {}) => {
+  bulkImport: (files, { seasonId, competitionId } = {}) => {
     const form = new FormData();
     files.forEach((file) => form.append('files', file));
     if (seasonId) form.append('seasonId', seasonId);
-    if (leagueId) form.append('leagueId', leagueId);
+    if (competitionId) form.append('competitionId', competitionId);
     return request('/games/bulk-import', { method: 'POST', body: form, isForm: true });
   },
   uploadReport: (gameId, reportType, file) => {
@@ -187,10 +187,13 @@ export const backendApi = {
   getSeasons: () => request('/seasons'),
   createSeason: (data) => request('/seasons', { method: 'POST', body: data }),
   deleteSeason: (id) => request(`/seasons/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  // FR-11: real league/competition CRUD against the `leagues` table (backend/src/routes/leagues.js).
-  getLeagues: () => request('/leagues'),
-  createLeague: (data) => request('/leagues', { method: 'POST', body: data }),
-  deleteLeague: (id) => request(`/leagues/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  // Real competition CRUD against the `competitions` table (backend/src/routes/competitions.js),
+  // renamed from `leagues` -- covers league tiers, custom recurring
+  // competitions, Friendlies, and Tournaments, not just leagues.
+  getCompetitions: () => request('/competitions'),
+  getCompetitionPresets: () => request('/competitions/presets'),
+  createCompetition: (data) => request('/competitions', { method: 'POST', body: data }),
+  deleteCompetition: (id) => request(`/competitions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   // FR-14: real audit trail of upload/compute/narrative actions (backend/src/routes/auditLog.js).
   getAuditLog: () => request('/audit-log'),
   // Visual overhaul step 2: self-service personal preference (backend/src/routes/users.js). No role gate -- scoped to the caller's own row.
