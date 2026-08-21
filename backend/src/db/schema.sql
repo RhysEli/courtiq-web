@@ -34,6 +34,69 @@ CREATE TABLE IF NOT EXISTS players (
 -- players.js.
 ALTER TABLE players ADD COLUMN IF NOT EXISTS photo_url TEXT;
 
+-- Player identity: `players` above is the canonical entity (one real
+-- person = one row), but the same person shows up as different raw text
+-- across seasons/report types -- full name in one, first+middle in
+-- another, a typo, a captain marker suffix, etc. (confirmed against real
+-- data: "DARLIGNTON KISIVULI" / "DARLINGTON KISIVULI", "GLEN MORANGI" /
+-- "GLENN MORANGI", among others). Every raw string ever resolved to a
+-- player -- including the string that first created them -- gets an alias
+-- row here, so lookups always go through one path (aliases), never a
+-- special case for "the original spelling."
+--
+-- Scoped by team_id (denormalized off players.team_id, not just joined)
+-- so an exact-match lookup is a single indexed query without a join, and
+-- so the same raw string can independently belong to different people on
+-- different teams -- names aren't globally unique, only unique within a
+-- team's own alias set (UNIQUE below). first_seen_game_id/report_type are
+-- provenance only (which import first produced this exact string), not
+-- used by matching itself.
+CREATE TABLE IF NOT EXISTS player_name_aliases (
+  id SERIAL PRIMARY KEY,
+  player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  team_id TEXT NOT NULL REFERENCES teams(id),
+  alias_text TEXT NOT NULL,
+  first_seen_game_id INTEGER REFERENCES games(id),
+  first_seen_report_type TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (team_id, alias_text)
+);
+
+-- A newly-seen name that fuzzy-matched an existing player closely enough
+-- to be worth a human's attention, but not closely enough to auto-link
+-- (see backend/src/services/playerIdentity.js for the exact-vs-fuzzy-vs-
+-- none decision). Never auto-resolved -- confirm links candidate_text as
+-- a new alias of candidate_player_id; reject creates candidate_text as
+-- its own new canonical player instead (identical to what a no-match
+-- would have done). match_reason is informational context for the
+-- reviewer (which heuristic fired), not used again once a decision is
+-- made. UNIQUE partial index (below) means a candidate string already
+-- awaiting review for a team is never queued twice, even if the same
+-- name string is re-extracted from several games before anyone reviews
+-- the first one.
+CREATE TABLE IF NOT EXISTS player_identity_review (
+  id SERIAL PRIMARY KEY,
+  team_id TEXT NOT NULL REFERENCES teams(id),
+  candidate_text TEXT NOT NULL,
+  candidate_player_id INTEGER NOT NULL REFERENCES players(id),
+  match_reason TEXT,
+  first_seen_game_id INTEGER REFERENCES games(id),
+  first_seen_report_type TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'rejected')),
+  reviewed_by INTEGER REFERENCES users(id),
+  reviewed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Partial unique index (not a table-wide UNIQUE constraint) -- status
+-- moves on to 'confirmed'/'rejected' after review, and a *later* new
+-- occurrence of the same candidate string should be able to queue a
+-- fresh review again if needed; only ever one row may be pending at a
+-- time for a given (team, candidate string).
+CREATE UNIQUE INDEX IF NOT EXISTS player_identity_review_pending_unique
+  ON player_identity_review (team_id, candidate_text)
+  WHERE status = 'pending';
+
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
