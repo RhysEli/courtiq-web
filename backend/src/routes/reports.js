@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const db = require('../db');
-const { requireAuth, requireRole, requireGameAccess } = require('../middleware/auth');
+const { requireAuth, requireRole, requireGameAccess, requireStatisticianOrFallback } = require('../middleware/auth');
 const { extractBoxScore } = require('../services/pdfExtraction');
 const { logAction } = require('../services/auditLog');
 
@@ -28,11 +28,15 @@ const upload = multer({
   },
 });
 
-// Upload a single FIBA report PDF for a game and extract it.
+// Upload a single FIBA report PDF for a game and extract it. Statistician-
+// primary; Team Manager falls back to this (import/store only, not the
+// deeper AI narrative -- see analysis.js) when their own team currently
+// has no Statistician.
 router.post(
   '/games/:gameId/reports',
-  requireRole('Statistician'),
+  requireRole('Statistician', 'Team Manager'),
   requireGameAccess('gameId'),
+  requireStatisticianOrFallback('gameId'),
   upload.single('file'),
   async (req, res) => {
     const { gameId } = req.params;

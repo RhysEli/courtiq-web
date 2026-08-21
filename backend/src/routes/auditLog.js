@@ -8,9 +8,11 @@ router.use(requireAuth);
 // FR-14: real audit trail of data upload events, metric computation
 // runs, and report generation actions, written by
 // backend/src/services/auditLog.js from bulkImport.js/reports.js/
-// analysis.js. Admin/oversight feature, so restricted the same way as
-// the other FR-11 management routes.
-router.get('/', requireRole('Statistician', 'Team Manager'), async (req, res) => {
+// analysis.js. Statistician-only, no Team Manager fallback -- every
+// action this logs is technical/analysis-pipeline work (upload, compute,
+// narrative), so it's grouped with that category rather than the
+// shared access-granting routes it used to sit beside.
+router.get('/', requireRole('Statistician'), async (req, res) => {
   try {
     const entries = await db.prepare(`
       SELECT al.id, al.action_type, al.details, al.success, al.created_at,

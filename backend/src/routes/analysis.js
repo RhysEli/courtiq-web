@@ -1,6 +1,6 @@
 ﻿const express = require('express');
 const db = require('../db');
-const { requireAuth, requireRole, requireGameAccess } = require('../middleware/auth');
+const { requireAuth, requireRole, requireGameAccess, requireStatisticianOrFallback } = require('../middleware/auth');
 const { computeTeamMetrics, computePlayerMetrics, tagInsights } = require('../services/metrics');
 const { generateGameNarrative } = require('../services/narrative');
 const { logAction } = require('../services/auditLog');
@@ -32,7 +32,16 @@ function aggregateTeamTotals(playerRows) {
 // missing await (so playerRows was a Promise, not an array, causing
 // "playerRows.filter is not a function"). Also fixed datetime('now')
 // (SQLite-only) -> NOW() (Postgres) in the metrics upsert below.
-router.post('/games/:gameId/compute', requireRole('Statistician'), requireGameAccess('gameId'), async (req, res) => {
+//
+// Statistician-primary, Team-Manager-fallback (requireStatisticianOrFallback,
+// same as report uploads): this is the rule-based Four Factors/shooting-
+// percentage engine (schema.sql's own description), deriving numbers
+// straight out of already-extracted box score rows -- treated as "import/
+// store statistics" work, not the "deeper AI analysis" the fallback rule
+// carves out. That carve-out is specifically the narrative route right
+// below, which calls the Claude API and stays Statistician-only, no
+// fallback, ever.
+router.post('/games/:gameId/compute', requireRole('Statistician', 'Team Manager'), requireGameAccess('gameId'), requireStatisticianOrFallback('gameId'), async (req, res) => {
   try {
     const { gameId } = req.params;
     const playerRows = await db.prepare('SELECT * FROM player_game_stats WHERE game_id = ?').all(gameId);
@@ -75,7 +84,12 @@ router.post('/games/:gameId/compute', requireRole('Statistician'), requireGameAc
   }
 });
 
-// Generate the AI narrative from already-computed metrics.
+// Generate the AI narrative from already-computed metrics. Statistician-
+// only, no Team Manager fallback, even for a team with no Statistician --
+// this is the actual "deeper AI analysis" the fallback rule explicitly
+// carves out, as distinct from compute's rule-based numbers just above.
+// Coach keeps its existing access here unchanged (untouched by the
+// Statistician/Team Manager split -- Coach was never part of it).
 //
 // POSTGRES MIGRATION FIX: this route WAS marked async, but still had
 // unawaited db.prepare(...).get(...) calls (row and game came back as

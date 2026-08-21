@@ -5,8 +5,6 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const router = express.Router();
 router.use(requireAuth);
 
-// FR-11: "The system shall allow Team Managers to create accounts,
-// assign player rosters, and configure season/competition parameters."
 // Real league/competition CRUD against the `leagues` table (schema.sql),
 // which existed but was only ever reachable through
 // backend/src/db/seed.js's one hardcoded row -- there was no route to
@@ -31,8 +29,9 @@ router.get('/', async (req, res) => {
 
 // Create a league. Only `name` is NOT NULL on the real table --
 // category/season/description are all nullable, so only `name` is
-// required here.
-router.post('/', requireRole('Statistician', 'Team Manager'), async (req, res) => {
+// required here. Statistician-only, no Team Manager fallback -- same
+// reasoning as seasons.js.
+router.post('/', requireRole('Statistician'), async (req, res) => {
   try {
     const { name, category, season, description } = req.body;
     if (!name?.trim()) {
@@ -54,7 +53,7 @@ router.post('/', requireRole('Statistician', 'Team Manager'), async (req, res) =
 
 // Remove a league -- blocked if any real game still references it, so a
 // delete can never silently orphan or cascade-wipe real game records.
-router.delete('/:id', requireRole('Statistician', 'Team Manager'), async (req, res) => {
+router.delete('/:id', requireRole('Statistician'), async (req, res) => {
   try {
     const { id } = req.params;
 

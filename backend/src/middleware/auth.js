@@ -135,6 +135,62 @@ function requireGameAccess(paramName = 'id') {
   };
 }
 
+// Whether `teamId` currently has an active (is_active) Statistician on its
+// roster -- the actual condition the "Team Manager can do technical work
+// if their team has no Statistician" fallback rule hinges on. A single
+// indexed EXISTS lookup; cheap enough per-request at this app's scale that
+// no caching is warranted (same reasoning as requireGameAccess's own
+// per-request game lookup just above).
+async function teamHasActiveStatistician(teamId) {
+  const row = await db.prepare(`
+    SELECT EXISTS (
+      SELECT 1 FROM user_teams ut
+      JOIN users u ON u.id = ut.user_id
+      WHERE ut.team_id = ? AND u.role = 'Statistician' AND u.is_active = true
+    ) AS has_statistician
+  `).get(teamId);
+  return Boolean(row.has_statistician);
+}
+
+// Narrows a game-scoped technical route (report upload, compute) down from
+// requireRole('Statistician', 'Team Manager') + requireGameAccess: a
+// Statistician always proceeds; a Team Manager only proceeds if AT LEAST
+// ONE of their own team(s) involved in this specific game currently has no
+// Statistician -- if their team already has one, that Statistician (not
+// the Team Manager) is who this work should go through. Deliberately
+// re-queries the game row rather than trusting requireGameAccess ran first
+// (same small-independent-middleware shape as every other check here, not
+// request-scoped caching). Expects requireRole('Statistician',
+// 'Team Manager') to already have run, so any other role never reaches
+// here at all.
+function requireStatisticianOrFallback(paramName = 'gameId') {
+  return async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (req.user.role === 'Statistician') {
+      return next();
+    }
+    try {
+      const gameId = req.params[paramName] || req.body?.[paramName] || req.query[paramName];
+      const game = await db.prepare('SELECT home_team_id, opponent_team_id FROM games WHERE id = ?').get(gameId);
+      if (!game) {
+        return res.status(404).json({ error: 'Game not found' });
+      }
+      const myTeamIds = req.user.teamIds || [];
+      const myTeamsInThisGame = [game.home_team_id, game.opponent_team_id].filter((id) => myTeamIds.includes(id));
+      for (const teamId of myTeamsInThisGame) {
+        if (!(await teamHasActiveStatistician(teamId))) {
+          return next();
+        }
+      }
+      return res.status(403).json({ error: 'Your team already has a Statistician -- this goes through them.' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  };
+}
+
 // The real, current list of teams a user can access, enriched with
 // institution and gender info for the frontend switcher -- every user sees
 // only teams they have a row for in user_teams (which users.team_id is
@@ -160,4 +216,7 @@ function signToken(user, teamIds = []) {
   );
 }
 
-module.exports = { requireAuth, requireRole, requireTeamAccess, requireSharedTeamWithUser, requireGameAccess, getUserTeams, signToken, JWT_SECRET };
+module.exports = {
+  requireAuth, requireRole, requireTeamAccess, requireSharedTeamWithUser, requireGameAccess,
+  requireStatisticianOrFallback, teamHasActiveStatistician, getUserTeams, signToken, JWT_SECRET,
+};

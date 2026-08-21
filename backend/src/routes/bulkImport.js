@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const db = require('../db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, teamHasActiveStatistician } = require('../middleware/auth');
 const { extractBoxScore } = require('../services/pdfExtraction');
 const { parseFileToLines } = require('../services/pdfText');
 const {
@@ -54,9 +54,14 @@ const extraExtractors = {
   scoreSheet: extractScoreSheet,
 };
 
+// Statistician-primary; Team Manager falls back to this per-file (see the
+// per-file access check below for why per-file, not route-level) when
+// their own team involved in that specific file currently has no
+// Statistician -- same "import/store, not the deeper AI analysis" carve-out
+// as reports.js's single-report upload.
 router.post(
   '/games/bulk-import',
-  requireRole('Statistician'),
+  requireRole('Statistician', 'Team Manager'),
   upload.array('files', 100),
   async (req, res) => {
     if (!req.files || req.files.length === 0) {
@@ -114,6 +119,29 @@ router.post(
           results.push(entry);
           await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} (no access to ${homeTeamId}/${awayTeamId})`, false);
           continue;
+        }
+
+        // Team Manager fallback: only proceeds if at least one of their
+        // own team(s) named in THIS file currently has no Statistician --
+        // same reasoning as requireStatisticianOrFallback (middleware/
+        // auth.js), applied per-file here since one batch can mix files
+        // across several of the caller's teams.
+        if (req.user.role === 'Team Manager') {
+          const myTeamsInThisFile = [homeTeamId, awayTeamId].filter((id) => accessibleTeamIds.includes(id));
+          let fallbackApplies = false;
+          for (const teamId of myTeamsInThisFile) {
+            if (!(await teamHasActiveStatistician(teamId))) {
+              fallbackApplies = true;
+              break;
+            }
+          }
+          if (!fallbackApplies) {
+            entry.status = 'failed';
+            entry.error = 'Your team already has a Statistician -- bulk import goes through them.';
+            results.push(entry);
+            await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} (team already has a Statistician)`, false);
+            continue;
+          }
         }
 
         await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(homeTeamId, homeTeamId);
