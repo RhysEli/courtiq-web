@@ -31,7 +31,17 @@ function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
   const [form, setForm] = useState({ fullName: '', jerseyNumber: '', position: '' });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [submitNotice, setSubmitNotice] = useState('');
   const [removingId, setRemovingId] = useState(null);
+
+  // Player identity review queue (playerIdentity.js) -- fuzzy name
+  // matches from bulk-import/report-upload/this page's own "Add player"
+  // below that need a human confirm/reject before becoming a real roster
+  // link. reviewActionId tracks which single row's Confirm/Reject button
+  // is mid-request, same pattern as removingId above.
+  const [pendingReviews, setPendingReviews] = useState([]);
+  const [reviewsError, setReviewsError] = useState('');
+  const [reviewActionId, setReviewActionId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,26 +83,72 @@ function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
       .finally(() => setRosterLoading(false));
   };
 
+  const loadReviews = (id) => {
+    if (!id) return;
+    setReviewsError('');
+    backendApi.getPlayerIdentityReview(id)
+      .then(setPendingReviews)
+      .catch((err) => setReviewsError(err.message || 'Could not load the identity review queue.'));
+  };
+
   useEffect(() => {
-    if (teamId) loadRoster(teamId);
+    if (teamId) { loadRoster(teamId); loadReviews(teamId); }
   }, [teamId]);
 
+  // addPlayer's response now has three real outcomes (players.js), not
+  // just success/fail -- 200 'linked' (exact match to an existing player,
+  // nothing new to show beyond a reload), 201 'created' (a genuinely new
+  // player), or 202 'pending_review' (nothing added yet, sent to the
+  // queue below instead). None of these throw -- only a real error does.
   const createPlayer = async () => {
     if (!teamId || !form.fullName.trim()) return;
     setSubmitting(true);
     setSubmitError('');
+    setSubmitNotice('');
     try {
-      await backendApi.addPlayer(teamId, {
+      const result = await backendApi.addPlayer(teamId, {
         fullName: form.fullName.trim(),
         jerseyNumber: form.jerseyNumber ? Number(form.jerseyNumber) : null,
         position: form.position || null,
       });
       setForm({ fullName: '', jerseyNumber: '', position: '' });
-      loadRoster(teamId);
+      if (result.status === 'pending_review') {
+        setSubmitNotice(result.message || 'This name is pending identity review before it can be added.');
+        loadReviews(teamId);
+      } else {
+        setSubmitNotice(result.status === 'linked' ? `Linked to the existing player ${result.player.full_name}.` : '');
+        loadRoster(teamId);
+      }
     } catch (err) {
       setSubmitError(err.message || 'Could not add player.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const confirmReviewItem = async (reviewId) => {
+    setReviewActionId(reviewId);
+    try {
+      await backendApi.confirmPlayerIdentityReview(teamId, reviewId);
+      loadReviews(teamId);
+      loadRoster(teamId);
+    } catch (err) {
+      setReviewsError(err.message || 'Could not confirm this match.');
+    } finally {
+      setReviewActionId(null);
+    }
+  };
+
+  const rejectReviewItem = async (reviewId) => {
+    setReviewActionId(reviewId);
+    try {
+      await backendApi.rejectPlayerIdentityReview(teamId, reviewId);
+      loadReviews(teamId);
+      loadRoster(teamId);
+    } catch (err) {
+      setReviewsError(err.message || 'Could not reject this match.');
+    } finally {
+      setReviewActionId(null);
     }
   };
 
@@ -135,6 +191,7 @@ function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
             </Grid>
             {teamsError && <Alert severity="error" sx={{ mt: 2 }}>{teamsError}</Alert>}
             {submitError && <Alert severity="error" sx={{ mt: 2 }}>{submitError}</Alert>}
+            {submitNotice && <Alert severity="info" sx={{ mt: 2 }}>{submitNotice}</Alert>}
             <Button
               variant="contained" sx={{ mt: 2 }} onClick={createPlayer}
               disabled={submitting || !teamId || !form.fullName.trim()}
@@ -143,6 +200,61 @@ function PlayersManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
             </Button>
           </CardContent>
         </Card>
+
+        {pendingReviews.length > 0 && (
+          <Card>
+            <CardContent>
+              <Typography variant="h6" fontWeight={700}>Possible duplicate players</Typography>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                These names look like they might already be on the roster under a different spelling. Confirm links
+                them to the existing player; reject adds the name as a separate, new player instead.
+              </Typography>
+              {reviewsError && <Alert severity="error" sx={{ mb: 2 }}>{reviewsError}</Alert>}
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>New name seen</TableCell>
+                    <TableCell>Might be</TableCell>
+                    <TableCell>Why</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pendingReviews.map((review) => (
+                    <TableRow key={review.id}>
+                      <TableCell>{review.candidate_text}</TableCell>
+                      <TableCell>
+                        {review.candidate_player_name}
+                        {/* Jersey number shown here only as informational context for a human
+                            reviewer -- never used to decide the match itself (playerIdentity.js). */}
+                        {review.candidate_player_jersey_number != null && ` (#${review.candidate_player_jersey_number})`}
+                      </TableCell>
+                      <TableCell>{review.match_reason}</TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            size="small" variant="contained"
+                            disabled={reviewActionId === review.id}
+                            onClick={() => confirmReviewItem(review.id)}
+                          >
+                            {reviewActionId === review.id ? 'Working…' : 'Confirm same player'}
+                          </Button>
+                          <Button
+                            size="small" variant="outlined"
+                            disabled={reviewActionId === review.id}
+                            onClick={() => rejectReviewItem(review.id)}
+                          >
+                            Reject, different player
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardContent>

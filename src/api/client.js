@@ -176,6 +176,13 @@ export const backendApi = {
     form.append('photo', blob, 'photo.jpg');
     return request(`/teams/${teamId}/players/${playerId}/photo`, { method: 'PATCH', body: form, isForm: true });
   },
+  // Player identity review queue (backend/src/routes/playerIdentityReview.js)
+  // -- fuzzy name matches from bulk-import/report-upload/addPlayer above
+  // that need a human confirm/reject before they're linked to an existing
+  // player or treated as someone new.
+  getPlayerIdentityReview: (teamId) => request(`/teams/${teamId}/player-identity-review`),
+  confirmPlayerIdentityReview: (teamId, reviewId) => request(`/teams/${teamId}/player-identity-review/${reviewId}/confirm`, { method: 'POST' }),
+  rejectPlayerIdentityReview: (teamId, reviewId) => request(`/teams/${teamId}/player-identity-review/${reviewId}/reject`, { method: 'POST' }),
   // FR-11: real season CRUD against the `seasons` table (backend/src/routes/seasons.js).
   getSeasons: () => request('/seasons'),
   createSeason: (data) => request('/seasons', { method: 'POST', body: data }),

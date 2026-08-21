@@ -16,6 +16,7 @@ const {
 const { extractScoreSheet } = require('../services/parseScoreSheet');
 const { persistAdditionalReports } = require('../services/persistExtractedReports');
 const { logAction } = require('../services/auditLog');
+const { resolvePlayerName } = require('../services/playerIdentity');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -202,6 +203,28 @@ router.post(
             JSON.stringify(p),
           );
         }
+
+        // Player identity resolution (playerIdentity.js) -- additive,
+        // doesn't gate or alter the player_game_stats insert above in any
+        // way (that stays keyed on the raw player_name string, unchanged;
+        // rewiring stat reads onto player_id is explicitly a separate,
+        // future round). Runs once per distinct (team, name) in this
+        // file's primary Box Score list -- the authoritative, always-
+        // present per-player roster for the game, not re-run per
+        // additional report type (persistAdditionalReports below reuses
+        // whatever this already resolved/queued, via the same exact-alias
+        // fast path, rather than re-deciding independently).
+        const identitySummary = { linked: 0, created: 0, pendingReview: 0 };
+        for (const p of players) {
+          const playerTeamId = p.team_side === 'home' ? homeTeamId : awayTeamId;
+          const resolution = await resolvePlayerName({
+            teamId: playerTeamId, name: p.player_name, gameId: game.id, reportType: 'Box Score',
+          });
+          if (resolution.status === 'linked') identitySummary.linked += 1;
+          else if (resolution.status === 'created') identitySummary.created += 1;
+          else if (resolution.status === 'pending_review') identitySummary.pendingReview += 1;
+        }
+        entry.playerIdentity = identitySummary;
 
         // Replaces entry.additionalReports (previously the raw per-extractor
         // output) with the persistence summary -- {status, rows} per report

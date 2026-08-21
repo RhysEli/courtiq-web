@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../db');
 const { requireAuth, requireRole, requireTeamAccess } = require('../middleware/auth');
 const { imageUpload, uploadImage } = require('../services/imageUpload');
+const { resolvePlayerName } = require('../services/playerIdentity');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -39,7 +40,22 @@ router.get('/:teamId/players', requireTeamAccess('teamId'), async (req, res) => 
   }
 });
 
-// Add a player to a team's roster.
+// Add a player to a team's roster. Runs the same identity resolution as
+// bulk-import (playerIdentity.js) instead of an unconditional INSERT --
+// previously this created a duplicate players row every time, even for an
+// exact repeat of an existing name. Three outcomes:
+//   - exact match to an existing player: 200, links this add-attempt as
+//     just another alias, no new row. jersey_number/position only fill in
+//     gaps (COALESCE) -- never overwrite an existing player's already-
+//     curated values with whatever this particular attempt typed in.
+//   - fuzzy match: 202, nothing created yet -- a Statistician/Team Manager
+//     has to confirm or reject the candidate (see playerIdentityReview.js)
+//     before this becomes a real roster entry. jersey_number/position
+//     from this submission are intentionally not preserved across that
+//     gap (a real but narrow scope trade-off -- re-enter them once the
+//     review resolves, if still needed).
+//   - no match: 201, a genuinely new player, with this submission's
+//     jersey_number/position applied.
 router.post('/:teamId/players', requireRole('Statistician', 'Team Manager'), requireTeamAccess('teamId'), async (req, res) => {
   try {
     const { teamId } = req.params;
@@ -48,13 +64,32 @@ router.post('/:teamId/players', requireRole('Statistician', 'Team Manager'), req
       return res.status(400).json({ error: 'fullName is required' });
     }
 
-    const player = await db.prepare(`
-      INSERT INTO players (team_id, full_name, jersey_number, position)
-      VALUES (?, ?, ?, ?)
-      RETURNING id, team_id, full_name, jersey_number, position
-    `).get(teamId, fullName.trim(), jerseyNumber || null, position || null);
+    const resolution = await resolvePlayerName({ teamId, name: fullName.trim(), reportType: 'manual-roster-add' });
 
-    res.status(201).json(player);
+    if (resolution.status === 'pending_review') {
+      return res.status(202).json({
+        status: 'pending_review',
+        reviewId: resolution.reviewId,
+        message: `"${fullName.trim()}" looks like it might already be on this roster under a different spelling. A Statistician or Team Manager needs to confirm or reject the match before this player is added.`,
+      });
+    }
+
+    if (resolution.status === 'linked') {
+      const player = await db.prepare(`
+        UPDATE players SET jersey_number = COALESCE(jersey_number, ?), position = COALESCE(position, ?)
+        WHERE id = ?
+        RETURNING id, team_id, full_name, jersey_number, position, photo_url
+      `).get(jerseyNumber || null, position || null, resolution.playerId);
+      return res.status(200).json({ status: 'linked', player });
+    }
+
+    const player = await db.prepare(`
+      UPDATE players SET jersey_number = ?, position = ?
+      WHERE id = ?
+      RETURNING id, team_id, full_name, jersey_number, position, photo_url
+    `).get(jerseyNumber || null, position || null, resolution.playerId);
+
+    res.status(201).json({ status: 'created', player });
   } catch (err) {
     console.error('add player failed:', err);
     res.status(500).json({ error: err.message });

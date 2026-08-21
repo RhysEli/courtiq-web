@@ -1,4 +1,5 @@
 const db = require('../db');
+const { resolvePlayerName } = require('./playerIdentity');
 
 // ---------------------------------------------------------------------
 // Prepared statements. Grouped by report type, each with its own
@@ -85,7 +86,15 @@ const insert = {
 // crash persistence for the others.
 // ---------------------------------------------------------------------
 
-async function persistQuarter(gameId, quarterResult) {
+// teamIdBySide: { home: teamId, opponent: teamId } -- resolved once by
+// persistAdditionalReports below and threaded through, so player identity
+// resolution (playerIdentity.js) here is team-scoped the same way
+// bulkImport.js's primary Box Score resolution is. Reuses whatever that
+// primary pass already aliased/queued for this game (same exact-alias
+// fast path), rather than deciding independently -- a name repeated
+// across report types for the same game just re-hits the alias just
+// created, it doesn't re-trigger its own review.
+async function persistQuarter(gameId, quarterResult, teamIdBySide) {
   await del.quarterPlayers.run(gameId);
   await del.quarterTeams.run(gameId);
   if (!quarterResult || !quarterResult.teams) return { teamRows: 0, playerRows: 0 };
@@ -108,12 +117,17 @@ async function persistQuarter(gameId, quarterResult) {
         p.points_total, p.points_q1, p.points_q2, p.points_q3, p.points_q4,
       );
       playerRows += 1;
+      if (teamIdBySide && teamIdBySide[team.team_side]) {
+        await resolvePlayerName({
+          teamId: teamIdBySide[team.team_side], name: p.player_name, gameId, reportType: 'Quarter Scoring',
+        });
+      }
     }
   }
   return { teamRows, playerRows };
 }
 
-async function persistPlusMinus(gameId, plusMinusResult) {
+async function persistPlusMinus(gameId, plusMinusResult, teamIdBySide) {
   await del.plusMinus.run(gameId);
   if (!plusMinusResult || !plusMinusResult.teams) return 0;
 
@@ -128,6 +142,11 @@ async function persistPlusMinus(gameId, plusMinusResult) {
         p.steals_on, p.steals_off, p.turnovers_on, p.turnovers_off,
       );
       rows += 1;
+      if (teamIdBySide && teamIdBySide[team.team_side]) {
+        await resolvePlayerName({
+          teamId: teamIdBySide[team.team_side], name: p.player_name, gameId, reportType: 'Plus Minus Summary',
+        });
+      }
     }
   }
   return rows;
@@ -212,13 +231,20 @@ async function persistAdditionalReports(gameId, additionalReports) {
 
   const summary = {};
 
+  // Resolved once per game, not per report type -- player identity
+  // resolution (playerIdentity.js, wired into persistQuarter/
+  // persistPlusMinus below) needs the real team id behind 'home'/
+  // 'opponent', not the label itself.
+  const game = await db.prepare('SELECT home_team_id, opponent_team_id FROM games WHERE id = ?').get(gameId);
+  const teamIdBySide = game ? { home: game.home_team_id, opponent: game.opponent_team_id } : null;
+
   const persistOne = async (key, persistFn, result) => {
     if (result && result.error) {
       summary[key] = { status: 'failed', error: result.error, code: result.code };
       return;
     }
     try {
-      const rows = await persistFn(gameId, result);
+      const rows = await persistFn(gameId, result, teamIdBySide);
       summary[key] = { status: 'stored', rows };
     } catch (err) {
       summary[key] = { status: 'failed', error: err.message, code: err.code };
