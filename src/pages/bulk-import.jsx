@@ -1,6 +1,6 @@
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress,
-  LinearProgress, Stack, Typography,
+  Grid, LinearProgress, MenuItem, Stack, TextField, Typography,
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CloseIcon from '@mui/icons-material/Close';
@@ -121,6 +121,23 @@ function BulkImport({ selectedTeam, onTeamChange, role, selectedSeason, logout }
   const [outcomes, setOutcomes] = useState(() => loadPersistedOutcomes());
   const [notice, setNotice] = useState(null);
 
+  // Real season/competition tagging (games.season_id/competition_id) --
+  // had a working backend since day one but no UI to actually populate
+  // it. Applies to every file in this run, not per-file -- a batch is
+  // normally one team's PDFs from around the same time. Both optional,
+  // same as the backend fields themselves. Distinct from the
+  // `selectedSeason` prop above, which is App.jsx's own cosmetic topbar-
+  // display value, not a real season id.
+  const [realSeasons, setRealSeasons] = useState([]);
+  const [realCompetitions, setRealCompetitions] = useState([]);
+  const [seasonId, setSeasonId] = useState('');
+  const [competitionId, setCompetitionId] = useState('');
+
+  useEffect(() => {
+    backendApi.getSeasons().then(setRealSeasons).catch(() => {});
+    backendApi.getCompetitions().then(setRealCompetitions).catch(() => {});
+  }, []);
+
   useEffect(() => {
     persistOutcomes(outcomes);
   }, [outcomes]);
@@ -189,7 +206,10 @@ function BulkImport({ selectedTeam, onTeamChange, role, selectedSeason, logout }
       setCurrentFileName(item.file.name);
       setInProgressMarker(item.file.name);
       try {
-        const { summary: importSummary, results } = await backendApi.bulkImport([item.file]);
+        const { summary: importSummary, results } = await backendApi.bulkImport([item.file], {
+          seasonId: seasonId || undefined,
+          competitionId: competitionId || undefined,
+        });
         const reconciled = await reconcileBulkImportResults(results);
         const outcome = { ...reconciled[0], fileKey: item.key };
         setOutcomes((prev) => [outcome, ...prev.filter((o) => o.fileKey !== item.key)]);
@@ -234,6 +254,23 @@ function BulkImport({ selectedTeam, onTeamChange, role, selectedSeason, logout }
         <Card>
           <CardContent>
             <Stack spacing={2}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField select fullWidth label="Season (optional)" value={seasonId} onChange={(e) => setSeasonId(e.target.value)}>
+                    <MenuItem value="">Untagged</MenuItem>
+                    {realSeasons.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField select fullWidth label="Competition (optional)" value={competitionId} onChange={(e) => setCompetitionId(e.target.value)}>
+                    <MenuItem value="">Untagged</MenuItem>
+                    {realCompetitions.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                  </TextField>
+                </Grid>
+              </Grid>
+              <Typography variant="caption" color="text.secondary">
+                Applies to every file in this batch.
+              </Typography>
               <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
                 Add PDF files
                 <input

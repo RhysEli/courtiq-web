@@ -36,10 +36,16 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
   // date, venue, and (once a Score Sheet is uploaded) real outcome.
   const canCreateRealGame = role === 'Statistician' || role === 'Team Manager';
   const [realTeams, setRealTeams] = useState([]);
+  const [realSeasons, setRealSeasons] = useState([]);
+  const [realCompetitions, setRealCompetitions] = useState([]);
   const [realGames, setRealGames] = useState([]);
   const [realGamesLoading, setRealGamesLoading] = useState(true);
   const [realGamesError, setRealGamesError] = useState('');
-  const [newGame, setNewGame] = useState({ homeTeamId: '', opponentTeamName: '', gameDate: '', venue: '' });
+  // seasonId/competitionId: real tagging (games.season_id/competition_id)
+  // that's had a working backend since day one but no UI to actually
+  // populate it -- both optional, same as the backend fields themselves,
+  // so a game can still be created untagged exactly as before.
+  const [newGame, setNewGame] = useState({ homeTeamId: '', opponentTeamName: '', gameDate: '', venue: '', seasonId: '', competitionId: '' });
   const [creatingGame, setCreatingGame] = useState(false);
   const [createGameError, setCreateGameError] = useState('');
   const [removingGameId, setRemovingGameId] = useState(null);
@@ -55,6 +61,8 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
 
   useEffect(() => {
     backendApi.getTeams().then(setRealTeams).catch(() => {});
+    backendApi.getSeasons().then(setRealSeasons).catch(() => {});
+    backendApi.getCompetitions().then(setRealCompetitions).catch(() => {});
     loadRealGames();
   }, []);
 
@@ -65,8 +73,12 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
     setCreatingGame(true);
     setCreateGameError('');
     try {
-      await backendApi.createGame(newGame);
-      setNewGame({ homeTeamId: '', opponentTeamName: '', gameDate: '', venue: '' });
+      await backendApi.createGame({
+        ...newGame,
+        seasonId: newGame.seasonId || undefined,
+        competitionId: newGame.competitionId || undefined,
+      });
+      setNewGame({ homeTeamId: '', opponentTeamName: '', gameDate: '', venue: '', seasonId: '', competitionId: '' });
       loadRealGames();
     } catch (err) {
       setCreateGameError(err.message || 'Could not create game.');
@@ -259,6 +271,20 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
               <Grid item xs={12} sm={2}>
                 <TextField fullWidth label="Venue" value={newGame.venue}
                   onChange={(e) => setNewGame({ ...newGame, venue: e.target.value })} />
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <TextField select fullWidth label="Season (optional)" value={newGame.seasonId}
+                  onChange={(e) => setNewGame({ ...newGame, seasonId: e.target.value })}>
+                  <MenuItem value="">Untagged</MenuItem>
+                  {realSeasons.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <TextField select fullWidth label="Competition (optional)" value={newGame.competitionId}
+                  onChange={(e) => setNewGame({ ...newGame, competitionId: e.target.value })}>
+                  <MenuItem value="">Untagged</MenuItem>
+                  {realCompetitions.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                </TextField>
               </Grid>
               <Grid item xs={12} sm={2}>
                 <Button fullWidth variant="contained" sx={{ height: '100%' }} disabled={creatingGame} onClick={handleCreateRealGame}>
