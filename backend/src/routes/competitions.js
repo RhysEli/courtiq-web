@@ -73,8 +73,10 @@ router.post('/', requireRole('Statistician'), async (req, res) => {
   }
 });
 
-// Remove a competition -- blocked if any real game still references it,
-// so a delete can never silently orphan a real game record.
+// Remove a competition -- blocked if any real game or team-competition-
+// season membership still references it, so a delete can never silently
+// orphan a real game record or a real trajectory fact
+// (team_competition_seasons, backend/src/routes/teamCompetitionSeasons.js).
 router.delete('/:id', requireRole('Statistician'), async (req, res) => {
   try {
     const { id } = req.params;
@@ -82,6 +84,10 @@ router.delete('/:id', requireRole('Statistician'), async (req, res) => {
     const referencingGames = await db.prepare('SELECT COUNT(*) AS count FROM games WHERE competition_id = ?').get(id);
     if (Number(referencingGames.count) > 0) {
       return res.status(409).json({ error: `Cannot delete competition: ${referencingGames.count} real game(s) reference it` });
+    }
+    const referencingMemberships = await db.prepare('SELECT COUNT(*) AS count FROM team_competition_seasons WHERE competition_id = ?').get(id);
+    if (Number(referencingMemberships.count) > 0) {
+      return res.status(409).json({ error: `Cannot delete competition: ${referencingMemberships.count} team-season membership(s) reference it` });
     }
 
     const result = await db.prepare('DELETE FROM competitions WHERE id = ?').run(id);

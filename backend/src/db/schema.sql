@@ -379,6 +379,30 @@ CREATE TABLE IF NOT EXISTS games (
 -- table -- this runs every migration but is itself idempotent.
 ALTER TABLE games ADD COLUMN IF NOT EXISTS venue TEXT;
 
+-- The real fact a team's promotion/relegation trajectory needs: which
+-- competition a team played in during a given season. Deliberately its
+-- own table, not inferred from games.competition_id -- a team with no
+-- games recorded in a season (a bye, a missed import) would otherwise
+-- silently vanish from its own history, and reverse-engineering "which
+-- competition" from scattered game rows is exactly the kind of fragile
+-- derivation this project has moved away from elsewhere (player identity,
+-- team access). Populated by explicit staff action instead.
+--
+-- UNIQUE on the full triple, not just (team_id, season_id): a team can
+-- plausibly hold more than one competition membership in the same season
+-- (its regular league tier AND a one-off tournament entry) -- the target
+-- model's whole point in distinguishing competition types would be
+-- undercut by forcing exactly one per season. This only blocks a literal
+-- duplicate of the same membership, not a second, different one.
+CREATE TABLE IF NOT EXISTS team_competition_seasons (
+  id SERIAL PRIMARY KEY,
+  team_id TEXT NOT NULL REFERENCES teams(id),
+  competition_id INTEGER NOT NULL REFERENCES competitions(id),
+  season_id TEXT NOT NULL REFERENCES seasons(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (team_id, competition_id, season_id)
+);
+
 -- FR-11: team configuration (coach/manager/statistician assignment,
 -- colours, logo) needs somewhere real to live -- same idempotent-ALTER
 -- pattern as `venue` above. logo_url is a URL string, not a file upload:

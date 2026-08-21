@@ -183,6 +183,12 @@ export const backendApi = {
   getPlayerIdentityReview: (teamId) => request(`/teams/${teamId}/player-identity-review`),
   confirmPlayerIdentityReview: (teamId, reviewId) => request(`/teams/${teamId}/player-identity-review/${reviewId}/confirm`, { method: 'POST' }),
   rejectPlayerIdentityReview: (teamId, reviewId) => request(`/teams/${teamId}/player-identity-review/${reviewId}/reject`, { method: 'POST' }),
+  // A team's competition-season history (backend/src/routes/teamCompetitionSeasons.js)
+  // -- the real fact behind a promotion/relegation trajectory. Populated
+  // by explicit staff action, not inferred from games.
+  getTeamCompetitionSeasons: (teamId) => request(`/teams/${teamId}/competition-seasons`),
+  addTeamCompetitionSeason: (teamId, data) => request(`/teams/${teamId}/competition-seasons`, { method: 'POST', body: data }),
+  removeTeamCompetitionSeason: (teamId, id) => request(`/teams/${teamId}/competition-seasons/${id}`, { method: 'DELETE' }),
   // FR-11: real season CRUD against the `seasons` table (backend/src/routes/seasons.js).
   getSeasons: () => request('/seasons'),
   createSeason: (data) => request('/seasons', { method: 'POST', body: data }),
