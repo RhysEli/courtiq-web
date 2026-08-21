@@ -50,10 +50,12 @@ router.get('/:teamId/players', requireTeamAccess('teamId'), async (req, res) => 
 //     curated values with whatever this particular attempt typed in.
 //   - fuzzy match: 202, nothing created yet -- a Statistician/Team Manager
 //     has to confirm or reject the candidate (see playerIdentityReview.js)
-//     before this becomes a real roster entry. jersey_number/position
-//     from this submission are intentionally not preserved across that
-//     gap (a real but narrow scope trade-off -- re-enter them once the
-//     review resolves, if still needed).
+//     before this becomes a real roster entry. jersey_number/position are
+//     carried on the review row itself (resolvePlayerName) so they aren't
+//     lost across that gap -- applied if the review is later rejected
+//     (a genuinely new player, nothing to protect), left unused if
+//     confirmed (an existing player's own data is never overwritten by
+//     one new submission).
 //   - no match: 201, a genuinely new player, with this submission's
 //     jersey_number/position applied.
 router.post('/:teamId/players', requireRole('Statistician', 'Team Manager'), requireTeamAccess('teamId'), async (req, res) => {
@@ -64,7 +66,10 @@ router.post('/:teamId/players', requireRole('Statistician', 'Team Manager'), req
       return res.status(400).json({ error: 'fullName is required' });
     }
 
-    const resolution = await resolvePlayerName({ teamId, name: fullName.trim(), reportType: 'manual-roster-add' });
+    const resolution = await resolvePlayerName({
+      teamId, name: fullName.trim(), reportType: 'manual-roster-add',
+      jerseyNumber: jerseyNumber || null, position: position || null,
+    });
 
     if (resolution.status === 'pending_review') {
       return res.status(202).json({

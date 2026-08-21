@@ -93,7 +93,13 @@ async function findCandidate(teamId, rawName) {
 //   { status: 'pending_review', reviewId } -- fuzzy match, awaiting a human
 //   { status: 'created', playerId }        -- no match, new canonical player
 //   { status: 'skipped' }                  -- blank name, nothing to do
-async function resolvePlayerName({ teamId, name, gameId = null, reportType = null }) {
+//
+// jerseyNumber/position are optional and only ever come from a manual
+// roster-add (players.js) -- bulk-import/report-upload never pass them.
+// They're stored on the review row itself so a fuzzy match doesn't lose
+// them while it's pending; see rejectReview below for where they're
+// actually applied.
+async function resolvePlayerName({ teamId, name, gameId = null, reportType = null, jerseyNumber = null, position = null }) {
   if (!name || !name.trim()) {
     return { status: 'skipped' };
   }
@@ -123,13 +129,24 @@ async function resolvePlayerName({ teamId, name, gameId = null, reportType = nul
       SELECT id FROM player_identity_review WHERE team_id = ? AND candidate_text = ? AND status = 'pending'
     `).get(teamId, name);
     if (existingPending) {
+      // Backfills jersey_number/position onto an already-queued review if
+      // it doesn't have them yet (e.g. bulk-import queued this candidate
+      // first with neither, then a manual add for the same name followed)
+      // -- fills a gap, never overwrites a value another submission
+      // already supplied.
+      if (jerseyNumber !== null || position !== null) {
+        await db.prepare(`
+          UPDATE player_identity_review SET jersey_number = COALESCE(jersey_number, ?), position = COALESCE(position, ?)
+          WHERE id = ?
+        `).run(jerseyNumber, position, existingPending.id);
+      }
       return { status: 'pending_review', reviewId: existingPending.id };
     }
     const inserted = await db.prepare(`
-      INSERT INTO player_identity_review (team_id, candidate_text, candidate_player_id, match_reason, first_seen_game_id, first_seen_report_type)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO player_identity_review (team_id, candidate_text, candidate_player_id, match_reason, first_seen_game_id, first_seen_report_type, jersey_number, position)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING id
-    `).get(teamId, name, candidate.candidatePlayerId, candidate.reason, gameId, reportType);
+    `).get(teamId, name, candidate.candidatePlayerId, candidate.reason, gameId, reportType, jerseyNumber, position);
     return { status: 'pending_review', reviewId: inserted.id };
   }
 
@@ -145,10 +162,17 @@ async function resolvePlayerName({ teamId, name, gameId = null, reportType = nul
 
 // Confirm: the pending candidate really is candidate_player_id, under a
 // new spelling -- link it as an alias, same effect an exact match would
-// have had. Reject: they're not the same person -- create candidate_text
-// as its own new canonical player, identical to what a no-match would
-// have done at ingestion time. Both no-op (return null) on an already-
-// resolved or nonexistent review, so a double-click can't double-process.
+// have had. Deliberately does NOT touch the existing player's own
+// jersey_number/position, even if this review has some stored (from a
+// manual add) -- that player's record may already have real data
+// contributed by other imports, and one new submission's values
+// shouldn't overwrite it. Reject: they're not the same person -- create
+// candidate_text as its own new canonical player, identical to what a
+// no-match would have done at ingestion time, but WITH this review's
+// stored jersey_number/position applied (there's no existing record to
+// protect here -- it's brand new). Both no-op (return null) on an
+// already-resolved or nonexistent review, so a double-click can't
+// double-process.
 async function confirmReview(reviewId, reviewedByUserId) {
   const review = await db.prepare(
     `SELECT * FROM player_identity_review WHERE id = ? AND status = 'pending'`,
@@ -174,8 +198,8 @@ async function rejectReview(reviewId, reviewedByUserId) {
   if (!review) return null;
 
   const newPlayer = await db.prepare(
-    'INSERT INTO players (team_id, full_name) VALUES (?, ?) RETURNING id',
-  ).get(review.team_id, review.candidate_text.trim());
+    'INSERT INTO players (team_id, full_name, jersey_number, position) VALUES (?, ?, ?, ?) RETURNING id',
+  ).get(review.team_id, review.candidate_text.trim(), review.jersey_number, review.position);
   await db.prepare(`
     INSERT INTO player_name_aliases (player_id, team_id, alias_text, first_seen_game_id, first_seen_report_type)
     VALUES (?, ?, ?, ?, ?)

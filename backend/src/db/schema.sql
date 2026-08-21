@@ -88,6 +88,19 @@ CREATE TABLE IF NOT EXISTS player_identity_review (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Carries a manual roster-add's jersey_number/position across the gap
+-- between "submitted" and "reviewed" -- previously dropped entirely if a
+-- submission landed in review, since no player row existed yet to put
+-- them on. Only ever read on reject (a genuinely new player is created
+-- then, same as a no-match auto-create already does): confirm links the
+-- candidate as an alias of an EXISTING player and deliberately leaves
+-- that player's own jersey_number/position untouched, since other
+-- imports may have already contributed real data there -- one new
+-- submission's values shouldn't overwrite it. NULL for any review that
+-- originated from bulk-import/report-upload rather than a manual add.
+ALTER TABLE player_identity_review ADD COLUMN IF NOT EXISTS jersey_number INTEGER;
+ALTER TABLE player_identity_review ADD COLUMN IF NOT EXISTS position TEXT;
+
 -- Partial unique index (not a table-wide UNIQUE constraint) -- status
 -- moves on to 'confirmed'/'rejected' after review, and a *later* new
 -- occurrence of the same candidate string should be able to queue a
