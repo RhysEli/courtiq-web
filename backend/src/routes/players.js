@@ -6,12 +6,14 @@ const { imageUpload, uploadImage } = require('../services/imageUpload');
 const router = express.Router();
 router.use(requireAuth);
 
-// FR-11: "The system shall allow Team Managers to create accounts,
-// assign player rosters, and configure season/competition parameters."
 // Real roster CRUD against the `players` table (schema.sql), which
 // existed but was completely unused before this -- roster assignment was
 // previously localStorage-only (src/pages/players-management.jsx wrote
-// to 'courtiq-players' and never touched the backend).
+// to 'courtiq-players' and never touched the backend). Shared between
+// Statistician and Team Manager (requireRole below) -- roster management
+// was never part of the Statistician/Team Manager technical-vs-managing
+// split (see users.js/seasons.js for what that split actually covers);
+// both roles keep full access here, unchanged.
 //
 // requireTeamAccess added to all three routes below -- previously only
 // requireAuth (read) or requireRole (write) applied, with no check that

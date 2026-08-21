@@ -29,8 +29,8 @@ router.get('/', async (req, res) => {
 // used by seed.js and bulkImport.js's find-or-create path), not a
 // generated surrogate key. Statistician-only, no Team Manager fallback --
 // season/league administration is grouped with the rest of the
-// analysis-pipeline-adjacent technical work, not Team Manager's roster/
-// brand "managing" scope.
+// analysis-pipeline-adjacent technical work, unlike roster (players.js,
+// shared between both roles) or team brand (teams.js, Team Manager only).
 router.post('/', requireRole('Statistician'), async (req, res) => {
   try {
     const { id, name, active } = req.body;
