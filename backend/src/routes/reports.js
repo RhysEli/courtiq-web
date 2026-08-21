@@ -108,7 +108,7 @@ router.post(
   },
 );
 
-router.get('/games/:gameId/reports', async (req, res) => {
+router.get('/games/:gameId/reports', requireGameAccess('gameId'), async (req, res) => {
   const reports = await db.prepare('SELECT id, report_type, original_filename, extraction_status, extraction_error, uploaded_at FROM reports WHERE game_id = ?')
     .all(req.params.gameId);
   res.json(reports);
@@ -119,7 +119,7 @@ router.get('/games/:gameId/reports', async (req, res) => {
 // Score Sheet) for a game, as written by bulkImport.js's insertReportData
 // calls. Separate from GET /games/:gameId/reports above, which only lists
 // upload metadata for the `reports` table, not the extracted content.
-router.get('/games/:gameId/report-data', async (req, res) => {
+router.get('/games/:gameId/report-data', requireGameAccess('gameId'), async (req, res) => {
   const { gameId } = req.params;
   const game = await db.prepare('SELECT id FROM games WHERE id = ?').get(gameId);
   if (!game) return res.status(404).json({ error: 'Game not found' });

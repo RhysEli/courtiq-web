@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, requireGameAccess } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -9,7 +9,7 @@ router.use(requireAuth);
 // already existed in schema.sql (game_id, author_id, body, created_at)
 // but nothing read or wrote to it -- this wires it up for real.
 
-router.get('/', async (req, res) => {
+router.get('/', requireGameAccess('gameId'), async (req, res) => {
   const { gameId } = req.query;
   if (!gameId) return res.status(400).json({ error: 'gameId is required' });
   try {
@@ -29,7 +29,7 @@ router.get('/', async (req, res) => {
 
 // Only Coaches may add annotations, per the proposal's stated RBAC design
 // (FR-09). This is enforced here on the backend, not just hidden in the UI.
-router.post('/', requireRole('Coach'), async (req, res) => {
+router.post('/', requireRole('Coach'), requireGameAccess('gameId'), async (req, res) => {
   const { gameId, body } = req.body;
   if (!gameId || !body?.trim()) {
     return res.status(400).json({ error: 'gameId and body are required' });

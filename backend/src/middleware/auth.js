@@ -116,7 +116,16 @@ function requireGameAccess(paramName = 'id') {
       return next();
     }
     try {
-      const gameId = req.params[paramName];
+      // Same params/body/query fallback as requireTeamAccess -- gameId
+      // isn't always a route param (annotations.js's GET / reads it off
+      // ?gameId=, its POST / off the JSON body). req.body is only ever
+      // undefined here (a GET with no JSON content-type never gets one
+      // from express.json()), unlike req.params/req.query which express
+      // always populates -- every existing requireTeamAccess call site
+      // happens to pass a route param, so req.body[paramName] there is
+      // short-circuited away by the || chain before it can matter; this
+      // is the first game-access call site keyed by query/body instead.
+      const gameId = req.params[paramName] || req.body?.[paramName] || req.query[paramName];
       const game = await db.prepare('SELECT home_team_id, opponent_team_id FROM games WHERE id = ?').get(gameId);
       if (!game) {
         return res.status(404).json({ error: 'Game not found' });

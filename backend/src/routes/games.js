@@ -28,6 +28,20 @@ router.post('/', requireRole('Administrator', 'Statistician', 'Team Manager'), a
   // Bulk Import already uses when it reads a team name off a PDF, so a
   // manually-typed opponent and a PDF-detected one land in the same row.
   const opponentTeamId = opponentTeamName.trim();
+
+  // Same "either side, no DB lookup" reasoning as bulkImport.js's per-file
+  // check: the caller must have access to homeTeamId OR opponentTeamId,
+  // checked purely against their own JWT teamIds, before the opponent
+  // (frequently brand new) gets its find-or-create INSERT below -- so
+  // creating a game against a not-yet-existing opponent never needs its
+  // own grant, same as bulk-import.
+  if (req.user.role !== 'Administrator') {
+    const accessibleTeamIds = req.user.teamIds || [];
+    if (!accessibleTeamIds.includes(homeTeamId) && !accessibleTeamIds.includes(opponentTeamId)) {
+      return res.status(403).json({ error: 'You do not have access to either team in this game' });
+    }
+  }
+
   await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(opponentTeamId, opponentTeamId);
 
   const result = await db.prepare(`
@@ -68,7 +82,7 @@ router.get('/:id', requireGameAccess('id'), async (req, res) => {
 // player_game_stats (e.g. only a failed extraction) will still fail here
 // via the games.reports foreign key, which is an acceptable safe failure,
 // not something this route needs to special-case.
-router.delete('/:id', requireRole('Statistician', 'Team Manager'), async (req, res) => {
+router.delete('/:id', requireRole('Statistician', 'Team Manager'), requireGameAccess('id'), async (req, res) => {
   try {
     const { id } = req.params;
 
