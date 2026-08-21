@@ -32,7 +32,6 @@ async function seed() {
   const demoUsers = [
     { name: 'Alice Statistician', email: 'stats@courtiq.dev', role: 'Statistician', team_id: 'usiu-men' },
     { name: 'Coach Brian', email: 'coach@courtiq.dev', role: 'Coach', team_id: 'usiu-men' },
-    { name: 'Admin User', email: 'admin@courtiq.dev', role: 'Administrator', team_id: null },
     { name: 'Team Manager', email: 'manager@courtiq.dev', role: 'Team Manager', team_id: 'usiu-men' },
   ];
   const insertUser = db.prepare(`INSERT INTO users (name, email, password_hash, role, team_id) VALUES (?, ?, ?, ?, ?) ON CONFLICT (email) DO NOTHING`);
@@ -40,7 +39,7 @@ async function seed() {
     await insertUser.run(u.name, u.email, hashPassword('courtiq123'), u.role, u.team_id);
   }
 
-  console.log('Seed complete. Demo login: stats@courtiq.dev / courtiq123 (also coach@, admin@, manager@courtiq.dev)');
+  console.log('Seed complete. Demo login: stats@courtiq.dev / courtiq123 (also coach@, manager@courtiq.dev)');
 }
 
 seed()

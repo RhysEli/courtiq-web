@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('Administrator','Statistician','Coach','Athlete','Team Manager')),
+  role TEXT NOT NULL CHECK (role IN ('Statistician','Coach','Athlete','Team Manager')),
   team_id TEXT REFERENCES teams(id),
   player_id INTEGER REFERENCES players(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -87,6 +87,20 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS accent_override TEXT;
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_accent_override_check;
 ALTER TABLE users ADD CONSTRAINT users_accent_override_check CHECK (accent_override IS NULL OR accent_override ~* '^#[0-9a-f]{6}$');
 
+-- No Administrator role: four roles only (Statistician, Coach, Athlete,
+-- Team Manager). Same DROP + re-ADD pattern as accent_override above --
+-- CREATE TABLE IF NOT EXISTS's inline CHECK never re-runs on an
+-- already-existing table, so this is what actually narrows the live
+-- constraint. Safe to rerun every startup. The one pre-existing
+-- Administrator row (admin@courtiq.dev, a synthetic seed account with no
+-- real team and zero rows referencing it anywhere -- confirmed empty
+-- across invites/games/reports/annotations/audit_log/password_reset_tokens/
+-- user_teams before this went in) was deleted manually ahead of this
+-- constraint change landing, since ADD CONSTRAINT validates existing rows
+-- and would otherwise fail startup on any environment that still had it.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('Statistician','Coach','Athlete','Team Manager'));
+
 -- Staff-curated profile photo -- Statistician/Team Manager only, applies
 -- to every role including the uploader's own row; never self-service (no
 -- upload control on profile.jsx, only on the staff-facing Users page).
@@ -133,7 +147,7 @@ ON CONFLICT (user_id, team_id) DO NOTHING;
 CREATE TABLE IF NOT EXISTS invites (
   id SERIAL PRIMARY KEY,
   email TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('Administrator','Statistician','Coach','Athlete','Team Manager')),
+  role TEXT NOT NULL CHECK (role IN ('Statistician','Coach','Athlete','Team Manager')),
   team_id TEXT REFERENCES teams(id),
   token TEXT NOT NULL UNIQUE,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','revoked','expired')),
@@ -142,6 +156,12 @@ CREATE TABLE IF NOT EXISTS invites (
   expires_at TIMESTAMPTZ NOT NULL,
   accepted_at TIMESTAMPTZ
 );
+
+-- No Administrator role -- same DROP + re-ADD as users_role_check above.
+-- No existing invites.role='Administrator' rows to worry about (checked
+-- before this went in), so no data cleanup needed here.
+ALTER TABLE invites DROP CONSTRAINT IF EXISTS invites_role_check;
+ALTER TABLE invites ADD CONSTRAINT invites_role_check CHECK (role IN ('Statistician','Coach','Athlete','Team Manager'));
 
 -- Staff-initiated password reset -- separate from `invites`, deliberately
 -- not reusing that table: invites/:token/accept explicitly rejects when

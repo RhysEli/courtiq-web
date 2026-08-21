@@ -96,7 +96,7 @@ function setPersistedUploadingFilename(filename) {
 }
 
 function Reports({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
-  const canManage = role === 'Administrator' || role === 'Statistician' || role === 'Team Manager';
+  const canManage = role === 'Statistician' || role === 'Team Manager';
   const [uploadingFilename, setUploadingFilename] = useState(() => getPersistedUploadingFilename());
   const [recent, setRecent] = useState(() => loadPersistedRecent());
   const [notice, setNotice] = useState(null);

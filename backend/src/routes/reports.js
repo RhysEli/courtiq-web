@@ -31,7 +31,7 @@ const upload = multer({
 // Upload a single FIBA report PDF for a game and extract it.
 router.post(
   '/games/:gameId/reports',
-  requireRole('Administrator', 'Statistician'),
+  requireRole('Statistician'),
   requireGameAccess('gameId'),
   upload.single('file'),
   async (req, res) => {

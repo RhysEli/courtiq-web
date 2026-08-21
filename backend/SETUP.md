@@ -13,7 +13,6 @@ npm run dev      # starts on http://localhost:4000
 Demo logins (password for all: `courtiq123`):
 - stats@courtiq.dev (Statistician)
 - coach@courtiq.dev (Coach)
-- admin@courtiq.dev (Administrator)
 - manager@courtiq.dev (Team Manager)
 
 ## Run the frontend against it

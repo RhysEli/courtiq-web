@@ -12,7 +12,7 @@ const REPORT_TYPES = [
 ];
 
 // Create a game record (Statistician/Team Manager, per proposal's RBAC design — FR-11 gives Team Manager season/competition administration).
-router.post('/', requireRole('Administrator', 'Statistician', 'Team Manager'), async (req, res) => {
+router.post('/', requireRole('Statistician', 'Team Manager'), async (req, res) => {
   const { seasonId, leagueId, homeTeamId, gameDate, venue } = req.body;
   // Accept either field name: opponentTeamName (typed freely on the Games
   // page) or the older opponentTeamId (still sent by
@@ -35,11 +35,9 @@ router.post('/', requireRole('Administrator', 'Statistician', 'Team Manager'), a
   // (frequently brand new) gets its find-or-create INSERT below -- so
   // creating a game against a not-yet-existing opponent never needs its
   // own grant, same as bulk-import.
-  if (req.user.role !== 'Administrator') {
-    const accessibleTeamIds = req.user.teamIds || [];
-    if (!accessibleTeamIds.includes(homeTeamId) && !accessibleTeamIds.includes(opponentTeamId)) {
-      return res.status(403).json({ error: 'You do not have access to either team in this game' });
-    }
+  const accessibleTeamIds = req.user.teamIds || [];
+  if (!accessibleTeamIds.includes(homeTeamId) && !accessibleTeamIds.includes(opponentTeamId)) {
+    return res.status(403).json({ error: 'You do not have access to either team in this game' });
   }
 
   await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(opponentTeamId, opponentTeamId);
@@ -55,18 +53,14 @@ router.post('/', requireRole('Administrator', 'Statistician', 'Team Manager'), a
 
 // Filtered, not 403'd, for the same reason GET /users is filtered rather
 // than blocked outright: this is a list endpoint, and "you can't see this
-// team's games" is a per-row concern, not an all-or-nothing one.
-// Administrators see every game; everyone else sees only games where
-// their own team was home OR opponent (see requireGameAccess's comment in
-// middleware/auth.js for why "either side", not just home/creator).
+// team's games" is a per-row concern, not an all-or-nothing one. Everyone
+// sees only games where their own team was home OR opponent (see
+// requireGameAccess's comment in middleware/auth.js for why "either side",
+// not just home/creator).
 router.get('/', async (req, res) => {
   const games = await db.prepare('SELECT * FROM games ORDER BY game_date DESC').all();
-  const visibleGames = req.user.role === 'Administrator'
-    ? games
-    : games.filter((g) => {
-        const myTeamIds = req.user.teamIds || [];
-        return myTeamIds.includes(g.home_team_id) || myTeamIds.includes(g.opponent_team_id);
-      });
+  const myTeamIds = req.user.teamIds || [];
+  const visibleGames = games.filter((g) => myTeamIds.includes(g.home_team_id) || myTeamIds.includes(g.opponent_team_id));
   res.json(await Promise.all(visibleGames.map((g) => getGameWithReportStatus(g.id))));
 });
 

@@ -8,7 +8,7 @@ const { sendMail } = require('../services/mailer');
 const router = express.Router();
 
 const INVITE_EXPIRY_DAYS = 7;
-const ROLES_THAT_CAN_INVITE = ['Administrator', 'Statistician', 'Team Manager'];
+const ROLES_THAT_CAN_INVITE = ['Statistician', 'Team Manager'];
 
 function buildInviteEmail({ appUrl, token, role, teamName, institutionName }) {
   const acceptUrl = `${appUrl}/accept-invite/${token}`;
@@ -23,9 +23,9 @@ function buildInviteEmail({ appUrl, token, role, teamName, institutionName }) {
 }
 
 // Create a real invite record and send a real email. Role-gated: only
-// Administrators, Statisticians, and Team Managers can invite people --
-// matches the roles that make sense to be adding Coaches/Athletes/other
-// Statisticians to a team.
+// Statisticians and Team Managers can invite people -- matches the roles
+// that make sense to be adding Coaches/Athletes/other Statisticians to a
+// team.
 // NOTE: requireTeamAccess is deliberately NOT applied here yet. Every real
 // backend request currently authenticates as one shared service account
 // (see src/api/client.js's documented "two auth systems" gap) rather than

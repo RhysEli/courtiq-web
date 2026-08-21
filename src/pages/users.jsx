@@ -270,21 +270,12 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
                       <TableCell>{user.name}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>
-                        {/* Administrator isn't an assignable role here (matches the
-                            role dropdown's own pre-existing restriction, now that a
-                            real Administrator row can actually appear) -- an editable
-                            Select with no matching MenuItem would render misleadingly
-                            blank, so this shows as plain read-only text instead. */}
-                        {user.role === 'Administrator' ? (
-                          <Typography variant="body2">Administrator</Typography>
-                        ) : (
-                          <TextField select size="small" value={user.role} onChange={(event) => changeRole(user.id, event.target.value)}>
-                            <MenuItem value="Team Manager">Team Manager</MenuItem>
-                            <MenuItem value="Statistician">Statistician</MenuItem>
-                            <MenuItem value="Coach">Coach</MenuItem>
-                            <MenuItem value="Athlete">Athlete</MenuItem>
-                          </TextField>
-                        )}
+                        <TextField select size="small" value={user.role} onChange={(event) => changeRole(user.id, event.target.value)}>
+                          <MenuItem value="Team Manager">Team Manager</MenuItem>
+                          <MenuItem value="Statistician">Statistician</MenuItem>
+                          <MenuItem value="Coach">Coach</MenuItem>
+                          <MenuItem value="Athlete">Athlete</MenuItem>
+                        </TextField>
                       </TableCell>
                       <TableCell>
                         <TextField

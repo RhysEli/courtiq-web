@@ -32,7 +32,7 @@ function aggregateTeamTotals(playerRows) {
 // missing await (so playerRows was a Promise, not an array, causing
 // "playerRows.filter is not a function"). Also fixed datetime('now')
 // (SQLite-only) -> NOW() (Postgres) in the metrics upsert below.
-router.post('/games/:gameId/compute', requireRole('Administrator', 'Statistician'), requireGameAccess('gameId'), async (req, res) => {
+router.post('/games/:gameId/compute', requireRole('Statistician'), requireGameAccess('gameId'), async (req, res) => {
   try {
     const { gameId } = req.params;
     const playerRows = await db.prepare('SELECT * FROM player_game_stats WHERE game_id = ?').all(gameId);
@@ -82,7 +82,7 @@ router.post('/games/:gameId/compute', requireRole('Administrator', 'Statistician
 // unresolved Promises, so row.metrics_json etc would have thrown or
 // behaved incorrectly), plus the same datetime('now') -> NOW() fix as
 // above in the narrative upsert.
-router.post('/games/:gameId/narrative', requireRole('Administrator', 'Statistician', 'Coach'), requireGameAccess('gameId'), async (req, res) => {
+router.post('/games/:gameId/narrative', requireRole('Statistician', 'Coach'), requireGameAccess('gameId'), async (req, res) => {
   const { gameId } = req.params;
   try {
     const row = await db.prepare('SELECT * FROM game_metrics WHERE game_id = ?').get(gameId);

@@ -19,7 +19,7 @@ function requireAuth(req, res, next) {
 }
 
 // RBAC: pass the roles allowed to hit this route.
-// Example: requireRole('Administrator', 'Statistician')
+// Example: requireRole('Statistician', 'Coach')
 function requireRole(...allowedRoles) {
   return (req, res, next) => {
     if (!req.user) {
@@ -36,15 +36,14 @@ function requireRole(...allowedRoles) {
 // this, meaning any authenticated user of the right role could reach any
 // team's data through the API regardless of which team(s) they actually
 // belong to. paramName is the route param holding the team id being
-// accessed (e.g. 'teamId' for /teams/:teamId/...). Administrators bypass
-// this check entirely (full access by design).
+// accessed (e.g. 'teamId' for /teams/:teamId/...). No role bypasses this --
+// every user is required to have at least one real team (see invites.js's
+// mandatory teamId), so there's no "unmanageable teamless user" case this
+// would need to exist for.
 function requireTeamAccess(paramName = 'teamId') {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
-    }
-    if (req.user.role === 'Administrator') {
-      return next();
     }
     const requestedTeamId = req.params[paramName] || req.body[paramName] || req.query[paramName];
     const accessibleTeamIds = req.user.teamIds || [];
@@ -64,14 +63,12 @@ function requireTeamAccess(paramName = 'teamId') {
 // matches how a Statistician covering both a team's Men's and Women's
 // side, per schema.sql's own example, would expect to manage users on
 // either side, not need overlap on every team both people happen to be
-// on. Administrators bypass, same as requireTeamAccess.
+// on. No role bypass -- every user is guaranteed at least one real team
+// (see invites.js), so there's no teamless-user case that would need one.
 function requireSharedTeamWithUser(paramName = 'userId') {
   return async (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
-    }
-    if (req.user.role === 'Administrator') {
-      return next();
     }
     try {
       const targetUserId = req.params[paramName];
@@ -104,16 +101,12 @@ function requireSharedTeamWithUser(paramName = 'userId') {
 // season-stats only, both already deliberately unscoped for scouting)
 // that this game-level access model doesn't need to be looser than "my
 // team was one of the two sides" to keep that feature working. Same
-// Administrator-bypass/req.user.teamIds shape as requireTeamAccess/
-// requireSharedTeamWithUser above -- only the lookup target (a game's two
-// team ids, not one) is new.
+// req.user.teamIds shape as requireTeamAccess/requireSharedTeamWithUser
+// above -- only the lookup target (a game's two team ids, not one) is new.
 function requireGameAccess(paramName = 'id') {
   return async (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
-    }
-    if (req.user.role === 'Administrator') {
-      return next();
     }
     try {
       // Same params/body/query fallback as requireTeamAccess -- gameId
@@ -143,21 +136,10 @@ function requireGameAccess(paramName = 'id') {
 }
 
 // The real, current list of teams a user can access, enriched with
-// institution and gender info for the frontend switcher. Administrators
-// see every team in the system; everyone else sees only teams they have a
-// row for in user_teams (which users.team_id is backfilled into on
-// migration -- see schema.sql).
+// institution and gender info for the frontend switcher -- every user sees
+// only teams they have a row for in user_teams (which users.team_id is
+// backfilled into on migration -- see schema.sql).
 async function getUserTeams(user) {
-  if (user.role === 'Administrator') {
-    const rows = await db.prepare(`
-      SELECT t.id, t.name, t.gender_category, t.color_primary, t.color_secondary,
-             t.brand_accent, t.logo_url, t.institution_id, i.name AS institution_name
-      FROM teams t
-      LEFT JOIN institutions i ON i.id = t.institution_id
-      ORDER BY i.name, t.gender_category, t.name
-    `).all();
-    return rows;
-  }
   const rows = await db.prepare(`
     SELECT t.id, t.name, t.gender_category, t.color_primary, t.color_secondary,
            t.brand_accent, t.logo_url, t.institution_id, i.name AS institution_name
