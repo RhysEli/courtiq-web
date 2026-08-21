@@ -101,6 +101,16 @@ ALTER TABLE users ADD CONSTRAINT users_accent_override_check CHECK (accent_overr
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('Statistician','Coach','Athlete','Team Manager'));
 
+-- Phase 2: a user should never be able to exist with no team -- this is
+-- what makes the Administrator escape hatch above safe to have removed
+-- entirely (no teamless user, no gap needing a bypass). Enforced at the
+-- real creation boundary too (invites.js's POST /send now requires
+-- teamId), but that alone is an application-level promise a future code
+-- path could accidentally violate; this is the actual backstop. Safe to
+-- rerun -- confirmed zero existing NULL team_id rows before this went in
+-- (the only one, admin@courtiq.dev, was deleted above).
+ALTER TABLE users ALTER COLUMN team_id SET NOT NULL;
+
 -- Staff-curated profile photo -- Statistician/Team Manager only, applies
 -- to every role including the uploader's own row; never self-service (no
 -- upload control on profile.jsx, only on the staff-facing Users page).
@@ -162,6 +172,12 @@ CREATE TABLE IF NOT EXISTS invites (
 -- before this went in), so no data cleanup needed here.
 ALTER TABLE invites DROP CONSTRAINT IF EXISTS invites_role_check;
 ALTER TABLE invites ADD CONSTRAINT invites_role_check CHECK (role IN ('Statistician','Coach','Athlete','Team Manager'));
+
+-- Phase 2: same "no teamless user, ever" backstop as users.team_id above
+-- -- an invite with no team would otherwise be able to create exactly the
+-- account this is meant to prevent. Zero existing NULL rows confirmed
+-- before this went in.
+ALTER TABLE invites ALTER COLUMN team_id SET NOT NULL;
 
 -- Staff-initiated password reset -- separate from `invites`, deliberately
 -- not reusing that table: invites/:token/accept explicitly rejects when

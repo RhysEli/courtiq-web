@@ -36,8 +36,14 @@ function buildInviteEmail({ appUrl, token, role, teamName, institutionName }) {
 router.post('/send', requireAuth, requireRole(...ROLES_THAT_CAN_INVITE), async (req, res) => {
   try {
     const { toEmail, role, teamId, appUrl } = req.body;
-    if (!toEmail || !role) {
-      return res.status(400).json({ error: 'toEmail and role are required' });
+    // teamId is mandatory -- a user should never come into existence with
+    // no team (see schema.sql's mandatory invites.team_id, which this
+    // guarantees an invite always has before it can ever be accepted).
+    // The frontend's own invite form already disables "Create invite" on
+    // this exact condition (users.jsx); this is the real, unbypassable
+    // enforcement.
+    if (!toEmail || !role || !teamId) {
+      return res.status(400).json({ error: 'toEmail, role, and teamId are required' });
     }
 
     const token = crypto.randomBytes(24).toString('hex');
