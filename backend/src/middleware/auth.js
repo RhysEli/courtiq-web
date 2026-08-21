@@ -89,6 +89,50 @@ function requireSharedTeamWithUser(paramName = 'userId') {
   };
 }
 
+// Team-scoped authorization for routes keyed by a game id, not a :teamId
+// param -- a game has TWO teams (home_team_id/opponent_team_id), and
+// there's no single team id in the URL for requireTeamAccess to check
+// directly. "Has access to this game" is deliberately defined as sharing
+// a team with EITHER side, not just the side that happens to be listed as
+// home, and not just whoever created the row: bulk-import's find-or-
+// match-by-name-and-date logic means the same real matchup can already be
+// represented by one shared game row regardless of which team's staff
+// uploaded it first (see bulkImport.js) -- a team listed as `opponent` on
+// a game their own staff didn't happen to create first should still see
+// it, the same as the team listed as `home`. Confirmed via Opponent
+// Analysis's actual data dependency (GET /teams + GET /teams/:id/
+// season-stats only, both already deliberately unscoped for scouting)
+// that this game-level access model doesn't need to be looser than "my
+// team was one of the two sides" to keep that feature working. Same
+// Administrator-bypass/req.user.teamIds shape as requireTeamAccess/
+// requireSharedTeamWithUser above -- only the lookup target (a game's two
+// team ids, not one) is new.
+function requireGameAccess(paramName = 'id') {
+  return async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (req.user.role === 'Administrator') {
+      return next();
+    }
+    try {
+      const gameId = req.params[paramName];
+      const game = await db.prepare('SELECT home_team_id, opponent_team_id FROM games WHERE id = ?').get(gameId);
+      if (!game) {
+        return res.status(404).json({ error: 'Game not found' });
+      }
+      const accessibleTeamIds = req.user.teamIds || [];
+      const hasAccess = accessibleTeamIds.includes(game.home_team_id) || accessibleTeamIds.includes(game.opponent_team_id);
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'You do not have access to this game' });
+      }
+      next();
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  };
+}
+
 // The real, current list of teams a user can access, enriched with
 // institution and gender info for the frontend switcher. Administrators
 // see every team in the system; everyone else sees only teams they have a
@@ -125,4 +169,4 @@ function signToken(user, teamIds = []) {
   );
 }
 
-module.exports = { requireAuth, requireRole, requireTeamAccess, requireSharedTeamWithUser, getUserTeams, signToken, JWT_SECRET };
+module.exports = { requireAuth, requireRole, requireTeamAccess, requireSharedTeamWithUser, requireGameAccess, getUserTeams, signToken, JWT_SECRET };

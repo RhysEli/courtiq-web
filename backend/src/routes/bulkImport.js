@@ -97,6 +97,27 @@ router.post(
         const homeTeamId = gameInfo.homeTeam;
         const awayTeamId = gameInfo.awayTeam;
 
+        // Checked against the two team-name strings straight off the PDF,
+        // before either side is written to `teams` -- deliberately no DB
+        // lookup here, so a brand-new opponent team (not yet a row) never
+        // needs its own access grant; the check only cares whether ONE of
+        // the two named sides is already a team this user belongs to (see
+        // requireGameAccess's comment in middleware/auth.js for the same
+        // "either side" reasoning at the single-game level). Per-file, not
+        // route-level: one batch can contain PDFs for several different
+        // games, so a file for a team the caller has no access to is
+        // skipped on its own rather than failing the whole batch.
+        if (req.user.role !== 'Administrator') {
+          const accessibleTeamIds = req.user.teamIds || [];
+          if (!accessibleTeamIds.includes(homeTeamId) && !accessibleTeamIds.includes(awayTeamId)) {
+            entry.status = 'failed';
+            entry.error = `You do not have access to either team in this game (${gameInfo.homeTeam} vs ${gameInfo.awayTeam}).`;
+            results.push(entry);
+            await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} (no access to ${homeTeamId}/${awayTeamId})`, false);
+            continue;
+          }
+        }
+
         await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(homeTeamId, homeTeamId);
         await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(awayTeamId, awayTeamId);
         if (seasonId) {

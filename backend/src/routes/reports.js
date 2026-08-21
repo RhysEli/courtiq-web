@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const db = require('../db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, requireGameAccess } = require('../middleware/auth');
 const { extractBoxScore } = require('../services/pdfExtraction');
 const { logAction } = require('../services/auditLog');
 
@@ -32,6 +32,7 @@ const upload = multer({
 router.post(
   '/games/:gameId/reports',
   requireRole('Administrator', 'Statistician'),
+  requireGameAccess('gameId'),
   upload.single('file'),
   async (req, res) => {
     const { gameId } = req.params;

@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, requireGameAccess } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -39,12 +39,24 @@ router.post('/', requireRole('Administrator', 'Statistician', 'Team Manager'), a
   res.status(201).json(await getGameWithReportStatus(result.lastInsertRowid));
 });
 
+// Filtered, not 403'd, for the same reason GET /users is filtered rather
+// than blocked outright: this is a list endpoint, and "you can't see this
+// team's games" is a per-row concern, not an all-or-nothing one.
+// Administrators see every game; everyone else sees only games where
+// their own team was home OR opponent (see requireGameAccess's comment in
+// middleware/auth.js for why "either side", not just home/creator).
 router.get('/', async (req, res) => {
   const games = await db.prepare('SELECT * FROM games ORDER BY game_date DESC').all();
-  res.json(await Promise.all(games.map((g) => getGameWithReportStatus(g.id))));
+  const visibleGames = req.user.role === 'Administrator'
+    ? games
+    : games.filter((g) => {
+        const myTeamIds = req.user.teamIds || [];
+        return myTeamIds.includes(g.home_team_id) || myTeamIds.includes(g.opponent_team_id);
+      });
+  res.json(await Promise.all(visibleGames.map((g) => getGameWithReportStatus(g.id))));
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireGameAccess('id'), async (req, res) => {
   const game = await getGameWithReportStatus(req.params.id);
   if (!game) return res.status(404).json({ error: 'Game not found' });
   res.json(game);

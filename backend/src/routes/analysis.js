@@ -1,6 +1,6 @@
 ﻿const express = require('express');
 const db = require('../db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, requireGameAccess } = require('../middleware/auth');
 const { computeTeamMetrics, computePlayerMetrics, tagInsights } = require('../services/metrics');
 const { generateGameNarrative } = require('../services/narrative');
 const { logAction } = require('../services/auditLog');
@@ -32,7 +32,7 @@ function aggregateTeamTotals(playerRows) {
 // missing await (so playerRows was a Promise, not an array, causing
 // "playerRows.filter is not a function"). Also fixed datetime('now')
 // (SQLite-only) -> NOW() (Postgres) in the metrics upsert below.
-router.post('/games/:gameId/compute', requireRole('Administrator', 'Statistician'), async (req, res) => {
+router.post('/games/:gameId/compute', requireRole('Administrator', 'Statistician'), requireGameAccess('gameId'), async (req, res) => {
   try {
     const { gameId } = req.params;
     const playerRows = await db.prepare('SELECT * FROM player_game_stats WHERE game_id = ?').all(gameId);
