@@ -210,6 +210,13 @@ export const backendApi = {
   // Manager only, enforced server-side.
   getUsers: () => request('/users'),
   updateUser: (userId, data) => request(`/users/${encodeURIComponent(userId)}`, { method: 'PATCH', body: data }),
+  // Additive/subtractive team membership (backend/src/routes/users.js) --
+  // unlike updateUser's teamId field above (which REPLACES a user's
+  // entire team list), these add or remove one membership at a time
+  // without touching any others. What a multi-team Statistician actually
+  // needs to be granted a second team.
+  addUserTeam: (userId, teamId) => request(`/users/${encodeURIComponent(userId)}/teams`, { method: 'POST', body: { teamId } }),
+  removeUserTeam: (userId, teamId) => request(`/users/${encodeURIComponent(userId)}/teams/${encodeURIComponent(teamId)}`, { method: 'DELETE' }),
   // Staff-curated user photo -- same staff-only gating as updateUser
   // above, applies to every role including the uploader's own row. No
   // self-service equivalent exists (profile.jsx never calls this).

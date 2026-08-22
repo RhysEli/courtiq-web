@@ -159,6 +159,97 @@ router.patch('/:userId', requireRole(...STAFF_ROLES), requireSharedTeamWithUser(
   }
 });
 
+// Add a team membership without touching any existing ones -- unlike
+// PATCH /:userId's own teamId field just above, which REPLACES a user's
+// entire team list (delete-then-insert-one, matching users.jsx's
+// single-select "Team" column), this is additive. Flagged back in Step 6
+// as a real gap: a Statistician genuinely covering several teams had no
+// way to be granted a second one without raw SQL -- PATCH /:userId's
+// replace semantics would just swap one team for another, never add.
+// Kept as a separate endpoint rather than reworked into PATCH /:userId
+// itself: that route's teamId field is real, in-use UI (the Team column
+// dropdown) with REPLACE semantics staff already expect from it --
+// changing what selecting a team there does, or overloading the same
+// field with two different meanings, would be a worse outcome than one
+// more small, single-purpose route. Same dual check as PATCH /:userId's
+// destination-team logic: requireSharedTeamWithUser (below) covers the
+// target's current team(s); accessibleTeamIds covers the team being
+// granted.
+router.post('/:userId/teams', requireRole(...STAFF_ROLES), requireSharedTeamWithUser('userId'), async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { teamId } = req.body;
+    if (!teamId) {
+      return res.status(400).json({ error: 'teamId is required' });
+    }
+
+    const team = await db.prepare('SELECT id FROM teams WHERE id = ?').get(teamId);
+    if (!team) {
+      return res.status(400).json({ error: 'teamId does not match a real team' });
+    }
+    if (!(req.user.teamIds || []).includes(teamId)) {
+      return res.status(403).json({ error: 'You do not have access to that team' });
+    }
+
+    const alreadyOnTeam = await db.prepare('SELECT 1 FROM user_teams WHERE user_id = ? AND team_id = ?').get(userId, teamId);
+    if (alreadyOnTeam) {
+      return res.status(409).json({ error: 'This user is already on that team' });
+    }
+
+    await db.prepare('INSERT INTO user_teams (user_id, team_id) VALUES (?, ?) ON CONFLICT DO NOTHING').run(userId, teamId);
+
+    const teams = await db.prepare(`
+      SELECT t.id, t.name FROM user_teams ut JOIN teams t ON t.id = ut.team_id WHERE ut.user_id = ?
+    `).all(userId);
+    res.status(201).json({ userId: Number(userId), teams });
+  } catch (err) {
+    console.error('add user team failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Remove one specific team membership, leaving any others untouched --
+// the symmetric counterpart to POST /:userId/teams above (e.g. revoking
+// access to just one of a Statistician's several teams). Blocked if this
+// would leave the user with zero teams: Step 6 made "every user has at
+// least one team" a real, DB-enforced guarantee (users.team_id NOT NULL)
+// specifically so a teamless user can't exist -- user_teams itself has
+// no such constraint directly, so it's enforced here instead. Keeps the
+// legacy users.team_id column pointed at a real remaining membership if
+// the removed team happened to be the one it referenced -- that column
+// is write-only today (nothing reads it back, confirmed by grep), but
+// leaving it pointing at a team the user is no longer actually on would
+// still be a stale lie sitting in the data for no reason.
+router.delete('/:userId/teams/:teamId', requireRole(...STAFF_ROLES), requireSharedTeamWithUser('userId'), async (req, res) => {
+  try {
+    const { userId, teamId } = req.params;
+
+    const memberships = await db.prepare('SELECT team_id FROM user_teams WHERE user_id = ?').all(userId);
+    if (!memberships.some((m) => m.team_id === teamId)) {
+      return res.status(404).json({ error: 'Membership not found' });
+    }
+    if (memberships.length <= 1) {
+      return res.status(409).json({ error: "Cannot remove a user's only team -- every user must have at least one" });
+    }
+
+    await db.prepare('DELETE FROM user_teams WHERE user_id = ? AND team_id = ?').run(userId, teamId);
+
+    const legacyTeamId = await db.prepare('SELECT team_id FROM users WHERE id = ?').get(userId);
+    if (legacyTeamId.team_id === teamId) {
+      const remaining = await db.prepare('SELECT team_id FROM user_teams WHERE user_id = ? LIMIT 1').get(userId);
+      await db.prepare('UPDATE users SET team_id = ? WHERE id = ?').run(remaining.team_id, userId);
+    }
+
+    const teams = await db.prepare(`
+      SELECT t.id, t.name FROM user_teams ut JOIN teams t ON t.id = ut.team_id WHERE ut.user_id = ?
+    `).all(userId);
+    res.json({ userId: Number(userId), teams });
+  } catch (err) {
+    console.error('remove user team failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Staff-curated user photo -- same STAFF_ROLES gating and same team
 // scoping (requireSharedTeamWithUser) as the role/team PATCH above: a
 // Statistician/Team Manager can only upload a photo for a user they
