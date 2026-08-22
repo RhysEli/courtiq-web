@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth, requireRole, requireGameAccess } = require('../middleware/auth');
+const { resolveGameStageId } = require('../services/resolveGameStage');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -13,7 +14,7 @@ const REPORT_TYPES = [
 
 // Create a game record (Statistician/Team Manager, per proposal's RBAC design — FR-11 gives Team Manager season/competition administration).
 router.post('/', requireRole('Statistician', 'Team Manager'), async (req, res) => {
-  const { seasonId, competitionId, homeTeamId, gameDate, venue } = req.body;
+  const { seasonId, competitionId, homeTeamId, gameDate, venue, stageId } = req.body;
   // Accept either field name: opponentTeamName (typed freely on the Games
   // page) or the older opponentTeamId (still sent by
   // src/services/realAnalysisBridge.js, used by the Analysis Import tab's
@@ -40,13 +41,24 @@ router.post('/', requireRole('Statistician', 'Team Manager'), async (req, res) =
     return res.status(403).json({ error: 'You do not have access to either team in this game' });
   }
 
+  // See services/resolveGameStage.js for why this needs more than a
+  // straight "does this id exist" check -- a stage belongs to one of the
+  // caller's OWN teams' competition-season memberships, not just any real
+  // stage in the system.
+  const stageResolution = await resolveGameStageId({
+    teamIds: accessibleTeamIds, homeTeamId, opponentTeamId, seasonId, competitionId, stageId,
+  });
+  if (!stageResolution.ok) {
+    return res.status(400).json({ error: stageResolution.error });
+  }
+
   await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(opponentTeamId, opponentTeamId);
 
   const result = await db.prepare(`
-    INSERT INTO games (season_id, competition_id, home_team_id, opponent_team_id, game_date, venue, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO games (season_id, competition_id, home_team_id, opponent_team_id, game_date, venue, created_by, stage_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING id
-  `).run(seasonId || null, competitionId || null, homeTeamId, opponentTeamId, gameDate, venue || null, req.user.id);
+  `).run(seasonId || null, competitionId || null, homeTeamId, opponentTeamId, gameDate, venue || null, req.user.id, stageResolution.stageId);
 
   res.status(201).json(await getGameWithReportStatus(result.lastInsertRowid));
 });

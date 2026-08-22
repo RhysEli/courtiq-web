@@ -17,6 +17,7 @@ const { extractScoreSheet } = require('../services/parseScoreSheet');
 const { persistAdditionalReports } = require('../services/persistExtractedReports');
 const { logAction } = require('../services/auditLog');
 const { resolvePlayerName } = require('../services/playerIdentity');
+const { resolveGameStageId } = require('../services/resolveGameStage');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -68,7 +69,7 @@ router.post(
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'At least one PDF file is required (field name: files)' });
     }
-    const { seasonId, competitionId } = req.body;
+    const { seasonId, competitionId, stageId } = req.body;
 
     const results = [];
 
@@ -151,6 +152,23 @@ router.post(
           await db.prepare('INSERT INTO seasons (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(seasonId, seasonId);
         }
 
+        // Same batch-level stageId (one selection covers every file in
+        // this upload) resolved per-file, same reasoning as the
+        // Team Manager fallback check above -- homeTeamId/awayTeamId
+        // differ per file, so which of the caller's own teams is
+        // "playing" (and therefore whose stages apply) can too. See
+        // services/resolveGameStage.js.
+        const stageResolution = await resolveGameStageId({
+          teamIds: accessibleTeamIds, homeTeamId, opponentTeamId: awayTeamId, seasonId, competitionId, stageId,
+        });
+        if (!stageResolution.ok) {
+          entry.status = 'failed';
+          entry.error = stageResolution.error;
+          results.push(entry);
+          await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} (${stageResolution.error})`, false);
+          continue;
+        }
+
         // Date-tolerant match: a game manually entered on the Games page and
         // the same game's PDF uploaded later via Bulk Import can disagree by
         // a day (e.g. a typo, or a tip-off past midnight) without actually
@@ -180,27 +198,27 @@ router.post(
         let created = false;
         if (!game) {
           const insertGame = await db.prepare(`
-            INSERT INTO games (season_id, competition_id, home_team_id, opponent_team_id, game_date, created_by, status)
-            VALUES (?, ?, ?, ?, ?, ?, 'extracted')
+            INSERT INTO games (season_id, competition_id, home_team_id, opponent_team_id, game_date, created_by, status, stage_id)
+            VALUES (?, ?, ?, ?, ?, ?, 'extracted', ?)
             RETURNING id
-          `).run(seasonId || null, competitionId || null, homeTeamId, awayTeamId, gameInfo.matchDate, req.user.id);
+          `).run(seasonId || null, competitionId || null, homeTeamId, awayTeamId, gameInfo.matchDate, req.user.id, stageResolution.stageId);
           game = await db.prepare('SELECT * FROM games WHERE id = ?').get(insertGame.lastInsertRowid);
           created = true;
-        } else if (seasonId || competitionId) {
+        } else if (seasonId || competitionId || stageResolution.stageId) {
           // Matched an existing game -- previously this branch never
           // touched season_id/competition_id at all, even when the
           // request carried them (confirmed live: re-importing into an
           // existing game with both selected left them null). Fills gaps
           // only (COALESCE), same philosophy as player identity's
           // "linked" case -- a re-import that happens to carry a season/
-          // competition selection shouldn't silently overwrite a tag the
-          // game already has, possibly set deliberately by staff through
-          // games.jsx or an earlier import.
+          // competition/stage selection shouldn't silently overwrite a tag
+          // the game already has, possibly set deliberately by staff
+          // through games.jsx or an earlier import.
           game = await db.prepare(`
-            UPDATE games SET season_id = COALESCE(season_id, ?), competition_id = COALESCE(competition_id, ?)
+            UPDATE games SET season_id = COALESCE(season_id, ?), competition_id = COALESCE(competition_id, ?), stage_id = COALESCE(stage_id, ?)
             WHERE id = ?
             RETURNING *
-          `).get(seasonId || null, competitionId || null, game.id);
+          `).get(seasonId || null, competitionId || null, stageResolution.stageId, game.id);
         }
 
         const insertReport = await db.prepare(`

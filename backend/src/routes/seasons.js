@@ -56,6 +56,41 @@ router.post('/', requireRole('Statistician'), async (req, res) => {
   }
 });
 
+// Toggle a season's active flag -- closes a real gap: `active` could
+// previously only ever be set once, at creation (the checkbox above),
+// with no route to flip it afterward. This is the whole schema "season
+// conclusion" needs: `active` is already the right column (confirmed
+// nothing else in the app reads it as anything but a display Chip --
+// no query anywhere filters games/season-stats/dropdowns by it), so
+// marking a season concluded just means flipping this to false whenever
+// staff decide the season's actually done; no new column, no new
+// concept. Same gate as POST/DELETE above -- this is the same one-time,
+// high-level administrative decision as creating or removing a season,
+// not the ongoing day-to-day work stage tagging is (see stages.js).
+router.patch('/:id', requireRole('Statistician'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { active } = req.body;
+    if (typeof active !== 'boolean') {
+      return res.status(400).json({ error: 'active (boolean) is required' });
+    }
+
+    const existing = await db.prepare('SELECT id FROM seasons WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Season not found' });
+    }
+
+    const season = await db.prepare(
+      'UPDATE seasons SET active = ? WHERE id = ? RETURNING id, name, active',
+    ).get(active ? 1 : 0, id);
+
+    res.json(season);
+  } catch (err) {
+    console.error('update season failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Remove a season -- blocked if any real game still references it, so a
 // delete can never silently orphan or cascade-wipe real game records.
 router.delete('/:id', requireRole('Statistician'), async (req, res) => {
