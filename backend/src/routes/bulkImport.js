@@ -186,6 +186,21 @@ router.post(
           `).run(seasonId || null, competitionId || null, homeTeamId, awayTeamId, gameInfo.matchDate, req.user.id);
           game = await db.prepare('SELECT * FROM games WHERE id = ?').get(insertGame.lastInsertRowid);
           created = true;
+        } else if (seasonId || competitionId) {
+          // Matched an existing game -- previously this branch never
+          // touched season_id/competition_id at all, even when the
+          // request carried them (confirmed live: re-importing into an
+          // existing game with both selected left them null). Fills gaps
+          // only (COALESCE), same philosophy as player identity's
+          // "linked" case -- a re-import that happens to carry a season/
+          // competition selection shouldn't silently overwrite a tag the
+          // game already has, possibly set deliberately by staff through
+          // games.jsx or an earlier import.
+          game = await db.prepare(`
+            UPDATE games SET season_id = COALESCE(season_id, ?), competition_id = COALESCE(competition_id, ?)
+            WHERE id = ?
+            RETURNING *
+          `).get(seasonId || null, competitionId || null, game.id);
         }
 
         const insertReport = await db.prepare(`
