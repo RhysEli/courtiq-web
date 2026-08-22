@@ -200,6 +200,13 @@ export const backendApi = {
   getCompetitionPresets: () => request('/competitions/presets'),
   createCompetition: (data) => request('/competitions', { method: 'POST', body: data }),
   deleteCompetition: (id) => request(`/competitions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  // Real institution CRUD (backend/src/routes/institutions.js). An
+  // institution's team list is deliberately not fetched here -- it's
+  // derived by filtering the existing getTeams() response on
+  // institution_id, not a separate stored/editable list.
+  getInstitutions: () => request('/institutions'),
+  createInstitution: (data) => request('/institutions', { method: 'POST', body: data }),
+  deleteInstitution: (id) => request(`/institutions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   // FR-14: real audit trail of upload/compute/narrative actions (backend/src/routes/auditLog.js).
   getAuditLog: () => request('/audit-log'),
   // Visual overhaul step 2: self-service personal preference (backend/src/routes/users.js). No role gate -- scoped to the caller's own row.

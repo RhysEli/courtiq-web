@@ -1,6 +1,5 @@
 const LEAGUE_STORAGE_KEY = 'courtiq-leagues';
 const SEASON_STORAGE_KEY = 'courtiq-seasons';
-const INSTITUTION_STORAGE_KEY = 'courtiq-institutions';
 const TEAM_STORAGE_KEY = 'courtiq-teams';
 const PLAYER_STORAGE_KEY = 'courtiq-players';
 
@@ -37,25 +36,6 @@ function writeStorage(key, value) {
   }
 
   storage.setItem(key, JSON.stringify(value));
-}
-
-export function getInstitutions() {
-  return readStorage(INSTITUTION_STORAGE_KEY, []);
-}
-
-export function createInstitution(data) {
-  const institutions = getInstitutions();
-  const institution = {
-    id: data.id || `institution-${Date.now()}`,
-    name: data.name,
-    location: data.location || '',
-    teams: data.teams || [],
-    createdAt: new Date().toISOString(),
-  };
-
-  institutions.push(institution);
-  writeStorage(INSTITUTION_STORAGE_KEY, institutions);
-  return institution;
 }
 
 export function getTeams() {

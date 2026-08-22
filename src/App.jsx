@@ -33,10 +33,6 @@ import AuditLog from './pages/audit-log';
 import TeamBrandSettings from './pages/team-brand-settings';
 import { isRouteAllowed } from './auth/roleAccess';
 
-const initialInstitutions = [
-  { id: 'usiu', name: 'USIU', location: 'Nairobi, Kenya', teams: ['USIU Tigers (Men)', 'USIU Flames (Women)'] },
-];
-
 const initialSeasons = [
   { id: '2025/26', name: '2025/26', active: false },
   { id: '2026/27', name: '2026/27', active: true },
@@ -77,7 +73,6 @@ function AppRoutes() {
   const [selectedLeague, setSelectedLeague] = useState('Nairobi Basketball League');
   const [selectedSeason, setSelectedSeason] = useState('2026/27');
   const [selectedGame, setSelectedGame] = useState('all');
-  const [institutions, setInstitutions] = useState(initialInstitutions);
   const [seasons, setSeasons] = useState(initialSeasons);
   const [reports, setReports] = useState(initialReports);
   const { role, currentUser, logout } = useAuth();
@@ -127,7 +122,7 @@ function AppRoutes() {
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/dashboard" element={<ProtectedRoute allowedPath="/dashboard"><Dashboard {...sharedProps} /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute allowedPath="/profile"><Profile {...sharedProps} /></ProtectedRoute>} />
-        <Route path="/teams" element={<ProtectedRoute allowedPath="/teams"><Teams {...sharedProps} institutions={institutions} setInstitutions={setInstitutions} /></ProtectedRoute>} />
+        <Route path="/teams" element={<ProtectedRoute allowedPath="/teams"><Teams {...sharedProps} /></ProtectedRoute>} />
         <Route path="/players" element={<ProtectedRoute allowedPath="/players"><Players {...sharedProps} /></ProtectedRoute>} />
         <Route path="/games" element={<ProtectedRoute allowedPath="/games"><Games {...sharedProps} reports={reports} /></ProtectedRoute>} />
         <Route path="/statistics" element={<ProtectedRoute allowedPath="/statistics"><Statistics {...sharedProps} selectedGame={selectedGame} onGameChange={setSelectedGame} /></ProtectedRoute>} />
@@ -138,7 +133,7 @@ function AppRoutes() {
         <Route path="/opponent-analysis" element={<ProtectedRoute allowedPath="/opponent-analysis"><OpponentAnalysis {...sharedProps} /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute allowedPath="/settings"><Settings {...sharedProps} /></ProtectedRoute>} />
         <Route path="/team-brand-settings" element={<ProtectedRoute allowedPath="/team-brand-settings"><TeamBrandSettings {...sharedProps} /></ProtectedRoute>} />
-        <Route path="/institutions" element={<ProtectedRoute allowedPath="/institutions"><Institutions {...sharedProps} institutions={institutions} setInstitutions={setInstitutions} /></ProtectedRoute>} />
+        <Route path="/institutions" element={<ProtectedRoute allowedPath="/institutions"><Institutions {...sharedProps} /></ProtectedRoute>} />
         <Route path="/competitions" element={<ProtectedRoute allowedPath="/competitions"><Competitions {...sharedProps} /></ProtectedRoute>} />
         <Route path="/seasons" element={<ProtectedRoute allowedPath="/seasons"><Seasons {...sharedProps} seasons={seasons} setSeasons={setSeasons} /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute allowedPath="/reports"><Reports {...sharedProps} reports={reports} setReports={setReports} /></ProtectedRoute>} />
