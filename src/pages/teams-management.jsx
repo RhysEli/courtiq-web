@@ -1,5 +1,5 @@
 import {
-  Alert, Box, Button, Card, CardContent, CircularProgress, FormControlLabel, Grid, MenuItem,
+  Alert, Autocomplete, Box, Button, Card, CardContent, CircularProgress, FormControlLabel, Grid, MenuItem,
   Stack, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
@@ -12,15 +12,19 @@ import { backendApi } from '../api/client';
 // version of this page (which wrote to 'courtiq-teams' and was never
 // read by anything real). The old mock form let you "Create team" with
 // Category, Assistant Coach, Physiotherapist, Trainer, League, and
-// Season fields -- none of those have a matching real column, and
-// teams are already correctly created as a side effect of Bulk
-// Import/game creation, so there's no real "create a team" action here.
-// This page is edit-only: pick an existing real team, edit its
-// coach/manager/statistician/colours, save. Dropped fields are noted
-// here rather than inventing schema/endpoints for them.
+// Season fields -- none of those have a matching real column, so those
+// are dropped rather than inventing schema/endpoints for them.
 //
-// Logo editing was removed from here (was a plain "Logo URL" text
-// field writing teams.logo_url directly) once Team Brand
+// Step 9 Round 4: a real "Create team" action now exists (name,
+// institution, gender category -- POST /api/teams), separate from
+// bulkImport.js/games.js's own find-or-create-on-import path, which
+// this page has nothing to do with. The edit form below also gained
+// institution/gender fields, since the general PATCH now accepts them --
+// this is the only UI path to assign an institution to any of the real
+// teams that predate this feature (all null until edited here).
+//
+// Logo editing was removed from the edit form (was a plain "Logo URL"
+// text field writing teams.logo_url directly) once Team Brand
 // (team-brand-settings.jsx) got a real upload control -- two paths to
 // the same column, one validated (staff-curated image upload via
 // Supabase Storage) and one not (paste any string), was worth
@@ -28,7 +32,14 @@ import { backendApi } from '../api/client';
 // lose logo-editing entirely rather than keeping a lesser, unvalidated
 // path here -- they never had a real one to begin with.
 
-const emptyForm = { coachName: '', managerName: '', statisticianName: '', colorPrimary: '', colorSecondary: '' };
+// Quick-select convenience, not a constrained enum -- typing any other
+// value is still fully supported (same freeSolo Autocomplete pattern as
+// competitions-management.jsx's competition name field). Matches the
+// schema.sql comment on teams.gender_category ("Men | Women | Mixed").
+const GENDER_PRESETS = ['Men', 'Women', 'Mixed'];
+
+const emptyForm = { coachName: '', managerName: '', statisticianName: '', colorPrimary: '', colorSecondary: '', institutionId: '', genderCategory: '' };
+const emptyCreateForm = { name: '', institutionId: '', genderCategory: '' };
 
 function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const [teams, setTeams] = useState([]);
@@ -36,10 +47,17 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
   const [teamsError, setTeamsError] = useState('');
   const [teamId, setTeamId] = useState('');
 
+  const [institutions, setInstitutions] = useState([]);
+
   const [form, setForm] = useState(emptyForm);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+
+  const [createForm, setCreateForm] = useState(emptyCreateForm);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [createNotice, setCreateNotice] = useState('');
 
   const loadTeams = () => {
     setTeamsLoading(true);
@@ -55,6 +73,7 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
 
   useEffect(() => {
     loadTeams().then((data) => setTeamId(data[0]?.id || ''));
+    backendApi.getInstitutions().then(setInstitutions).catch(() => setInstitutions([]));
   }, []);
 
   // Populate the edit form from whichever team is currently selected.
@@ -66,6 +85,8 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
       statisticianName: team.statistician_name || '',
       colorPrimary: team.color_primary || '',
       colorSecondary: team.color_secondary || '',
+      institutionId: team.institution_id || '',
+      genderCategory: team.gender_category || '',
     } : emptyForm);
   }, [teamId, teams]);
 
@@ -74,12 +95,42 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
     setSaving(true);
     setSaveError('');
     try {
-      await backendApi.updateTeam(teamId, form);
+      // Empty string (the "No institution" option / a cleared gender
+      // field) means "unassign", not "keep whatever it was" -- sent as
+      // an explicit null so the backend's partial-update default
+      // (omitted key keeps the existing value) doesn't kick in.
+      await backendApi.updateTeam(teamId, {
+        ...form,
+        institutionId: form.institutionId || null,
+        genderCategory: form.genderCategory || null,
+      });
       await loadTeams();
     } catch (err) {
       setSaveError(err.message || 'Could not save team.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const createTeam = async () => {
+    if (!createForm.name.trim()) return;
+    setCreating(true);
+    setCreateError('');
+    setCreateNotice('');
+    try {
+      const team = await backendApi.createTeam({
+        name: createForm.name.trim(),
+        institutionId: createForm.institutionId || null,
+        genderCategory: createForm.genderCategory || null,
+      });
+      setCreateForm(emptyCreateForm);
+      setCreateNotice(`Created ${team.name}`);
+      await loadTeams();
+      setTeamId(team.id);
+    } catch (err) {
+      setCreateError(err.message || 'Could not create team.');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -90,9 +141,49 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Card>
           <CardContent>
+            <Typography variant="h5" fontWeight={700}>Create team</Typography>
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              Manually pre-register a team. Bulk Import/game creation still auto-create opponent teams on their own -- this is a separate, additional way to add one.
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth label="Team name" value={createForm.name}
+                  onChange={(event) => setCreateForm((prev) => ({ ...prev, name: event.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth select label="Institution" value={createForm.institutionId}
+                  onChange={(event) => setCreateForm((prev) => ({ ...prev, institutionId: event.target.value }))}
+                >
+                  <MenuItem value="">No institution</MenuItem>
+                  {institutions.map((i) => <MenuItem key={i.id} value={i.id}>{i.name}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Autocomplete
+                  freeSolo
+                  options={GENDER_PRESETS}
+                  inputValue={createForm.genderCategory}
+                  onInputChange={(event, value) => setCreateForm((prev) => ({ ...prev, genderCategory: value }))}
+                  renderInput={(params) => <TextField {...params} fullWidth label="Gender category" />}
+                />
+              </Grid>
+            </Grid>
+            {createError && <Alert severity="error" sx={{ mt: 2 }}>{createError}</Alert>}
+            {createNotice && <Alert severity="success" sx={{ mt: 2 }}>{createNotice}</Alert>}
+            <Button variant="contained" sx={{ mt: 2 }} onClick={createTeam} disabled={creating || !createForm.name.trim()}>
+              {creating ? 'Creating…' : 'Create team'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
             <Typography variant="h5" fontWeight={700}>Team management</Typography>
             <Typography color="text.secondary" sx={{ mb: 2 }}>
-              Configure an existing team. Teams themselves are created automatically from Bulk Import/game data, not here.
+              Configure an existing team.
             </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
@@ -113,6 +204,24 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
                   <Grid item xs={12} md={6}><TextField fullWidth label="Coach" value={form.coachName} onChange={(event) => setForm((prev) => ({ ...prev, coachName: event.target.value }))} /></Grid>
                   <Grid item xs={12} md={6}><TextField fullWidth label="Team Manager" value={form.managerName} onChange={(event) => setForm((prev) => ({ ...prev, managerName: event.target.value }))} /></Grid>
                   <Grid item xs={12} md={6}><TextField fullWidth label="Statistician" value={form.statisticianName} onChange={(event) => setForm((prev) => ({ ...prev, statisticianName: event.target.value }))} /></Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth select label="Institution" value={form.institutionId}
+                      onChange={(event) => setForm((prev) => ({ ...prev, institutionId: event.target.value }))}
+                    >
+                      <MenuItem value="">No institution</MenuItem>
+                      {institutions.map((i) => <MenuItem key={i.id} value={i.id}>{i.name}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Autocomplete
+                      freeSolo
+                      options={GENDER_PRESETS}
+                      inputValue={form.genderCategory}
+                      onInputChange={(event, value) => setForm((prev) => ({ ...prev, genderCategory: value }))}
+                      renderInput={(params) => <TextField {...params} fullWidth label="Gender category" />}
+                    />
+                  </Grid>
                   <Grid item xs={12}>
                     <ColorField label="Primary Colour" value={form.colorPrimary} onChange={(hex) => setForm((prev) => ({ ...prev, colorPrimary: hex }))} />
                     <ColorField label="Secondary Colour" value={form.colorSecondary} onChange={(hex) => setForm((prev) => ({ ...prev, colorSecondary: hex }))} />
@@ -151,6 +260,8 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
                 <TableHead>
                   <TableRow>
                     <TableCell>Name</TableCell>
+                    <TableCell>Institution</TableCell>
+                    <TableCell>Gender</TableCell>
                     <TableCell>Coach</TableCell>
                     <TableCell>Team Manager</TableCell>
                     <TableCell>Statistician</TableCell>
@@ -160,13 +271,15 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
                   {teams.map((team) => (
                     <TableRow key={team.id}>
                       <TableCell>{team.name}</TableCell>
+                      <TableCell>{institutions.find((i) => i.id === team.institution_id)?.name || '—'}</TableCell>
+                      <TableCell>{team.gender_category || '—'}</TableCell>
                       <TableCell>{team.coach_name || '—'}</TableCell>
                       <TableCell>{team.manager_name || '—'}</TableCell>
                       <TableCell>{team.statistician_name || '—'}</TableCell>
                     </TableRow>
                   ))}
                   {teams.length === 0 && (
-                    <TableRow><TableCell colSpan={4}>No teams yet.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6}>No teams yet.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
