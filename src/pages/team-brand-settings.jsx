@@ -7,6 +7,7 @@ import { backendApi } from '../api/client';
 import { applyTheme, getCurrentBrand } from '../theme/applyTheme';
 import { persistBrandColors, loadPersistedBrandColors } from '../theme/brandColors';
 import { loadPersistedUserPreference } from '../theme/userPreference';
+import { useAuth } from '../contexts/AuthContext';
 
 // Visual overhaul step 2: Team Manager-only screen for the REAL team brand
 // colors added in step 1 (backend/src/routes/teams.js's PATCH
@@ -29,7 +30,8 @@ import { loadPersistedUserPreference } from '../theme/userPreference';
 // shows as its own current-color preview with no swatch highlighted --
 // still displayed honestly, not hidden or coerced onto the nearest name.
 
-function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
+function TeamBrandSettings({ role, selectedSeason, logout, currentUser }) {
+  const { activeTeam: sessionActiveTeam } = useAuth();
   const [teams, setTeams] = useState([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [teamsError, setTeamsError] = useState('');
@@ -60,10 +62,11 @@ function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, l
       .finally(() => setTeamsLoading(false));
   }, []);
 
-  // Matched by currentUser.teamId -- a real, stable id, not a name string.
+  // Matched by the session's active team (Step 9 Phase 2/3) -- a real,
+  // stable id, not a name string.
   const activeTeam = useMemo(
-    () => teams.find((t) => t.id === currentUser?.teamId),
-    [teams, currentUser],
+    () => teams.find((t) => t.id === sessionActiveTeam?.id),
+    [teams, sessionActiveTeam],
   );
 
   useEffect(() => {
@@ -131,14 +134,14 @@ function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, l
 
   if (teamsLoading) {
     return (
-      <Layout selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout} currentUser={currentUser}>
+      <Layout role={role} selectedSeason={selectedSeason} logout={logout} currentUser={currentUser}>
         <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress /></Stack>
       </Layout>
     );
   }
 
   return (
-    <Layout selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout} currentUser={currentUser}>
+    <Layout role={role} selectedSeason={selectedSeason} logout={logout} currentUser={currentUser}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 760 }}>
         <Box>
           <Typography variant="h4" fontWeight={700}>Team brand</Typography>
@@ -195,7 +198,7 @@ function TeamBrandSettings({ selectedTeam, onTeamChange, role, selectedSeason, l
           </Card>
         ) : (
           <Alert severity="error">
-            Could not find your team ({currentUser?.team || 'unknown'}) in the team list.
+            Could not find your team ({sessionActiveTeam?.name || 'unknown'}) in the team list.
           </Alert>
         )}
       </Box>

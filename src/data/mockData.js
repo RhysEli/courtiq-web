@@ -1,14 +1,3 @@
-// Only USIU Tigers Men is real/in-scope for the current demo. The other
-// entries that used to live here (Women, Division One, Premier League)
-// were pure placeholder noise -- nothing else in the app ever referenced
-// their values, they just showed up as selectable options with no real
-// data behind them. Real multi-team switching (backed by the actual
-// teams table, respecting per-user access) is a separate, larger task --
-// see the "auth unification" note in src/api/client.js.
-export const teamOptions = [
-  { value: 'usiu-men', label: 'USIU Tigers Men' },
-];
-
 export const mockUsers = [
   { id: 'manager-1', name: 'Asha Wanjiru', email: 'manager@courtiq.com', password: 'demo123', role: 'Team Manager' },
   { id: 'statistician-1', name: 'Rhys Cole', email: 'statistician@courtiq.com', password: 'demo123', role: 'Statistician' },

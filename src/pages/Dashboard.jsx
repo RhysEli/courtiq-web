@@ -11,10 +11,16 @@ import {
   TeamManagerDashboard,
 } from '../components/dashboards/RoleDashboards';
 
-export default function Dashboard({ selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
-  const { currentUser: authUser } = useAuth();
+export default function Dashboard({ role, selectedSeason, logout, currentUser }) {
+  const { currentUser: authUser, activeTeam } = useAuth();
   const user = currentUser || authUser;
-  const data = getTeamData(selectedTeam);
+  // getTeamData is still the old 4-key mock lookup (Step 9 investigation) --
+  // switching its key from the disconnected mock selectedTeam to the real
+  // active team id is consistent with the rest of this sweep, but the
+  // underlying data stays mock either way since real team ids essentially
+  // never match the mock's hardcoded keys; it falls back to the 'usiu-men'
+  // entry same as before.
+  const data = getTeamData(activeTeam?.id);
   const [matches, setMatches] = useState([]);
   const [analysisEntries, setAnalysisEntries] = useState([]);
   const [reports, setReports] = useState([]);
@@ -51,8 +57,6 @@ export default function Dashboard({ selectedTeam, onTeamChange, role, selectedSe
 
   return (
     <Layout
-      selectedTeam={selectedTeam}
-      onTeamChange={onTeamChange}
       role={role}
       selectedSeason={selectedSeason}
       logout={logout}

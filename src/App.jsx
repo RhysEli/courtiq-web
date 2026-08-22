@@ -73,7 +73,6 @@ function ThemedApp() {
 }
 
 function AppRoutes() {
-  const [selectedTeam, setSelectedTeam] = useState('usiu-men');
   const [selectedInstitution, setSelectedInstitution] = useState('usiu');
   const [selectedLeague, setSelectedLeague] = useState('Nairobi Basketball League');
   const [selectedSeason, setSelectedSeason] = useState('2026/27');
@@ -84,8 +83,6 @@ function AppRoutes() {
   const { role, currentUser, logout } = useAuth();
 
   useEffect(() => {
-    const savedTeam = window.localStorage.getItem('courtiq-team');
-    if (savedTeam) setSelectedTeam(savedTeam);
     const savedInstitution = window.localStorage.getItem('courtiq-institution');
     if (savedInstitution) setSelectedInstitution(savedInstitution);
     const savedLeague = window.localStorage.getItem('courtiq-league');
@@ -97,10 +94,6 @@ function AppRoutes() {
   useEffect(() => {
     window.localStorage.setItem('courtiq-reports', JSON.stringify(reports));
   }, [reports]);
-
-  useEffect(() => {
-    window.localStorage.setItem('courtiq-team', selectedTeam);
-  }, [selectedTeam]);
 
   useEffect(() => {
     window.localStorage.setItem('courtiq-institution', selectedInstitution);
@@ -115,8 +108,6 @@ function AppRoutes() {
   }, [selectedSeason]);
 
   const sharedProps = {
-    selectedTeam,
-    onTeamChange: setSelectedTeam,
     selectedInstitution,
     onInstitutionChange: setSelectedInstitution,
     selectedLeague,

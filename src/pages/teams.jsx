@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/layout';
 import ColorField from '../components/ColorField';
 import { backendApi } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 // FR-11: real team data against the backend `teams` table
 // (backend/src/routes/teams.js), replacing the old localStorage-only
@@ -17,7 +18,8 @@ import { backendApi } from '../api/client';
 
 const emptyForm = { coachName: '', managerName: '', statisticianName: '', colorPrimary: '', colorSecondary: '', logoUrl: '' };
 
-function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
+function Teams({ mode, toggleTheme, role, selectedSeason, logout }) {
+  const { activeTeam: sessionActiveTeam } = useAuth();
   const [teams, setTeams] = useState([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [teamsError, setTeamsError] = useState('');
@@ -47,19 +49,14 @@ function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Matched by currentUser.teamId -- a real, stable id, not a name
-  // string. Matching on the display name (currentUser.team vs t.name)
-  // broke silently the moment the two disagreed on formatting (a stale
-  // cached session's "USIU Tigers Men" vs the real team's actual name
-  // "USIU Tigers (Men)") -- exact-string matching is still just as
-  // fragile as fuzzy matching once the two sides can drift, it just
-  // fails differently. Never a fallback to teams[0] (the alphabetically-
-  // first team in the whole system's unscoped list, which this account
-  // may have no relationship to at all). No match means no team is
-  // shown, not a wrong one.
+  // Matched by the session's active team (Step 9 Phase 2/3) -- a real,
+  // stable id, not a name string. Never a fallback to teams[0] (the
+  // alphabetically-first team in the whole system's unscoped list, which
+  // this account may have no relationship to at all). No match means no
+  // team is shown, not a wrong one.
   const activeTeam = useMemo(
-    () => teams.find((t) => t.id === currentUser?.teamId),
-    [teams, currentUser],
+    () => teams.find((t) => t.id === sessionActiveTeam?.id),
+    [teams, sessionActiveTeam],
   );
 
   // Populate the edit form from whichever team is currently active.
@@ -99,18 +96,18 @@ function Teams({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
 
   if (teamsLoading) {
     return (
-      <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
+      <Layout mode={mode} toggleTheme={toggleTheme} role={role} selectedSeason={selectedSeason} logout={logout}>
         <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress /></Stack>
       </Layout>
     );
   }
 
   return (
-    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
+    <Layout mode={mode} toggleTheme={toggleTheme} role={role} selectedSeason={selectedSeason} logout={logout}>
       {teamsError && <Alert severity="error" sx={{ mb: 2 }}>{teamsError}</Alert>}
       {!teamsError && !activeTeam && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Could not find your team ({currentUser?.team || 'unknown'}) in the team list.
+          Could not find your team ({sessionActiveTeam?.name || 'unknown'}) in the team list.
         </Alert>
       )}
       <Grid container spacing={3}>

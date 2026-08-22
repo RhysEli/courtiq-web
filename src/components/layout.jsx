@@ -4,7 +4,7 @@ import Sidebar from './sidebar';
 import Topbar from './topbar';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function Layout({ children, selectedTeam, onTeamChange, role, selectedInstitution, selectedLeague, selectedSeason, logout }) {
+export default function Layout({ children, role, selectedInstitution, selectedLeague, selectedSeason, logout }) {
   const { currentUser } = useAuth();
 
   return (
@@ -27,8 +27,6 @@ export default function Layout({ children, selectedTeam, onTeamChange, role, sel
         }}
       >
         <Topbar
-          selectedTeam={selectedTeam}
-          onTeamChange={onTeamChange}
           role={role}
           selectedInstitution={selectedInstitution}
           selectedLeague={selectedLeague}

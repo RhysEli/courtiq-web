@@ -6,6 +6,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/layout';
 import { backendApi } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 // FR-08: "The system shall maintain a longitudinal player profile
 // displaying per-season and career-cumulative statistics for each
@@ -25,12 +26,8 @@ import { backendApi } from '../api/client';
 // data model yet. Two different real players with an identical extracted
 // name on the same team would incorrectly merge into one profile.
 
-// Loosely matches a real team name against a display string, ignoring
-// punctuation/casing differences (e.g. "USIU Tigers Men" vs the real
-// "USIU TIGERS" or "USIU Tigers (Men)").
-const normalizeTeamName = (name) => String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-
-function PlayerDevelopment({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
+function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, currentUser }) {
+  const { activeTeam } = useAuth();
   const [teams, setTeams] = useState([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [teamsError, setTeamsError] = useState('');
@@ -56,15 +53,20 @@ function PlayerDevelopment({ mode, toggleTheme, selectedTeam, onTeamChange, role
       .then((data) => {
         if (cancelled) return;
         setTeams(data);
-        const matchSource = isAthlete ? currentUser?.team : selectedTeam;
-        const guess = data.find((t) => normalizeTeamName(t.name).includes(normalizeTeamName(matchSource)));
+        // Matched by the session's active team (Step 9 Phase 3) -- a real,
+        // stable id, replacing the old fuzzy name-match against the mock
+        // selectedTeam value, which rarely matched a real team name at
+        // all and silently fell back to data[0] almost every time.
+        const guess = data.find((t) => t.id === activeTeam?.id);
         setTeamId(guess?.id || data[0]?.id || '');
       })
       .catch((err) => { if (!cancelled) setTeamsError(err.message || 'Could not load teams.'); })
       .finally(() => { if (!cancelled) setTeamsLoading(false); });
     return () => { cancelled = true; };
+    // Re-runs on active-team switch so this page re-scopes to the newly
+    // active team rather than staying stuck on the old one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeTeam?.id]);
 
   // Player picker is populated from the same season-stats endpoint
   // Statistics already uses -- its `players` array is exactly "every
@@ -116,7 +118,7 @@ function PlayerDevelopment({ mode, toggleTheme, selectedTeam, onTeamChange, role
   })), [seasons]);
 
   return (
-    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
+    <Layout mode={mode} toggleTheme={toggleTheme} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Card>
           <CardContent>

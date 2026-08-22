@@ -2,6 +2,7 @@ import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Grid, Me
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/layout';
 import { backendApi } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 // FR-11: real roster data against the backend `players` table
 // (backend/src/routes/players.js), replacing the old localStorage-only
@@ -12,7 +13,8 @@ import { backendApi } from '../api/client';
 // data's invented fields (height, weight, status, medical notes, etc.),
 // none of which have anywhere real to be stored.
 
-function Players({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
+function Players({ mode, toggleTheme, role, selectedSeason, logout }) {
+  const { activeTeam } = useAuth();
   const [teams, setTeams] = useState([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [teamsError, setTeamsError] = useState('');
@@ -37,28 +39,25 @@ function Players({ mode, toggleTheme, selectedTeam, onTeamChange, role, selected
       .then((data) => {
         if (cancelled) return;
         setTeams(data);
-        // Matched by currentUser.teamId -- a real, stable id, not a name
-        // string. Matching on the display name (currentUser.team vs
-        // t.name) broke silently the moment the two disagreed on
-        // formatting (a stale cached session's "USIU Tigers Men" vs the
-        // real team's actual name "USIU Tigers (Men)") -- exact-string
-        // matching is still just as fragile as fuzzy matching once the
-        // two sides can drift, it just fails differently. No match
-        // leaves teamId empty (the Team dropdown below still lets them
-        // pick one manually) rather than silently loading the wrong
-        // team's real roster.
-        const myTeam = data.find((t) => t.id === currentUser?.teamId);
+        // Matched by the session's active team (Step 9 Phase 2/3) -- a
+        // real, stable id, not a name string. No match leaves teamId
+        // empty (the Team dropdown below still lets them pick one
+        // manually) rather than silently loading the wrong team's real
+        // roster.
+        const myTeam = data.find((t) => t.id === activeTeam?.id);
         if (myTeam) {
           setTeamId(myTeam.id);
         } else {
-          setTeamsError(`Could not find your team (${currentUser?.team || 'unknown'}) in the team list.`);
+          setTeamsError(`Could not find your team (${activeTeam?.name || 'unknown'}) in the team list.`);
         }
       })
       .catch((err) => { if (!cancelled) setTeamsError(err.message || 'Could not load teams.'); })
       .finally(() => { if (!cancelled) setTeamsLoading(false); });
     return () => { cancelled = true; };
+    // Re-runs on active-team switch (Step 9 Phase 3) so this page re-scopes
+    // to the newly active team rather than staying stuck on the old one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeTeam?.id]);
 
   const loadRoster = (id) => {
     if (!id) return;
@@ -111,7 +110,7 @@ function Players({ mode, toggleTheme, selectedTeam, onTeamChange, role, selected
   };
 
   return (
-    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
+    <Layout mode={mode} toggleTheme={toggleTheme} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>

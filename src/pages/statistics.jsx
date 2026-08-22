@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import Layout from '../components/layout';
 import { backendApi } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 // REBUILT to use real data (FR-06 Season Dashboard). The previous version
 // read from src/data/mockData.js -- fabricated players, a hardcoded 58/42
@@ -28,12 +29,8 @@ const emptyStats = {
   fgPct: 0, threePct: 0, ftPct: 0,
 };
 
-// Loosely matches a real team name against a display string, ignoring
-// punctuation/casing differences (e.g. "USIU Tigers Men" vs the real
-// "USIU TIGERS" or "USIU Tigers (Men)").
-const normalizeTeamName = (name) => String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-
-function Statistics({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
+function Statistics({ mode, toggleTheme, role, selectedSeason, logout }) {
+  const { activeTeam } = useAuth();
   const [teams, setTeams] = useState([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [teamsError, setTeamsError] = useState('');
@@ -55,20 +52,20 @@ function Statistics({ mode, toggleTheme, selectedTeam, onTeamChange, role, selec
       .then((data) => {
         if (cancelled) return;
         setTeams(data);
-        // Best-effort default: match by name if possible, otherwise just
-        // pick the first real team. For an Athlete, match against their
-        // own account's team; for everyone else, the app-wide selectedTeam.
-        // Neither is a hard link to a real team id, so this stays a
-        // convenience default, not a guaranteed match.
-        const matchSource = isAthlete ? currentUser?.team : selectedTeam;
-        const guess = data.find((t) => normalizeTeamName(t.name).includes(normalizeTeamName(matchSource)));
+        // Matched by the session's active team (Step 9 Phase 3) -- a real,
+        // stable id, replacing the old fuzzy name-match against the mock
+        // selectedTeam value, which rarely matched a real team name at
+        // all and silently fell back to data[0] almost every time.
+        const guess = data.find((t) => t.id === activeTeam?.id);
         setTeamId(guess?.id || data[0]?.id || '');
       })
       .catch((err) => { if (!cancelled) setTeamsError(err.message || 'Could not load teams.'); })
       .finally(() => { if (!cancelled) setTeamsLoading(false); });
     return () => { cancelled = true; };
+    // Re-runs on active-team switch so this page re-scopes to the newly
+    // active team rather than staying stuck on the old one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeTeam?.id]);
 
   useEffect(() => {
     if (!teamId) return;
@@ -158,7 +155,7 @@ function Statistics({ mode, toggleTheme, selectedTeam, onTeamChange, role, selec
   };
 
   return (
-    <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
+    <Layout mode={mode} toggleTheme={toggleTheme} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Card>
           <CardContent>

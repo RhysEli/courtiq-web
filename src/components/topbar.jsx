@@ -3,14 +3,16 @@ import { Box, Typography, IconButton, Badge, Avatar, Stack, FormControl, Select,
 import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded';
 import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
-import { teamOptions } from '../data/mockData';
 import { useThemePreferences } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { getRoleTheme } from '../theme/themeConfig';
 
-function Topbar({ selectedTeam, onTeamChange, role, selectedInstitution, selectedLeague, selectedSeason, currentUser }) {
+function Topbar({ role, selectedInstitution, selectedLeague, selectedSeason, currentUser }) {
   const theme = useTheme();
   const navigate = useNavigate();
   const { mode, toggleTheme, teamColors } = useThemePreferences();
+  const { activeTeam, setActiveTeam } = useAuth();
+  const teams = currentUser?.teams || [];
   const roleTheme = getRoleTheme(role);
   const isDark = theme.palette.mode === 'dark';
   const userName = currentUser?.name || role || 'User';
@@ -43,24 +45,26 @@ function Topbar({ selectedTeam, onTeamChange, role, selectedInstitution, selecte
       </Box>
 
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <Select
-            value={selectedTeam}
-            onChange={(event) => onTeamChange(event.target.value)}
-            sx={{
-              color: 'text.primary',
-              bgcolor: alpha(teamColors.primary, 0.1),
-              borderRadius: 2,
-              fontSize: '0.875rem',
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha(teamColors.primary, 0.3) },
-              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: teamColors.primary },
-            }}
-          >
-            {teamOptions.map((option) => (
-              <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        {teams.length > 0 && (
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <Select
+              value={activeTeam?.id || ''}
+              onChange={(event) => setActiveTeam(event.target.value)}
+              sx={{
+                color: 'text.primary',
+                bgcolor: alpha(teamColors.primary, 0.1),
+                borderRadius: 2,
+                fontSize: '0.875rem',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: alpha(teamColors.primary, 0.3) },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: teamColors.primary },
+              }}
+            >
+              {teams.map((t) => (
+                <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
 
         <IconButton sx={{ color: 'text.secondary' }} onClick={toggleTheme}>
           {mode === 'dark' ? <LightModeRoundedIcon /> : <DarkModeRoundedIcon />}
