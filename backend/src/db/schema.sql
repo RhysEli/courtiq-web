@@ -616,3 +616,34 @@ CREATE TABLE IF NOT EXISTS audit_log (
   success BOOLEAN NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Season/leg structure (investigated, not built, in the round before this
+-- one). Scoped to team_competition_seasons, not to (competition, season)
+-- directly -- deliberately: no "competition owner" role or shared-
+-- structure concept exists anywhere in this codebase (every real fact
+-- that involves a team is scoped to that team's own membership/access),
+-- and the one real cross-team feature that exists, Opponent Analysis,
+-- already works by independently computing each side's own stats rather
+-- than requiring shared structure. A stage is therefore one team's own
+-- structural bucket for its own participation in a competition-season,
+-- not a jointly-administered fact two teams in the same competition are
+-- forced to share -- same "your own team's own truth" principle
+-- team_competition_seasons itself already established. Free text, no
+-- fixed enum, no required count: added ad-hoc as a season progresses
+-- (backend/src/routes/stages.js), same as team_competition_seasons rows
+-- themselves are populated by explicit staff action rather than derived.
+CREATE TABLE IF NOT EXISTS stages (
+  id SERIAL PRIMARY KEY,
+  team_competition_season_id INTEGER NOT NULL REFERENCES team_competition_seasons(id),
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Nullable: a game can skip the stage layer entirely, same as it already
+-- can skip season_id/competition_id (Step 8) -- not every competition
+-- has (or needs) stage structure. Tagging a game with a stage is
+-- perspective-dependent (it belongs to one team's own stages list, but a
+-- game has two teams) -- see the resolution logic in games.js/
+-- bulkImport.js, which resolves this against whichever of the request's
+-- own team(s) is actually playing, not stored as an ambiguity here.
+ALTER TABLE games ADD COLUMN IF NOT EXISTS stage_id INTEGER REFERENCES stages(id);
