@@ -7,7 +7,9 @@ import { seedThemeModeForNextLoad } from '../contexts/ThemeContext.jsx';
 
 const AUTH_STORAGE_KEY = 'courtiq-auth';
 // Bump whenever currentUser's shape changes in a way pages actually rely
-// on (teamId, most recently photoUrl). This is the root fix for a bug
+// on (teamId, photoUrl, most recently teams -- the full multi-team list,
+// which the active-team switcher and the pages swept onto it now depend
+// on existing at all, not just having the right value). This is the root fix for a bug
 // this project has hit repeatedly under different names ("team brand
 // wrong team", "team resolution all pages", "team match regression",
 // and now "Team Brand shows no team on Render"): login.jsx's
@@ -24,7 +26,7 @@ const AUTH_STORAGE_KEY = 'courtiq-auth';
 // treated the SYMPTOM (which page, which matching strategy); this treats
 // the actual mechanism -- an old cached blob outliving the code that
 // wrote it -- so the next shape change doesn't need its own bug report.
-const AUTH_STATE_VERSION = 2;
+const AUTH_STATE_VERSION = 3;
 const USER_STORAGE_KEY = 'courtiq-users';
 const ORGANIZATION_STORAGE_KEY = 'courtiq-organizations';
 const INVITE_STORAGE_KEY = 'courtiq-invites';
@@ -213,8 +215,23 @@ export async function loginUser({ email, password, rememberMe = false }) {
         // breaks silently on formatting drift (e.g. "USIU Tigers Men" vs
         // the real "USIU Tigers (Men)"), which is exactly what happened
         // here. Prefer this over `team` (the display name) wherever both
-        // are available.
+        // are available. Still just the first team, same as `team`/
+        // `institution` above -- unchanged default behavior for a
+        // single-team user. The full list right below is what actually
+        // makes a second or third team reachable; AuthContext tracks
+        // which one is currently "active" separately (see
+        // ActiveTeamContext), since currentUser is a login-time snapshot
+        // and switching active teams shouldn't require a fresh login.
         teamId: data.user.teams?.[0]?.id || '',
+        // Every real team this user belongs to (getUserTeams, backend) --
+        // was silently dropped down to just teams[0] before; a user with
+        // more than one membership had no way to reach the others from
+        // the frontend at all, even though the backend/JWT already
+        // supported it fully (req.user.teamIds always carried the whole
+        // list). Same shape as each entry already had (id, name,
+        // institution_name, color_primary/secondary, brand_accent,
+        // gender_category, logo_url).
+        teams: data.user.teams || [],
         // Staff-curated photo (backend PATCH /users/:userId/photo) --
         // read back at login like any other profile field. A fresh
         // upload made to this same account while already logged in
