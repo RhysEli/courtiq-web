@@ -31,13 +31,65 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Step 9 Round 4: manually pre-register a team, separate from the
+// find-or-create paths in bulkImport.js/games.js (which stay exactly as
+// they are -- both continue to coexist; a manually-created team here and
+// an auto-created opponent team there are the same kind of row, just
+// entered through different doors). Only `name` is required --
+// institutionId/genderCategory are the two columns that have sat dormant
+// since Step 5's original seeding (only the two seeded USIU teams ever
+// had them set). `id` is the name itself, verbatim -- matching the exact
+// convention the find-or-create paths already use (team id IS the team
+// name text), so a manually-created "EAGLES" and a bulk-imported "EAGLES"
+// resolve to the same row rather than silently diverging.
+//
+// Statistician-only, no Team Manager fallback: this is a more
+// consequential action than editing a team's own settings (the PATCH
+// below, which stays shared) -- it's adding a brand-new top-level entity
+// to the whole system, not technical work tied to a team the caller
+// already belongs to. Same category, same reasoning, as seasons.js/
+// competitions.js/institutions.js's own POST routes: the Team Manager
+// fallback rule (requireStatisticianOrFallback) exists specifically for
+// "your team has no Statistician" situations, and there's no "your team"
+// yet when the team doesn't exist.
+router.post('/', requireRole('Statistician'), async (req, res) => {
+  try {
+    const { name, institutionId, genderCategory } = req.body;
+    if (!name?.trim()) {
+      return res.status(400).json({ error: 'name is required' });
+    }
+
+    if (institutionId) {
+      const institution = await db.prepare('SELECT id FROM institutions WHERE id = ?').get(institutionId);
+      if (!institution) {
+        return res.status(400).json({ error: 'institutionId does not match a real institution' });
+      }
+    }
+
+    const id = name.trim();
+    const existing = await db.prepare('SELECT id FROM teams WHERE id = ?').get(id);
+    if (existing) {
+      return res.status(409).json({ error: `A team named '${id}' already exists` });
+    }
+
+    const team = await db.prepare(`
+      INSERT INTO teams (id, name, institution_id, gender_category)
+      VALUES (?, ?, ?, ?)
+      RETURNING id, name, institution_id, gender_category, coach_name, manager_name, statistician_name, color_primary, color_secondary, brand_accent, logo_url
+    `).get(id, name.trim(), institutionId || null, genderCategory || null);
+
+    res.status(201).json(team);
+  } catch (err) {
+    console.error('create team failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // FR-11: configure an EXISTING team -- coach/manager/statistician
-// assignment, colours, logo. Deliberately no POST here: teams are
-// already correctly created as a side effect of Bulk Import/game
-// creation (INSERT ... ON CONFLICT DO NOTHING, see games.js) --
-// creating a bare team with no games attached would be a different,
-// out-of-scope feature. Partial update: any field omitted from the body
-// keeps its current value rather than being nulled out.
+// assignment, colours, logo, and (Step 9 Round 4) institution/gender
+// category. Partial update: any field omitted from the body keeps its
+// current value rather than being nulled out (an explicit `null` still
+// clears it, e.g. to unassign a team from an institution).
 // requireTeamAccess added so a Statistician/Team Manager can only edit
 // their own team(s) -- previously any authenticated Statistician or Team
 // Manager could edit ANY team's config regardless of membership.
@@ -46,7 +98,7 @@ router.patch('/:teamId', requireRole('Statistician', 'Team Manager'), requireTea
     const { teamId } = req.params;
 
     const existing = await db.prepare(
-      'SELECT coach_name, manager_name, statistician_name, color_primary, color_secondary, logo_url FROM teams WHERE id = ?',
+      'SELECT coach_name, manager_name, statistician_name, color_primary, color_secondary, logo_url, institution_id, gender_category FROM teams WHERE id = ?',
     ).get(teamId);
     if (!existing) {
       return res.status(404).json({ error: 'Team not found' });
@@ -59,14 +111,23 @@ router.patch('/:teamId', requireRole('Statistician', 'Team Manager'), requireTea
       colorPrimary = existing.color_primary,
       colorSecondary = existing.color_secondary,
       logoUrl = existing.logo_url,
+      institutionId = existing.institution_id,
+      genderCategory = existing.gender_category,
     } = req.body;
+
+    if (institutionId) {
+      const institution = await db.prepare('SELECT id FROM institutions WHERE id = ?').get(institutionId);
+      if (!institution) {
+        return res.status(400).json({ error: 'institutionId does not match a real institution' });
+      }
+    }
 
     const team = await db.prepare(`
       UPDATE teams
-      SET coach_name = ?, manager_name = ?, statistician_name = ?, color_primary = ?, color_secondary = ?, logo_url = ?
+      SET coach_name = ?, manager_name = ?, statistician_name = ?, color_primary = ?, color_secondary = ?, logo_url = ?, institution_id = ?, gender_category = ?
       WHERE id = ?
       RETURNING id, name, institution_id, gender_category, coach_name, manager_name, statistician_name, color_primary, color_secondary, logo_url
-    `).get(coachName, managerName, statisticianName, colorPrimary, colorSecondary, logoUrl, teamId);
+    `).get(coachName, managerName, statisticianName, colorPrimary, colorSecondary, logoUrl, institutionId, genderCategory, teamId);
 
     res.json(team);
   } catch (err) {

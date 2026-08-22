@@ -147,7 +147,13 @@ export const backendApi = {
   // stats (team + per-player averages) computed from actual extracted
   // player_game_stats rows, no random/placeholder fallbacks.
   getTeams: () => request('/teams'),
+  // Step 9 Round 4: manually pre-register a team (name, optional
+  // institutionId/genderCategory) -- separate from bulkImport.js/games.js's
+  // existing find-or-create-on-import path, which is unchanged and keeps
+  // auto-creating opponent teams the same way it always has.
+  createTeam: (data) => request('/teams', { method: 'POST', body: data }),
   // FR-11: configure an existing team's coach/manager/statistician/colours/logo (backend/src/routes/teams.js).
+  // Step 9 Round 4: also accepts institutionId/genderCategory now.
   updateTeam: (teamId, data) => request(`/teams/${encodeURIComponent(teamId)}`, { method: 'PATCH', body: data }),
   // Visual overhaul step 1: dedicated brand-identity update (Team Manager
   // only, own team only). No settings UI calls this yet -- added now so
