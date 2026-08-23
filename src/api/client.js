@@ -110,11 +110,12 @@ export const backendApi = {
   deleteGame: (id) => request(`/games/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getAnnotations: (gameId) => request(`/annotations?gameId=${gameId}`),
   addAnnotation: (gameId, body) => request('/annotations', { method: 'POST', body: { gameId, body } }),
-  bulkImport: (files, { seasonId, competitionId } = {}) => {
+  bulkImport: (files, { seasonId, competitionId, stageId } = {}) => {
     const form = new FormData();
     files.forEach((file) => form.append('files', file));
     if (seasonId) form.append('seasonId', seasonId);
     if (competitionId) form.append('competitionId', competitionId);
+    if (stageId) form.append('stageId', stageId);
     return request('/games/bulk-import', { method: 'POST', body: form, isForm: true });
   },
   uploadReport: (gameId, reportType, file) => {

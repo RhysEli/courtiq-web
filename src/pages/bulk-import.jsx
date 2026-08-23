@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/layout';
 import { backendApi } from '../api/client';
 import { reconcileBulkImportResults } from '../services/bulkImportBridge';
+import { useAuth } from '../contexts/AuthContext';
 
 // The backend attaches one entry per report type under
 // entry.additionalReports[key], shaped either as
@@ -113,6 +114,7 @@ function fileKey(file) {
 }
 
 function BulkImport({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
+  const { activeTeam } = useAuth();
   // Staged files not yet run: { key, file }. Kept separate from outcomes
   // (completed results) so the two lists can't get confused.
   const [staged, setStaged] = useState([]);
@@ -133,10 +135,54 @@ function BulkImport({ selectedTeam, onTeamChange, role, selectedSeason, logout }
   const [seasonId, setSeasonId] = useState('');
   const [competitionId, setCompetitionId] = useState('');
 
+  // Step 12: stage tagging, same batch-level shape as season/competition
+  // above. Unlike games.jsx (which has an explicit Home team field to
+  // resolve "which of my teams is this for"), a batch has no such field --
+  // each file's real home/away teams aren't known until the PDF is parsed
+  // server-side. The best available answer before upload is the session's
+  // active team (Step 9's multi-team switcher, useAuth().activeTeam) --
+  // exactly the "which of my teams am I acting as right now" concept it
+  // exists for. This is a best-effort offering, not a guarantee: if a
+  // file's actual home/away doesn't include the active team, the backend's
+  // own resolution (services/resolveGameStage.js) still rejects it with a
+  // clear per-file error, same as any other stageId mismatch.
+  const [realStages, setRealStages] = useState([]);
+  const [membershipTcs, setMembershipTcs] = useState(null);
+  const [stagesLoading, setStagesLoading] = useState(false);
+  const [stageId, setStageId] = useState('');
+
   useEffect(() => {
     backendApi.getSeasons().then(setRealSeasons).catch(() => {});
     backendApi.getCompetitions().then(setRealCompetitions).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!activeTeam?.id || !seasonId || !competitionId) {
+      setRealStages([]);
+      setMembershipTcs(null);
+      return;
+    }
+    let cancelled = false;
+    setStagesLoading(true);
+    backendApi.getTeamCompetitionSeasons(activeTeam.id)
+      .then((rows) => {
+        if (cancelled) return;
+        const tcs = rows.find((r) => String(r.competition_id) === String(competitionId) && r.season_id === seasonId);
+        setMembershipTcs(tcs || null);
+        if (!tcs) { setRealStages([]); return undefined; }
+        return backendApi.getStages(activeTeam.id, tcs.id).then((stages) => { if (!cancelled) setRealStages(stages); });
+      })
+      .catch(() => { if (!cancelled) { setRealStages([]); setMembershipTcs(null); } })
+      .finally(() => { if (!cancelled) setStagesLoading(false); });
+    return () => { cancelled = true; };
+  }, [activeTeam, seasonId, competitionId]);
+
+  useEffect(() => {
+    if (stageId && !realStages.some((s) => String(s.id) === String(stageId))) {
+      setStageId('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [realStages]);
 
   useEffect(() => {
     persistOutcomes(outcomes);
@@ -209,6 +255,7 @@ function BulkImport({ selectedTeam, onTeamChange, role, selectedSeason, logout }
         const { summary: importSummary, results } = await backendApi.bulkImport([item.file], {
           seasonId: seasonId || undefined,
           competitionId: competitionId || undefined,
+          stageId: stageId || undefined,
         });
         const reconciled = await reconcileBulkImportResults(results);
         const outcome = { ...reconciled[0], fileKey: item.key };
@@ -255,21 +302,39 @@ function BulkImport({ selectedTeam, onTeamChange, role, selectedSeason, logout }
           <CardContent>
             <Stack spacing={2}>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={4}>
                   <TextField select fullWidth label="Season (optional)" value={seasonId} onChange={(e) => setSeasonId(e.target.value)}>
                     <MenuItem value="">Untagged</MenuItem>
                     {realSeasons.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
                   </TextField>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={4}>
                   <TextField select fullWidth label="Competition (optional)" value={competitionId} onChange={(e) => setCompetitionId(e.target.value)}>
                     <MenuItem value="">Untagged</MenuItem>
                     {realCompetitions.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
                   </TextField>
                 </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    select fullWidth label="Stage (optional)" value={stageId} onChange={(e) => setStageId(e.target.value)}
+                    disabled={stagesLoading || realStages.length === 0}
+                    helperText={
+                      stagesLoading ? 'Loading…'
+                        : !seasonId || !competitionId ? 'Pick a season and competition first'
+                          : !activeTeam ? 'No active team'
+                            : !membershipTcs ? `No membership recorded for ${activeTeam.name} in this competition/season -- add one from Team Management`
+                              : realStages.length === 0 ? 'No stages added yet -- add one from Team Management'
+                                : ' '
+                    }
+                  >
+                    {realStages.length > 0 && <MenuItem value="">Untagged</MenuItem>}
+                    {realStages.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                  </TextField>
+                </Grid>
               </Grid>
               <Typography variant="caption" color="text.secondary">
-                Applies to every file in this batch.
+                Applies to every file in this batch. Stage is resolved against your active team ({activeTeam?.name || 'none set'}) --
+                if a file's actual home/away team differs, the stage tag may not apply to it; you'll see a clear per-file error, not a silent mismatch.
               </Typography>
               <Button component="label" variant="outlined" startIcon={<UploadFileIcon />}>
                 Add PDF files

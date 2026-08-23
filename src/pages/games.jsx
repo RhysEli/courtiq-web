@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/layout';
 import { archiveMatch, createMatch, deleteMatch, duplicateMatch, getMatches, saveMatchRoster, setLiveMatchState, updateMatch } from '../services/matchService';
 import { backendApi } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 // Ahead of the presentation: the "Scheduled & Live Matches" / "Completed &
 // Archived" section below is disconnected mock CRUD (matchService.js,
@@ -15,6 +16,7 @@ const SHOW_MOCK_SCHEDULING = false;
 
 function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [matches, setMatches] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -45,11 +47,24 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
   // that's had a working backend since day one but no UI to actually
   // populate it -- both optional, same as the backend fields themselves,
   // so a game can still be created untagged exactly as before.
-  const [newGame, setNewGame] = useState({ homeTeamId: '', opponentTeamName: '', gameDate: '', venue: '', seasonId: '', competitionId: '' });
+  const [newGame, setNewGame] = useState({ homeTeamId: '', opponentTeamName: '', gameDate: '', venue: '', seasonId: '', competitionId: '', stageId: '' });
   const [creatingGame, setCreatingGame] = useState(false);
   const [createGameError, setCreateGameError] = useState('');
   const [removingGameId, setRemovingGameId] = useState(null);
   const [removeGameError, setRemoveGameError] = useState('');
+
+  // Step 12: which stages are offered depends on resolving the SAME
+  // team_competition_seasons row the backend itself resolves against
+  // (services/resolveGameStage.js) -- whichever of homeTeamId/
+  // opponentTeamName is actually one of the caller's own teams, then that
+  // team's membership row for this exact season+competition. Deliberately
+  // mirrors the backend's own resolution (not just currentUser's "active"
+  // team) so what's offered here always matches what the backend would
+  // actually accept -- offering a stage the backend would reject on
+  // submit would be worse than an honest empty selector.
+  const [realStages, setRealStages] = useState([]);
+  const [membershipTcs, setMembershipTcs] = useState(null);
+  const [stagesLoading, setStagesLoading] = useState(false);
 
   const loadRealGames = () => {
     setRealGamesLoading(true);
@@ -66,6 +81,43 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
     loadRealGames();
   }, []);
 
+  useEffect(() => {
+    const myTeams = currentUser?.teams || [];
+    const myTeamId = myTeams.find((t) => t.id === newGame.homeTeamId)?.id
+      || myTeams.find((t) => t.id === newGame.opponentTeamName.trim())?.id
+      || null;
+
+    if (!myTeamId || !newGame.seasonId || !newGame.competitionId) {
+      setRealStages([]);
+      setMembershipTcs(null);
+      return;
+    }
+
+    let cancelled = false;
+    setStagesLoading(true);
+    backendApi.getTeamCompetitionSeasons(myTeamId)
+      .then((rows) => {
+        if (cancelled) return;
+        const tcs = rows.find((r) => String(r.competition_id) === String(newGame.competitionId) && r.season_id === newGame.seasonId);
+        setMembershipTcs(tcs || null);
+        if (!tcs) { setRealStages([]); return undefined; }
+        return backendApi.getStages(myTeamId, tcs.id).then((stages) => { if (!cancelled) setRealStages(stages); });
+      })
+      .catch(() => { if (!cancelled) { setRealStages([]); setMembershipTcs(null); } })
+      .finally(() => { if (!cancelled) setStagesLoading(false); });
+    return () => { cancelled = true; };
+  }, [currentUser, newGame.homeTeamId, newGame.opponentTeamName, newGame.seasonId, newGame.competitionId]);
+
+  // Stage becomes stale (belongs to a membership no longer resolvable) the
+  // moment its offering list changes out from under it -- clear rather
+  // than silently submit a stageId that's no longer actually offered.
+  useEffect(() => {
+    if (newGame.stageId && !realStages.some((s) => String(s.id) === String(newGame.stageId))) {
+      setNewGame((prev) => ({ ...prev, stageId: '' }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [realStages]);
+
   const teamName = (id) => realTeams.find((t) => t.id === id)?.name || id;
 
   const handleCreateRealGame = async () => {
@@ -77,8 +129,9 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
         ...newGame,
         seasonId: newGame.seasonId || undefined,
         competitionId: newGame.competitionId || undefined,
+        stageId: newGame.stageId || undefined,
       });
-      setNewGame({ homeTeamId: '', opponentTeamName: '', gameDate: '', venue: '', seasonId: '', competitionId: '' });
+      setNewGame({ homeTeamId: '', opponentTeamName: '', gameDate: '', venue: '', seasonId: '', competitionId: '', stageId: '' });
       loadRealGames();
     } catch (err) {
       setCreateGameError(err.message || 'Could not create game.');
@@ -284,6 +337,23 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
                   onChange={(e) => setNewGame({ ...newGame, competitionId: e.target.value })}>
                   <MenuItem value="">Untagged</MenuItem>
                   {realCompetitions.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <TextField
+                  select fullWidth label="Stage (optional)" value={newGame.stageId}
+                  onChange={(e) => setNewGame({ ...newGame, stageId: e.target.value })}
+                  disabled={stagesLoading || realStages.length === 0}
+                  helperText={
+                    stagesLoading ? 'Loading…'
+                      : !newGame.seasonId || !newGame.competitionId ? 'Pick a season and competition first'
+                        : !membershipTcs ? 'No membership recorded for this team in this competition/season -- add one from Team Management'
+                          : realStages.length === 0 ? 'No stages added yet -- add one from Team Management'
+                            : ' '
+                  }
+                >
+                  {realStages.length > 0 && <MenuItem value="">Untagged</MenuItem>}
+                  {realStages.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
                 </TextField>
               </Grid>
               <Grid item xs={12} sm={2}>
