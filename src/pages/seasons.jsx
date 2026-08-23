@@ -9,11 +9,18 @@ import { backendApi } from '../api/client';
 // finding that `seasons` only has a binary `active` flag with no
 // activate-later endpoint (only GET/POST/DELETE) -- so the old "Activate"
 // button (which wrote a fake active flag to mock data) and "Archive"
-// (no real column at all) are dropped. "Active" is now shown read-only,
-// straight from the real record. Picking which season this browser is
-// currently viewing (onSeasonChange) is kept -- that was always local UI
-// state, not a backend write, so there's nothing to swap it to; it's
+// (no real column at all) are dropped. Picking which season this browser
+// is currently viewing (onSeasonChange) is kept -- that was always local
+// UI state, not a backend write, so there's nothing to swap it to; it's
 // simply decoupled from the old fake "Activate" semantics.
+//
+// Step 12: the real gap (no way to flip `active` after creation) is
+// closed -- "Active" is no longer purely read-only. The new toggle is
+// gated to role === 'Statistician' specifically, NOT the looser
+// canManage (Statistician + Team Manager) check the pre-existing Remove
+// button below uses -- PATCH /seasons/:id really is Statistician-only,
+// so this one reflects that precisely rather than inheriting the
+// page's existing, looser convention.
 
 function Seasons({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, onSeasonChange, logout }) {
   const [seasons, setSeasons] = useState([]);
@@ -26,9 +33,11 @@ function Seasons({ mode, toggleTheme, selectedTeam, onTeamChange, role, selected
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [removingId, setRemovingId] = useState(null);
+  const [togglingId, setTogglingId] = useState(null);
   const [notice, setNotice] = useState('');
 
   const canManage = role === 'Statistician' || role === 'Team Manager';
+  const canToggleActive = role === 'Statistician';
 
   const loadSeasons = () => {
     setSeasonsLoading(true);
@@ -73,6 +82,18 @@ function Seasons({ mode, toggleTheme, selectedTeam, onTeamChange, role, selected
     }
   };
 
+  const toggleActive = async (season) => {
+    setTogglingId(season.id);
+    try {
+      await backendApi.updateSeason(season.id, { active: !season.active });
+      loadSeasons();
+    } catch (err) {
+      setSeasonsError(err.message || 'Could not update season.');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   return (
     <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -101,6 +122,15 @@ function Seasons({ mode, toggleTheme, selectedTeam, onTeamChange, role, selected
                       </Box>
                       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                         <Chip label={season.active ? 'Active' : 'Inactive'} color={season.active ? 'success' : 'default'} size="small" />
+                        {canToggleActive && (
+                          <Button
+                            variant="outlined" size="small"
+                            disabled={togglingId === season.id}
+                            onClick={() => toggleActive(season)}
+                          >
+                            {togglingId === season.id ? 'Updating…' : season.active ? 'Mark concluded' : 'Reactivate'}
+                          </Button>
+                        )}
                         <Button
                           variant="outlined" size="small"
                           onClick={() => onSeasonChange?.(season.name)}

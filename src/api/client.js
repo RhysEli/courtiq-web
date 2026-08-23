@@ -205,6 +205,9 @@ export const backendApi = {
   // FR-11: real season CRUD against the `seasons` table (backend/src/routes/seasons.js).
   getSeasons: () => request('/seasons'),
   createSeason: (data) => request('/seasons', { method: 'POST', body: data }),
+  // Step 12: toggle active after creation (backend's PATCH /seasons/:id) --
+  // previously only ever settable once, at creation.
+  updateSeason: (id, data) => request(`/seasons/${encodeURIComponent(id)}`, { method: 'PATCH', body: data }),
   deleteSeason: (id) => request(`/seasons/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   // Real competition CRUD against the `competitions` table (backend/src/routes/competitions.js),
   // renamed from `leagues` -- covers league tiers, custom recurring

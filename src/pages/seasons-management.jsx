@@ -15,6 +15,13 @@ import { backendApi } from '../api/client';
 // activate-later endpoint (only GET/POST/DELETE), so "status" is dropped
 // in favor of an "active" checkbox set at creation time, rather than
 // inventing a status column or an activate endpoint that don't exist.
+//
+// Step 12: that gap is closed -- PATCH /seasons/:id can now flip `active`
+// after creation, so "mark a season concluded" is a real toggle button
+// here, not just a read-only Chip. Gated to role === 'Statistician'
+// specifically (not the page's own canManage-style shared check used
+// elsewhere) since that's the route's actual gate, same one-time
+// administrative-decision category as create/remove above.
 
 function SeasonsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const [seasons, setSeasons] = useState([]);
@@ -25,6 +32,9 @@ function SeasonsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [removingId, setRemovingId] = useState(null);
+  const [togglingId, setTogglingId] = useState(null);
+
+  const canToggleActive = role === 'Statistician';
 
   const loadSeasons = () => {
     setSeasonsLoading(true);
@@ -67,6 +77,18 @@ function SeasonsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
       setSeasonsError(err.message || 'Could not remove season.');
     } finally {
       setRemovingId(null);
+    }
+  };
+
+  const toggleActive = async (season) => {
+    setTogglingId(season.id);
+    try {
+      await backendApi.updateSeason(season.id, { active: !season.active });
+      loadSeasons();
+    } catch (err) {
+      setSeasonsError(err.message || 'Could not update season.');
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -120,13 +142,24 @@ function SeasonsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
                         <TableCell>{season.name}</TableCell>
                         <TableCell><Chip label={season.active ? 'Active' : 'Inactive'} color={season.active ? 'success' : 'default'} size="small" /></TableCell>
                         <TableCell>
-                          <Button
-                            size="small" variant="outlined" color="error"
-                            disabled={removingId === season.id}
-                            onClick={() => removeSeason(season.id)}
-                          >
-                            {removingId === season.id ? 'Removing…' : 'Remove'}
-                          </Button>
+                          <Stack direction="row" spacing={1}>
+                            {canToggleActive && (
+                              <Button
+                                size="small" variant="outlined"
+                                disabled={togglingId === season.id}
+                                onClick={() => toggleActive(season)}
+                              >
+                                {togglingId === season.id ? 'Updating…' : season.active ? 'Mark concluded' : 'Reactivate'}
+                              </Button>
+                            )}
+                            <Button
+                              size="small" variant="outlined" color="error"
+                              disabled={removingId === season.id}
+                              onClick={() => removeSeason(season.id)}
+                            >
+                              {removingId === season.id ? 'Removing…' : 'Remove'}
+                            </Button>
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     ))}
