@@ -1,5 +1,5 @@
 import {
-  Alert, Autocomplete, Box, Button, Card, CardContent, CircularProgress, FormControlLabel, Grid, MenuItem,
+  Alert, Autocomplete, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, FormControlLabel, Grid, MenuItem,
   Stack, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
@@ -31,6 +31,20 @@ import { backendApi } from '../api/client';
 // collapsing to one. Team Brand is Team Manager only, so Statisticians
 // lose logo-editing entirely rather than keeping a lesser, unvalidated
 // path here -- they never had a real one to begin with.
+//
+// Step 12: a real "Competition memberships" section for the selected
+// team -- team_competition_seasons (Step 8) and stages (Step 11) both
+// had complete, tested backends and zero frontend consumers until now.
+// Placed here rather than a new page: this IS the existing team-
+// management surface, the selected team is already resolved, and a
+// membership is fundamentally team configuration, the same category as
+// everything else on this page. Two DIFFERENT gates apply within the
+// same card, deliberately not the same one: membership rows themselves
+// (add/remove) are Statistician-only (Step 8's precedent), but stages
+// nested inside a membership are Statistician + Team Manager shared
+// (Step 11's deliberate departure from that precedent, since stage
+// tagging is ongoing day-to-day work, not one-time structural setup).
+// Reflected here in what's enabled, not left for the backend to 403.
 
 // Quick-select convenience, not a constrained enum -- typing any other
 // value is still fully supported (same freeSolo Autocomplete pattern as
@@ -59,6 +73,107 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
   const [createError, setCreateError] = useState('');
   const [createNotice, setCreateNotice] = useState('');
 
+  // Step 12: competition memberships (team_competition_seasons) + stages
+  // for whichever team is selected above.
+  const canManageMembership = role === 'Statistician';
+  const canManageStages = role === 'Statistician' || role === 'Team Manager';
+
+  const [realSeasons, setRealSeasons] = useState([]);
+  const [realCompetitions, setRealCompetitions] = useState([]);
+
+  const [tcsRows, setTcsRows] = useState([]);
+  const [tcsLoading, setTcsLoading] = useState(false);
+  const [tcsError, setTcsError] = useState('');
+
+  const [newMembership, setNewMembership] = useState({ seasonId: '', competitionId: '' });
+  const [addingMembership, setAddingMembership] = useState(false);
+  const [addMembershipError, setAddMembershipError] = useState('');
+  const [removingMembershipId, setRemovingMembershipId] = useState(null);
+
+  // Stages, keyed by team_competition_seasons id -- one team can hold
+  // several memberships (Step 8: regular league tier AND a one-off
+  // tournament in the same season), each with its own independent stage
+  // list.
+  const [stagesByTcs, setStagesByTcs] = useState({});
+  const [newStageNameByTcs, setNewStageNameByTcs] = useState({});
+  const [addingStageTcsId, setAddingStageTcsId] = useState(null);
+  const [stageErrorByTcs, setStageErrorByTcs] = useState({});
+  const [removingStageId, setRemovingStageId] = useState(null);
+
+  const loadMemberships = (id) => {
+    if (!id) { setTcsRows([]); return; }
+    setTcsLoading(true);
+    setTcsError('');
+    backendApi.getTeamCompetitionSeasons(id)
+      .then((rows) => {
+        setTcsRows(rows);
+        rows.forEach((tcs) => {
+          backendApi.getStages(id, tcs.id)
+            .then((stages) => setStagesByTcs((prev) => ({ ...prev, [tcs.id]: stages })))
+            .catch(() => setStagesByTcs((prev) => ({ ...prev, [tcs.id]: [] })));
+        });
+      })
+      .catch((err) => { setTcsError(err.message || 'Could not load competition memberships.'); setTcsRows([]); })
+      .finally(() => setTcsLoading(false));
+  };
+
+  const addMembership = async () => {
+    if (!teamId || !newMembership.seasonId || !newMembership.competitionId) return;
+    setAddingMembership(true);
+    setAddMembershipError('');
+    try {
+      await backendApi.addTeamCompetitionSeason(teamId, newMembership);
+      setNewMembership({ seasonId: '', competitionId: '' });
+      loadMemberships(teamId);
+    } catch (err) {
+      setAddMembershipError(err.message || 'Could not add membership.');
+    } finally {
+      setAddingMembership(false);
+    }
+  };
+
+  const removeMembership = async (tcsId) => {
+    setRemovingMembershipId(tcsId);
+    setTcsError('');
+    try {
+      await backendApi.removeTeamCompetitionSeason(teamId, tcsId);
+      loadMemberships(teamId);
+    } catch (err) {
+      setTcsError(err.message || 'Could not remove membership.');
+    } finally {
+      setRemovingMembershipId(null);
+    }
+  };
+
+  const addStage = async (tcsId) => {
+    const name = (newStageNameByTcs[tcsId] || '').trim();
+    if (!name) return;
+    setAddingStageTcsId(tcsId);
+    setStageErrorByTcs((prev) => ({ ...prev, [tcsId]: '' }));
+    try {
+      const stage = await backendApi.createStage(teamId, tcsId, { name });
+      setStagesByTcs((prev) => ({ ...prev, [tcsId]: [...(prev[tcsId] || []), stage] }));
+      setNewStageNameByTcs((prev) => ({ ...prev, [tcsId]: '' }));
+    } catch (err) {
+      setStageErrorByTcs((prev) => ({ ...prev, [tcsId]: err.message || 'Could not add stage.' }));
+    } finally {
+      setAddingStageTcsId(null);
+    }
+  };
+
+  const removeStage = async (tcsId, stageId) => {
+    setRemovingStageId(stageId);
+    setStageErrorByTcs((prev) => ({ ...prev, [tcsId]: '' }));
+    try {
+      await backendApi.removeStage(teamId, tcsId, stageId);
+      setStagesByTcs((prev) => ({ ...prev, [tcsId]: (prev[tcsId] || []).filter((s) => s.id !== stageId) }));
+    } catch (err) {
+      setStageErrorByTcs((prev) => ({ ...prev, [tcsId]: err.message || 'Could not remove stage.' }));
+    } finally {
+      setRemovingStageId(null);
+    }
+  };
+
   const loadTeams = () => {
     setTeamsLoading(true);
     setTeamsError('');
@@ -74,7 +189,16 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
   useEffect(() => {
     loadTeams().then((data) => setTeamId(data[0]?.id || ''));
     backendApi.getInstitutions().then(setInstitutions).catch(() => setInstitutions([]));
+    backendApi.getSeasons().then(setRealSeasons).catch(() => setRealSeasons([]));
+    backendApi.getCompetitions().then(setRealCompetitions).catch(() => setRealCompetitions([]));
   }, []);
+
+  useEffect(() => {
+    loadMemberships(teamId);
+    setNewMembership({ seasonId: '', competitionId: '' });
+    setAddMembershipError('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamId]);
 
   // Populate the edit form from whichever team is currently selected.
   useEffect(() => {
@@ -249,6 +373,120 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
             )}
           </CardContent>
         </Card>
+
+        {teamId && (
+          <Card>
+            <CardContent>
+              <Typography variant="h5" fontWeight={700}>Competition memberships</Typography>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                Which competitions and seasons {selectedTeamName} has played in, and each one's stage structure.
+                {!canManageMembership && ' Adding or removing a membership is Statistician-only -- you can still add and remove stages on the memberships already recorded below.'}
+              </Typography>
+
+              {canManageMembership ? (
+                <Grid container spacing={2} alignItems="center">
+                  <Grid item xs={12} sm={5}>
+                    <TextField
+                      fullWidth select label="Season" value={newMembership.seasonId}
+                      onChange={(event) => setNewMembership((prev) => ({ ...prev, seasonId: event.target.value }))}
+                    >
+                      {realSeasons.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={5}>
+                    <TextField
+                      fullWidth select label="Competition" value={newMembership.competitionId}
+                      onChange={(event) => setNewMembership((prev) => ({ ...prev, competitionId: event.target.value }))}
+                    >
+                      {realCompetitions.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={2}>
+                    <Button
+                      fullWidth variant="contained" onClick={addMembership}
+                      disabled={addingMembership || !newMembership.seasonId || !newMembership.competitionId}
+                    >
+                      {addingMembership ? 'Adding…' : 'Add'}
+                    </Button>
+                  </Grid>
+                </Grid>
+              ) : null}
+              {addMembershipError && <Alert severity="error" sx={{ mt: 2 }}>{addMembershipError}</Alert>}
+              {tcsError && <Alert severity="error" sx={{ mt: 2 }}>{tcsError}</Alert>}
+
+              <Stack spacing={2} sx={{ mt: 3 }}>
+                {tcsLoading && (
+                  <Stack alignItems="center" sx={{ py: 4 }}><CircularProgress /></Stack>
+                )}
+                {!tcsLoading && tcsRows.length === 0 && (
+                  <Typography color="text.secondary">No competition memberships recorded for {selectedTeamName} yet.</Typography>
+                )}
+                {!tcsLoading && tcsRows.map((tcs) => {
+                  const stages = stagesByTcs[tcs.id];
+                  return (
+                    <Box key={tcs.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, p: 2 }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
+                        <Box>
+                          <Typography fontWeight={700}>{tcs.competition_name}</Typography>
+                          <Typography color="text.secondary" variant="body2">{tcs.season_name} • {tcs.competition_type}</Typography>
+                        </Box>
+                        {canManageMembership && (
+                          <Button
+                            size="small" variant="outlined" color="error"
+                            disabled={removingMembershipId === tcs.id}
+                            onClick={() => removeMembership(tcs.id)}
+                          >
+                            {removingMembershipId === tcs.id ? 'Removing…' : 'Remove membership'}
+                          </Button>
+                        )}
+                      </Stack>
+
+                      <Divider sx={{ my: 1.5 }} />
+
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Stages</Typography>
+                      {stages === undefined ? (
+                        <CircularProgress size={18} />
+                      ) : (
+                        <>
+                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+                            {stages.map((stage) => (
+                              <Chip
+                                key={stage.id}
+                                label={stage.name}
+                                onDelete={canManageStages ? () => removeStage(tcs.id, stage.id) : undefined}
+                                disabled={removingStageId === stage.id}
+                              />
+                            ))}
+                            {stages.length === 0 && (
+                              <Typography color="text.secondary" variant="body2">No stages added yet.</Typography>
+                            )}
+                          </Stack>
+                          {canManageStages && (
+                            <Stack direction="row" spacing={1}>
+                              <TextField
+                                size="small" label="New stage (e.g. Round 1)"
+                                value={newStageNameByTcs[tcs.id] || ''}
+                                onChange={(event) => setNewStageNameByTcs((prev) => ({ ...prev, [tcs.id]: event.target.value }))}
+                              />
+                              <Button
+                                size="small" variant="outlined"
+                                disabled={addingStageTcsId === tcs.id || !(newStageNameByTcs[tcs.id] || '').trim()}
+                                onClick={() => addStage(tcs.id)}
+                              >
+                                {addingStageTcsId === tcs.id ? 'Adding…' : 'Add stage'}
+                              </Button>
+                            </Stack>
+                          )}
+                          {stageErrorByTcs[tcs.id] && <Alert severity="error" sx={{ mt: 1 }}>{stageErrorByTcs[tcs.id]}</Alert>}
+                        </>
+                      )}
+                    </Box>
+                  );
+                })}
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardContent>

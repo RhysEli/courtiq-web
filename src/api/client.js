@@ -195,6 +195,12 @@ export const backendApi = {
   getTeamCompetitionSeasons: (teamId) => request(`/teams/${teamId}/competition-seasons`),
   addTeamCompetitionSeason: (teamId, data) => request(`/teams/${teamId}/competition-seasons`, { method: 'POST', body: data }),
   removeTeamCompetitionSeason: (teamId, id) => request(`/teams/${teamId}/competition-seasons/${id}`, { method: 'DELETE' }),
+  // Step 12: real stage CRUD (backend/src/routes/stages.js), nested under
+  // a team's own competition-season membership -- same URL-nesting shape
+  // as the competition-seasons endpoints just above.
+  getStages: (teamId, tcsId) => request(`/teams/${encodeURIComponent(teamId)}/competition-seasons/${tcsId}/stages`),
+  createStage: (teamId, tcsId, data) => request(`/teams/${encodeURIComponent(teamId)}/competition-seasons/${tcsId}/stages`, { method: 'POST', body: data }),
+  removeStage: (teamId, tcsId, stageId) => request(`/teams/${encodeURIComponent(teamId)}/competition-seasons/${tcsId}/stages/${stageId}`, { method: 'DELETE' }),
   // FR-11: real season CRUD against the `seasons` table (backend/src/routes/seasons.js).
   getSeasons: () => request('/seasons'),
   createSeason: (data) => request('/seasons', { method: 'POST', body: data }),
