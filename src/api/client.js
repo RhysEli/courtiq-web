@@ -110,6 +110,12 @@ export const backendApi = {
   deleteGame: (id) => request(`/games/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getAnnotations: (gameId) => request(`/annotations?gameId=${gameId}`),
   addAnnotation: (gameId, body) => request('/annotations', { method: 'POST', body: { gameId, body } }),
+  // FR-09: season-summary annotation scope, same backend table/route as
+  // the game-scoped pair above -- keyed by team_competition_season_id,
+  // not the raw seasons.id (see backend/src/db/schema.sql's comment on
+  // annotations for why).
+  getSeasonAnnotations: (teamCompetitionSeasonId) => request(`/annotations?teamCompetitionSeasonId=${teamCompetitionSeasonId}`),
+  addSeasonAnnotation: (teamCompetitionSeasonId, body) => request('/annotations', { method: 'POST', body: { teamCompetitionSeasonId, body } }),
   bulkImport: (files, { seasonId, competitionId, stageId } = {}) => {
     const form = new FormData();
     files.forEach((file) => form.append('files', file));

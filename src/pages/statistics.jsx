@@ -45,6 +45,25 @@ function Statistics({ mode, toggleTheme, role, selectedSeason, logout }) {
   // letting them browse every team's stats.
   const isAthlete = role === 'Athlete';
 
+  // FR-09: season-summary annotations. Scoped to a real
+  // team_competition_seasons row (not the raw seasons.id -- see backend/
+  // src/db/schema.sql's comment on annotations for why), resolved from
+  // the team + season + competition selection the same way games.jsx's
+  // Step 12 stage picker already resolves it -- fetch this team's real
+  // competition-season memberships and find the one matching the selected
+  // season/competition, rather than assuming one exists.
+  const [realSeasons, setRealSeasons] = useState([]);
+  const [realCompetitions, setRealCompetitions] = useState([]);
+  const [seasonId, setSeasonId] = useState('');
+  const [competitionId, setCompetitionId] = useState('');
+  const [membershipTcs, setMembershipTcs] = useState(null);
+  const [membershipLoading, setMembershipLoading] = useState(false);
+  const [seasonNotes, setSeasonNotes] = useState([]);
+  const [seasonNotesLoading, setSeasonNotesLoading] = useState(false);
+  const [seasonNoteText, setSeasonNoteText] = useState('');
+  const [submittingSeasonNote, setSubmittingSeasonNote] = useState(false);
+  const [seasonNoteError, setSeasonNoteError] = useState('');
+
   useEffect(() => {
     let cancelled = false;
     setTeamsLoading(true);
@@ -78,6 +97,65 @@ function Statistics({ mode, toggleTheme, role, selectedSeason, logout }) {
       .finally(() => { if (!cancelled) setStatsLoading(false); });
     return () => { cancelled = true; };
   }, [teamId]);
+
+  useEffect(() => {
+    backendApi.getSeasons().then(setRealSeasons).catch(() => {});
+    backendApi.getCompetitions().then(setRealCompetitions).catch(() => {});
+  }, []);
+
+  // Same resolution games.jsx's Step 12 stage picker already does: this
+  // team's real competition-season memberships, filtered to the one
+  // matching the currently-selected season + competition. null (not an
+  // error) when no membership is recorded yet for that combination -- a
+  // real, currently-common state (production has zero team_competition_
+  // seasons rows for most teams as of this round).
+  useEffect(() => {
+    if (!teamId || !seasonId || !competitionId) {
+      setMembershipTcs(null);
+      return undefined;
+    }
+    let cancelled = false;
+    setMembershipLoading(true);
+    backendApi.getTeamCompetitionSeasons(teamId)
+      .then((rows) => {
+        if (cancelled) return;
+        const tcs = rows.find((r) => String(r.competition_id) === String(competitionId) && r.season_id === seasonId);
+        setMembershipTcs(tcs || null);
+      })
+      .catch(() => { if (!cancelled) setMembershipTcs(null); })
+      .finally(() => { if (!cancelled) setMembershipLoading(false); });
+    return () => { cancelled = true; };
+  }, [teamId, seasonId, competitionId]);
+
+  const loadSeasonNotes = (tcsId) => {
+    if (!tcsId) return;
+    setSeasonNotesLoading(true);
+    backendApi.getSeasonAnnotations(tcsId)
+      .then(setSeasonNotes)
+      .catch((err) => setSeasonNoteError(err.message || 'Could not load notes.'))
+      .finally(() => setSeasonNotesLoading(false));
+  };
+
+  useEffect(() => {
+    setSeasonNotes([]);
+    setSeasonNoteError('');
+    if (membershipTcs) loadSeasonNotes(membershipTcs.id);
+  }, [membershipTcs]);
+
+  const handleAddSeasonNote = async () => {
+    if (!seasonNoteText.trim() || !membershipTcs) return;
+    setSubmittingSeasonNote(true);
+    setSeasonNoteError('');
+    try {
+      await backendApi.addSeasonAnnotation(membershipTcs.id, seasonNoteText.trim());
+      setSeasonNoteText('');
+      loadSeasonNotes(membershipTcs.id);
+    } catch (err) {
+      setSeasonNoteError(err.message || 'Could not add note.');
+    } finally {
+      setSubmittingSeasonNote(false);
+    }
+  };
 
   const team = stats?.team || emptyStats;
   const players = stats?.players || [];
@@ -181,6 +259,81 @@ function Statistics({ mode, toggleTheme, role, selectedSeason, logout }) {
               </Grid>
             </Grid>
             {teamsError && <Alert severity="error" sx={{ mt: 2 }}>{teamsError}</Alert>}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
+            <Typography variant="h6" fontWeight={700}>Season notes</Typography>
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              Free-text notes on this team's season summary, visible to the team and added by Coaches.
+            </Typography>
+
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth select label="Season" value={seasonId}
+                  onChange={(e) => setSeasonId(e.target.value)}
+                  disabled={realSeasons.length === 0}
+                >
+                  {realSeasons.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth select label="Competition" value={competitionId}
+                  onChange={(e) => setCompetitionId(e.target.value)}
+                  disabled={realCompetitions.length === 0}
+                >
+                  {realCompetitions.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                </TextField>
+              </Grid>
+            </Grid>
+
+            {!seasonId || !competitionId ? (
+              <Typography color="text.secondary">Pick a season and competition to see or add notes.</Typography>
+            ) : membershipLoading ? (
+              <CircularProgress size={24} />
+            ) : !membershipTcs ? (
+              <Alert severity="info">
+                This team has no recorded membership in this competition for this season, so there's no season
+                summary to attach notes to yet.
+              </Alert>
+            ) : (
+              <>
+                {seasonNotesLoading ? (
+                  <CircularProgress size={24} />
+                ) : (
+                  <Stack spacing={1.5} sx={{ mb: 2 }}>
+                    {seasonNotes.length === 0 && <Typography color="text.secondary">No notes on this season summary yet.</Typography>}
+                    {seasonNotes.map((note) => (
+                      <Box key={note.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 1.5 }}>
+                        <Typography>{note.body}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {note.author_name || 'Coach'} • {new Date(note.created_at).toLocaleString()}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                )}
+
+                {role === 'Coach' && (
+                  <Stack spacing={1}>
+                    <TextField
+                      multiline minRows={2} fullWidth label="Add a note"
+                      value={seasonNoteText} onChange={(e) => setSeasonNoteText(e.target.value)}
+                    />
+                    {seasonNoteError && <Alert severity="error">{seasonNoteError}</Alert>}
+                    <Button
+                      variant="contained" onClick={handleAddSeasonNote}
+                      disabled={submittingSeasonNote || !seasonNoteText.trim()} sx={{ alignSelf: 'flex-start' }}
+                    >
+                      {submittingSeasonNote ? 'Adding…' : 'Add note'}
+                    </Button>
+                  </Stack>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
 
