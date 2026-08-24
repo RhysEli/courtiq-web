@@ -39,7 +39,7 @@ const emptyStats = {
 };
 
 export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTeamChange, selectedSeason, role, logout }) {
-  const [tab, setTab] = useState(0); // 0 = Team vs Team, 1 = Player vs Player
+  const [tab, setTab] = useState(0); // 0 = Team vs Team, 1 = Player vs Player, 2 = Head-to-Head History
 
   const [teams, setTeams] = useState([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
@@ -65,6 +65,19 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
   const [playerStatsA, setPlayerStatsA] = useState(null);
   const [playerStatsB, setPlayerStatsB] = useState(null);
   const [playerLoadError, setPlayerLoadError] = useState("");
+
+  // Head-to-Head History state (FR-07 Phase 1/2) -- distinct from Team vs
+  // Team above. That tab compares two teams' independent season averages
+  // (every game each has played, against everyone). This tab shows the
+  // real shared history: only games the two selected teams actually played
+  // against each other, resolved through Step 14's identity-grouping layer
+  // server-side so a grouped duplicate opponent id is counted once, not
+  // treated as a separate opponent.
+  const [h2hTeamId, setH2hTeamId] = useState("");
+  const [h2hOpponentId, setH2hOpponentId] = useState("");
+  const [h2hData, setH2hData] = useState(null);
+  const [h2hLoading, setH2hLoading] = useState(false);
+  const [h2hError, setH2hError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +126,43 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
   function comparePlayers() {
     setPlayerStatsA(playersA.find((p) => p.playerName === playerAName) || null);
     setPlayerStatsB(playersB.find((p) => p.playerName === playerBName) || null);
+  }
+
+  async function loadHeadToHead() {
+    if (!h2hTeamId || !h2hOpponentId) return;
+    setH2hLoading(true);
+    setH2hError("");
+    setH2hData(null);
+    try {
+      const data = await backendApi.getOpponentHistory(h2hTeamId, h2hOpponentId);
+      setH2hData(data);
+    } catch (err) {
+      setH2hError(err.message || "Could not load head-to-head history.");
+    } finally {
+      setH2hLoading(false);
+    }
+  }
+
+  // Groups an already chronologically-sorted encounters array by stage
+  // name, preserving first-appearance order. This is a labeling/grouping
+  // operation on discrete encounters, not a cumulative "through stage N"
+  // rollup -- it doesn't depend on stages having a reliable chronological
+  // sequence field (they don't; see stages' schema), since each encounter
+  // already carries its own real game_date and is just being bucketed by
+  // whichever stage tag it already has.
+  function groupByStage(encounters) {
+    const groups = [];
+    const byName = new Map();
+    for (const e of encounters) {
+      const key = e.stageName || "No stage assigned";
+      if (!byName.has(key)) {
+        const group = { stageName: key, encounters: [] };
+        byName.set(key, group);
+        groups.push(group);
+      }
+      byName.get(key).encounters.push(e);
+    }
+    return groups;
   }
 
   function strengths(s) {
@@ -216,7 +266,7 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
       <Box p={3}>
         <Typography variant="h4" fontWeight="bold" gutterBottom>Opponent Analysis</Typography>
         <Typography color="text.secondary" mb={3}>
-          Compare any two teams, or any two players, using real season-average statistics computed from uploaded game reports.
+          Compare any two teams' or players' season averages, or look up real head-to-head history between two teams that have actually played each other.
         </Typography>
 
         {teamsError && <Alert severity="error" sx={{ mb: 2 }}>{teamsError}</Alert>}
@@ -229,6 +279,7 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
           <Tab label="Team vs Team" />
           <Tab label="Player vs Player" />
+          <Tab label="Head-to-Head History" />
         </Tabs>
 
         {tab === 0 && (
@@ -332,6 +383,131 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
               <Grid item xs={12} md={6}>{renderPlayerCard("Player A", playerStatsA)}</Grid>
               <Grid item xs={12} md={6}>{renderPlayerCard("Player B", playerStatsB)}</Grid>
             </Grid>
+          </>
+        )}
+
+        {tab === 2 && (
+          <>
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Unlike Team vs Team above (each team's independent season average, against everyone it has played),
+                this shows the real games actually played between the two selected teams, aggregated across every
+                recorded meeting.
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={5}>
+                  <FormControl fullWidth disabled={teamsLoading}>
+                    <InputLabel>My Team</InputLabel>
+                    <Select value={h2hTeamId} label="My Team" onChange={(e) => setH2hTeamId(e.target.value)}>
+                      {teams.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={2} textAlign="center">
+                  <CompareArrowsIcon sx={{ mt: 1, fontSize: 40 }} />
+                </Grid>
+                <Grid item xs={12} md={5}>
+                  <FormControl fullWidth disabled={teamsLoading}>
+                    <InputLabel>Opponent</InputLabel>
+                    <Select value={h2hOpponentId} label="Opponent" onChange={(e) => setH2hOpponentId(e.target.value)}>
+                      {teams.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <Button
+                    startIcon={h2hLoading ? <CircularProgress size={18} /> : <SportsBasketballIcon />}
+                    variant="contained"
+                    onClick={loadHeadToHead}
+                    disabled={!h2hTeamId || !h2hOpponentId || h2hTeamId === h2hOpponentId || h2hLoading}
+                  >
+                    Load Head-to-Head History
+                  </Button>
+                </Grid>
+              </Grid>
+              {h2hError && <Alert severity="error" sx={{ mt: 2 }}>{h2hError}</Alert>}
+            </Paper>
+
+            {h2hData && h2hData.encounters.length === 0 && (
+              <Alert severity="info" sx={{ mb: 3 }}>
+                {teamName(h2hTeamId)} and {teamName(h2hOpponentId)} have no recorded games against each other yet.
+              </Alert>
+            )}
+
+            {h2hData && h2hData.encounters.length > 0 && (
+              <>
+                {h2hData.encounters.length === 1 && (
+                  <Alert severity="info" sx={{ mb: 3 }}>
+                    Only one meeting recorded so far between these teams -- not enough history yet for a meaningful trend.
+                  </Alert>
+                )}
+
+                <Grid container spacing={3} sx={{ mb: 3 }}>
+                  <Grid item xs={12} md={6}>
+                    {renderTeamCard(
+                      `${teamName(h2hTeamId)} (vs ${teamName(h2hOpponentId)}, ${h2hData.aggregate.encounters} meeting${h2hData.aggregate.encounters === 1 ? "" : "s"})`,
+                      h2hData.aggregate.mine,
+                    )}
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    {renderTeamCard(
+                      `${teamName(h2hOpponentId)} (vs ${teamName(h2hTeamId)}, ${h2hData.aggregate.encounters} meeting${h2hData.aggregate.encounters === 1 ? "" : "s"})`,
+                      h2hData.aggregate.opponent,
+                    )}
+                  </Grid>
+                </Grid>
+
+                {h2hData.tagFrequency.length > 0 && (
+                  <Paper sx={{ p: 3, mb: 3 }}>
+                    <Typography variant="h6" gutterBottom>Recurring Patterns</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      How often each already-computed per-game insight tag has recurred across these two teams'
+                      shared games -- a frequency count, not a new pattern-detection algorithm.
+                    </Typography>
+                    {h2hData.tagFrequency.map((t) => (
+                      <Chip
+                        key={`${t.tag}-${t.team}`}
+                        label={`${t.tag} (${t.team === "mine" ? teamName(h2hTeamId) : teamName(h2hOpponentId)}) × ${t.count}`}
+                        color={t.team === "mine" ? "primary" : "default"}
+                        sx={{ mr: 1, mb: 1 }}
+                      />
+                    ))}
+                  </Paper>
+                )}
+
+                <Paper sx={{ p: 3 }}>
+                  <Typography variant="h6" gutterBottom>Meeting by Meeting</Typography>
+                  {groupByStage(h2hData.encounters).map((group) => (
+                    <Box key={group.stageName} sx={{ mb: 3 }}>
+                      <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>{group.stageName}</Typography>
+                      {group.encounters.map((e) => (
+                        <Box
+                          key={e.gameId}
+                          sx={{
+                            display: "flex", flexWrap: "wrap", justifyContent: "space-between",
+                            alignItems: "center", py: 1, borderBottom: "1px solid", borderColor: "divider", gap: 1,
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary" sx={{ minWidth: 110 }}>{e.gameDate}</Typography>
+                          <Typography fontWeight="bold">{e.myStats.ppg} - {e.opponentStats.ppg}</Typography>
+                          <Box>
+                            {e.tags.length === 0 && <Typography variant="caption" color="text.secondary">No tags recorded</Typography>}
+                            {e.tags.map((t, i) => (
+                              <Chip
+                                key={`${e.gameId}-${t.tag}-${t.team}-${i}`}
+                                size="small"
+                                label={t.team === "opponent" ? `${t.tag} (them)` : t.tag}
+                                sx={{ mr: 0.5, mb: 0.5 }}
+                              />
+                            ))}
+                          </Box>
+                        </Box>
+                      ))}
+                    </Box>
+                  ))}
+                </Paper>
+              </>
+            )}
           </>
         )}
       </Box>

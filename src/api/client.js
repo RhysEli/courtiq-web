@@ -171,6 +171,11 @@ export const backendApi = {
     return request(`/teams/${encodeURIComponent(teamId)}/logo`, { method: 'PATCH', body: form, isForm: true });
   },
   getTeamSeasonStats: (teamId) => request(`/teams/${teamId}/season-stats`),
+  // FR-07 Phase 1/2: real head-to-head history between two teams (resolved
+  // through Step 14's identity-grouping layer server-side), distinct from
+  // getTeamSeasonStats above -- that averages a team's games against
+  // everyone, this filters to games actually played against one opponent.
+  getOpponentHistory: (teamId, opponentTeamId) => request(`/teams/${encodeURIComponent(teamId)}/opponents/${encodeURIComponent(opponentTeamId)}/history`),
   getPlayerDevelopment: (teamId, playerName) => request(`/teams/${teamId}/players/${encodeURIComponent(playerName)}/development`),
   // FR-11: real roster CRUD against the `players` table (backend/src/routes/players.js).
   getTeamPlayers: (teamId) => request(`/teams/${teamId}/players`),
