@@ -703,3 +703,28 @@ CREATE TABLE IF NOT EXISTS team_identity_review (
 CREATE UNIQUE INDEX IF NOT EXISTS team_identity_review_pending_unique
   ON team_identity_review (candidate_text)
   WHERE status = 'pending';
+
+-- Additive grouping: "these team ids are the same real team", consulted
+-- only at analysis/comparison query time -- deliberately does NOT touch
+-- games.home_team_id/opponent_team_id, players.team_id, user_teams,
+-- team_competition_seasons, or any other FK. A team with no row here is
+-- simply its own canonical identity. Chosen over a physical merge
+-- (reassigning every FK, then deleting or tombstoning the duplicate)
+-- because that carries real transactional risk -- user_teams' composite
+-- PK, player_name_aliases' unique alias text, and team_competition_seasons'
+-- unique membership can all collide mid-merge, and a merge can reopen
+-- player-identity conflicts that didn't exist before it. Deferred until
+-- there's real evidence of a case that actually needs a physical merge,
+-- not built speculatively now.
+--
+-- canonical_team_id is itself a real teams.id (the row treated as
+-- primary), not a separate synthetic identity -- keeps this to one small
+-- table instead of a whole new id namespace. Infrastructure only here:
+-- what queries actually consume this to compare/aggregate is later work.
+CREATE TABLE IF NOT EXISTS team_identity_groups (
+  team_id TEXT PRIMARY KEY REFERENCES teams(id),
+  canonical_team_id TEXT NOT NULL REFERENCES teams(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by INTEGER REFERENCES users(id),
+  CHECK (team_id != canonical_team_id)
+);

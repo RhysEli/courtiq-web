@@ -14,6 +14,7 @@ const annotationRoutes = require('./routes/annotations');
 const playerRoutes = require('./routes/players');
 const playerIdentityReviewRoutes = require('./routes/playerIdentityReview');
 const teamIdentityReviewRoutes = require('./routes/teamIdentityReview');
+const teamIdentityGroupRoutes = require('./routes/teamIdentityGroups');
 const teamCompetitionSeasonRoutes = require('./routes/teamCompetitionSeasons');
 const stageRoutes = require('./routes/stages');
 const seasonRoutes = require('./routes/seasons');
@@ -41,6 +42,9 @@ app.use('/api/teams', playerIdentityReviewRoutes);
 // (see schema.sql's comment on team_name_aliases), so there's no single
 // :teamId this queue naturally belongs under.
 app.use('/api/team-identity-review', teamIdentityReviewRoutes);
+// Phase B: additive grouping, infrastructure only -- no frontend consumes
+// this yet (see routes/teamIdentityGroups.js).
+app.use('/api/team-identity-groups', teamIdentityGroupRoutes);
 app.use('/api/teams', teamCompetitionSeasonRoutes);
 app.use('/api/teams', stageRoutes);
 app.use('/api/invites', inviteRoutes);
