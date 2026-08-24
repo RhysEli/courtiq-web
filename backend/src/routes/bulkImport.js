@@ -18,6 +18,7 @@ const { persistAdditionalReports } = require('../services/persistExtractedReport
 const { logAction } = require('../services/auditLog');
 const { resolvePlayerName } = require('../services/playerIdentity');
 const { resolveGameStageId } = require('../services/resolveGameStage');
+const { resolveTeamName } = require('../services/teamIdentity');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -101,8 +102,8 @@ router.post(
           }
         }
 
-        const homeTeamId = gameInfo.homeTeam;
-        const awayTeamId = gameInfo.awayTeam;
+        const homeTeamRaw = gameInfo.homeTeam;
+        const awayTeamRaw = gameInfo.awayTeam;
 
         // Checked against the two team-name strings straight off the PDF,
         // before either side is written to `teams` -- deliberately no DB
@@ -114,12 +115,17 @@ router.post(
         // route-level: one batch can contain PDFs for several different
         // games, so a file for a team the caller has no access to is
         // skipped on its own rather than failing the whole batch.
+        //
+        // Step 14: still anchored to the raw extracted strings, not a
+        // resolved identity -- this must run before team-name resolution
+        // below can do any write (a new alias, a new review candidate, or
+        // a new team row), same ordering this check has always had.
         const accessibleTeamIds = req.user.teamIds || [];
-        if (!accessibleTeamIds.includes(homeTeamId) && !accessibleTeamIds.includes(awayTeamId)) {
+        if (!accessibleTeamIds.includes(homeTeamRaw) && !accessibleTeamIds.includes(awayTeamRaw)) {
           entry.status = 'failed';
           entry.error = `You do not have access to either team in this game (${gameInfo.homeTeam} vs ${gameInfo.awayTeam}).`;
           results.push(entry);
-          await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} (no access to ${homeTeamId}/${awayTeamId})`, false);
+          await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} (no access to ${homeTeamRaw}/${awayTeamRaw})`, false);
           continue;
         }
 
@@ -127,9 +133,10 @@ router.post(
         // own team(s) named in THIS file currently has no Statistician --
         // same reasoning as requireStatisticianOrFallback (middleware/
         // auth.js), applied per-file here since one batch can mix files
-        // across several of the caller's teams.
+        // across several of the caller's teams. Also raw-string-based,
+        // same reasoning as the access check just above.
         if (req.user.role === 'Team Manager') {
-          const myTeamsInThisFile = [homeTeamId, awayTeamId].filter((id) => accessibleTeamIds.includes(id));
+          const myTeamsInThisFile = [homeTeamRaw, awayTeamRaw].filter((id) => accessibleTeamIds.includes(id));
           let fallbackApplies = false;
           for (const teamId of myTeamsInThisFile) {
             if (!(await teamHasActiveStatistician(teamId))) {
@@ -146,8 +153,23 @@ router.post(
           }
         }
 
-        await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(homeTeamId, homeTeamId);
-        await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(awayTeamId, awayTeamId);
+        // Step 14: resolves both team names through team identity matching
+        // (services/teamIdentity.js) instead of a raw find-or-create
+        // INSERT. A fuzzy match on either side blocks this file until a
+        // human resolves it via the review queue -- a team is foundational
+        // to the game row, not an optional tag.
+        const homeResolution = await resolveTeamName({ name: homeTeamRaw });
+        const awayResolution = await resolveTeamName({ name: awayTeamRaw });
+        if (homeResolution.status === 'pending_review' || awayResolution.status === 'pending_review') {
+          entry.status = 'failed';
+          entry.error = 'One or both team names look similar to an existing team -- check the team identity review queue to confirm before this file can be processed.';
+          results.push(entry);
+          await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} (team name pending identity review)`, false);
+          continue;
+        }
+        const homeTeamId = homeResolution.teamId;
+        const awayTeamId = awayResolution.teamId;
+
         if (seasonId) {
           await db.prepare('INSERT INTO seasons (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(seasonId, seasonId);
         }

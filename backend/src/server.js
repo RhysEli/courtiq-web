@@ -13,6 +13,7 @@ const inviteRoutes = require('./routes/invites');
 const annotationRoutes = require('./routes/annotations');
 const playerRoutes = require('./routes/players');
 const playerIdentityReviewRoutes = require('./routes/playerIdentityReview');
+const teamIdentityReviewRoutes = require('./routes/teamIdentityReview');
 const teamCompetitionSeasonRoutes = require('./routes/teamCompetitionSeasons');
 const stageRoutes = require('./routes/stages');
 const seasonRoutes = require('./routes/seasons');
@@ -35,6 +36,11 @@ app.use('/api/analysis', analysisRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/teams', playerRoutes);
 app.use('/api/teams', playerIdentityReviewRoutes);
+// Deliberately its own top-level resource, not nested under /api/teams/:teamId
+// like playerIdentityReviewRoutes above -- team-name matching is unscoped
+// (see schema.sql's comment on team_name_aliases), so there's no single
+// :teamId this queue naturally belongs under.
+app.use('/api/team-identity-review', teamIdentityReviewRoutes);
 app.use('/api/teams', teamCompetitionSeasonRoutes);
 app.use('/api/teams', stageRoutes);
 app.use('/api/invites', inviteRoutes);

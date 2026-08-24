@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../db');
 const { requireAuth, requireRole, requireTeamAccess } = require('../middleware/auth');
 const { imageUpload, uploadImage } = require('../services/imageUpload');
+const { findCandidate, queuePendingReview } = require('../services/teamIdentity');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -52,12 +53,23 @@ router.get('/', async (req, res) => {
 // fallback rule (requireStatisticianOrFallback) exists specifically for
 // "your team has no Statistician" situations, and there's no "your team"
 // yet when the team doesn't exist.
+//
+// Step 14: this is one of the three find-or-create call sites now going
+// through services/teamIdentity.js's matching instead of a raw exact-id
+// check. Doesn't call resolveTeamName() directly, though -- that
+// function's "no match" path can't carry institutionId/genderCategory
+// (bulkImport.js/games.js never have them), and this route's "already
+// exists" 409 for an EXACT match is deliberately kept (silently aliasing
+// and returning 201 for a deliberate "create" click would be misleading)
+// -- so this route uses findCandidate/queuePendingReview directly and
+// does its own insert on the no-match path.
 router.post('/', requireRole('Statistician'), async (req, res) => {
   try {
     const { name, institutionId, genderCategory } = req.body;
     if (!name?.trim()) {
       return res.status(400).json({ error: 'name is required' });
     }
+    const trimmed = name.trim();
 
     if (institutionId) {
       const institution = await db.prepare('SELECT id FROM institutions WHERE id = ?').get(institutionId);
@@ -66,17 +78,28 @@ router.post('/', requireRole('Statistician'), async (req, res) => {
       }
     }
 
-    const id = name.trim();
-    const existing = await db.prepare('SELECT id FROM teams WHERE id = ?').get(id);
-    if (existing) {
-      return res.status(409).json({ error: `A team named '${id}' already exists` });
+    const candidate = await findCandidate(trimmed);
+    if (candidate.type === 'exact') {
+      return res.status(409).json({ error: `A team named '${trimmed}' already exists` });
+    }
+    if (candidate.type === 'fuzzy') {
+      const reviewId = await queuePendingReview(trimmed, candidate);
+      return res.status(409).json({
+        error: `'${trimmed}' looks similar to an existing team (${candidate.reason}) -- check the team identity review queue to confirm it's the same team, or reject to create it as new.`,
+        reviewId,
+      });
     }
 
+    const id = trimmed;
     const team = await db.prepare(`
       INSERT INTO teams (id, name, institution_id, gender_category)
       VALUES (?, ?, ?, ?)
       RETURNING id, name, institution_id, gender_category, coach_name, manager_name, statistician_name, color_primary, color_secondary, brand_accent, logo_url
-    `).get(id, name.trim(), institutionId || null, genderCategory || null);
+    `).get(id, trimmed, institutionId || null, genderCategory || null);
+    await db.prepare(`
+      INSERT INTO team_name_aliases (team_id, alias_text) VALUES (?, ?)
+      ON CONFLICT (alias_text) DO NOTHING
+    `).run(id, trimmed);
 
     res.status(201).json(team);
   } catch (err) {

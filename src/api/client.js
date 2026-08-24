@@ -190,6 +190,12 @@ export const backendApi = {
   getPlayerIdentityReview: (teamId) => request(`/teams/${teamId}/player-identity-review`),
   confirmPlayerIdentityReview: (teamId, reviewId) => request(`/teams/${teamId}/player-identity-review/${reviewId}/confirm`, { method: 'POST' }),
   rejectPlayerIdentityReview: (teamId, reviewId) => request(`/teams/${teamId}/player-identity-review/${reviewId}/reject`, { method: 'POST' }),
+  // Step 14: team identity review queue (backend/src/routes/
+  // teamIdentityReview.js) -- unscoped, unlike the player one above, so no
+  // :teamId in these paths.
+  getTeamIdentityReview: () => request('/team-identity-review'),
+  confirmTeamIdentityReview: (reviewId) => request(`/team-identity-review/${reviewId}/confirm`, { method: 'POST' }),
+  rejectTeamIdentityReview: (reviewId) => request(`/team-identity-review/${reviewId}/reject`, { method: 'POST' }),
   // A team's competition-season history (backend/src/routes/teamCompetitionSeasons.js)
   // -- the real fact behind a promotion/relegation trajectory. Populated
   // by explicit staff action, not inferred from games.

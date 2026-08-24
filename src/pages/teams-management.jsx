@@ -45,6 +45,12 @@ import { backendApi } from '../api/client';
 // (Step 11's deliberate departure from that precedent, since stage
 // tagging is ongoing day-to-day work, not one-time structural setup).
 // Reflected here in what's enabled, not left for the backend to 403.
+//
+// Step 14: a "Possible duplicate teams" review queue, mirroring players-
+// management.jsx's own review section. Not scoped to the currently-
+// selected team above (team-name matching is unscoped -- see schema.sql's
+// comment on team_name_aliases) -- always shown, same as the Teams list
+// table below it.
 
 // Quick-select convenience, not a constrained enum -- typing any other
 // value is still fully supported (same freeSolo Autocomplete pattern as
@@ -99,6 +105,45 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
   const [addingStageTcsId, setAddingStageTcsId] = useState(null);
   const [stageErrorByTcs, setStageErrorByTcs] = useState({});
   const [removingStageId, setRemovingStageId] = useState(null);
+
+  // Step 14: team identity review queue -- unscoped (not tied to teamId
+  // above), same shared gate reasoning as stage CRUD.
+  const canManageTeamIdentity = role === 'Statistician' || role === 'Team Manager';
+  const [teamIdentityReviews, setTeamIdentityReviews] = useState([]);
+  const [teamIdentityReviewsError, setTeamIdentityReviewsError] = useState('');
+  const [teamIdentityReviewActionId, setTeamIdentityReviewActionId] = useState(null);
+
+  const loadTeamIdentityReviews = () => {
+    backendApi.getTeamIdentityReview()
+      .then(setTeamIdentityReviews)
+      .catch((err) => setTeamIdentityReviewsError(err.message || 'Could not load the team identity review queue.'));
+  };
+
+  const confirmTeamIdentityReviewItem = async (reviewId) => {
+    setTeamIdentityReviewActionId(reviewId);
+    try {
+      await backendApi.confirmTeamIdentityReview(reviewId);
+      loadTeamIdentityReviews();
+      loadTeams();
+    } catch (err) {
+      setTeamIdentityReviewsError(err.message || 'Could not confirm this match.');
+    } finally {
+      setTeamIdentityReviewActionId(null);
+    }
+  };
+
+  const rejectTeamIdentityReviewItem = async (reviewId) => {
+    setTeamIdentityReviewActionId(reviewId);
+    try {
+      await backendApi.rejectTeamIdentityReview(reviewId);
+      loadTeamIdentityReviews();
+      loadTeams();
+    } catch (err) {
+      setTeamIdentityReviewsError(err.message || 'Could not reject this match.');
+    } finally {
+      setTeamIdentityReviewActionId(null);
+    }
+  };
 
   const loadMemberships = (id) => {
     if (!id) { setTcsRows([]); return; }
@@ -191,6 +236,8 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
     backendApi.getInstitutions().then(setInstitutions).catch(() => setInstitutions([]));
     backendApi.getSeasons().then(setRealSeasons).catch(() => setRealSeasons([]));
     backendApi.getCompetitions().then(setRealCompetitions).catch(() => setRealCompetitions([]));
+    loadTeamIdentityReviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -484,6 +531,60 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
                   );
                 })}
               </Stack>
+            </CardContent>
+          </Card>
+        )}
+
+        {teamIdentityReviews.length > 0 && (
+          <Card>
+            <CardContent>
+              <Typography variant="h6" fontWeight={700}>Possible duplicate teams</Typography>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                These team names look like they might already be an existing team under a different spelling. Confirm
+                links them to the existing team; reject adds the name as a separate, new team instead.
+              </Typography>
+              {teamIdentityReviewsError && <Alert severity="error" sx={{ mb: 2 }}>{teamIdentityReviewsError}</Alert>}
+              {canManageTeamIdentity ? (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>New name seen</TableCell>
+                      <TableCell>Might be</TableCell>
+                      <TableCell>Why</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {teamIdentityReviews.map((review) => (
+                      <TableRow key={review.id}>
+                        <TableCell>{review.candidate_text}</TableCell>
+                        <TableCell>{review.candidate_team_name}</TableCell>
+                        <TableCell>{review.match_reason}</TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={1}>
+                            <Button
+                              size="small" variant="contained"
+                              disabled={teamIdentityReviewActionId === review.id}
+                              onClick={() => confirmTeamIdentityReviewItem(review.id)}
+                            >
+                              {teamIdentityReviewActionId === review.id ? 'Working…' : 'Confirm same team'}
+                            </Button>
+                            <Button
+                              size="small" variant="outlined"
+                              disabled={teamIdentityReviewActionId === review.id}
+                              onClick={() => rejectTeamIdentityReviewItem(review.id)}
+                            >
+                              Reject, different team
+                            </Button>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <Typography color="text.secondary">Only Statisticians and Team Managers can resolve these.</Typography>
+              )}
             </CardContent>
           </Card>
         )}

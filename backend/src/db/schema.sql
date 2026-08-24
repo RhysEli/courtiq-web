@@ -647,3 +647,59 @@ CREATE TABLE IF NOT EXISTS stages (
 -- bulkImport.js, which resolves this against whichever of the request's
 -- own team(s) is actually playing, not stored as an ambiguity here.
 ALTER TABLE games ADD COLUMN IF NOT EXISTS stage_id INTEGER REFERENCES stages(id);
+
+-- Team identity resolution (Step 14 investigation): teams.id is the exact
+-- team-name string, case-sensitive, set by whatever a PDF header parses
+-- to or whatever staff free-type -- the same fragility player_name had
+-- before player_name_aliases/player_identity_review existed, except
+-- teams.id is a primary key referenced by games/players/user_teams/
+-- team_competition_seasons, so "resolving" a confirmed duplicate can't be
+-- an additive alias the way player identity was -- see team_identity_groups
+-- below for how this project chose to handle that instead of a physical
+-- FK merge.
+--
+-- alias_text is globally UNIQUE, not scoped by team_id the way
+-- player_name_aliases is scoped by team_id -- players have a natural
+-- parent (their team) to scope matching by; teams don't (institution_id
+-- is optional and mostly null on real data today, and isn't a reliable
+-- partition either). Accepted, known limitation: two genuinely different
+-- real-world teams that happen to share an identical name would collide
+-- here. The fuzzy tier below never auto-merges regardless -- a human
+-- reviews every non-exact case -- so the actual exposure is bounded to
+-- "a human sees an irrelevant suggestion and rejects it", not a silent
+-- wrong merge.
+CREATE TABLE IF NOT EXISTS team_name_aliases (
+  id SERIAL PRIMARY KEY,
+  team_id TEXT NOT NULL REFERENCES teams(id),
+  alias_text TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Backfill: every team that already exists is trivially its own first
+-- alias, so exact-match lookups work immediately for the real teams that
+-- predate this table, not just ones created after it. Idempotent (ON
+-- CONFLICT DO NOTHING), safe to leave running on every startup.
+INSERT INTO team_name_aliases (team_id, alias_text)
+SELECT id, id FROM teams
+ON CONFLICT (alias_text) DO NOTHING;
+
+-- A newly-seen team name that fuzzy-matched an existing team closely
+-- enough to be worth a human's attention, but not closely enough to
+-- auto-link -- same never-auto-resolved shape as player_identity_review.
+-- No team_id column (unlike player_identity_review): matching here is
+-- unscoped/global (see the comment on team_name_aliases above), so a
+-- candidate isn't "for" any one team's own queue.
+CREATE TABLE IF NOT EXISTS team_identity_review (
+  id SERIAL PRIMARY KEY,
+  candidate_text TEXT NOT NULL,
+  candidate_team_id TEXT NOT NULL REFERENCES teams(id),
+  match_reason TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'rejected')),
+  reviewed_by INTEGER REFERENCES users(id),
+  reviewed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS team_identity_review_pending_unique
+  ON team_identity_review (candidate_text)
+  WHERE status = 'pending';

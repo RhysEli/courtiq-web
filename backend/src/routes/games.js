@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../db');
 const { requireAuth, requireRole, requireGameAccess } = require('../middleware/auth');
 const { resolveGameStageId } = require('../services/resolveGameStage');
+const { resolveTeamName } = require('../services/teamIdentity');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -28,18 +29,33 @@ router.post('/', requireRole('Statistician', 'Team Manager'), async (req, res) =
   // building out their roster. Same find-or-create-by-name convention
   // Bulk Import already uses when it reads a team name off a PDF, so a
   // manually-typed opponent and a PDF-detected one land in the same row.
-  const opponentTeamId = opponentTeamName.trim();
+  const opponentTeamRaw = opponentTeamName.trim();
 
   // Same "either side, no DB lookup" reasoning as bulkImport.js's per-file
   // check: the caller must have access to homeTeamId OR opponentTeamId,
-  // checked purely against their own JWT teamIds, before the opponent
-  // (frequently brand new) gets its find-or-create INSERT below -- so
-  // creating a game against a not-yet-existing opponent never needs its
-  // own grant, same as bulk-import.
+  // checked purely against their own JWT teamIds. Deliberately anchored
+  // to the raw typed/extracted string, not a resolved identity -- this
+  // must run before team-name resolution below can do any write (a new
+  // alias, a new review candidate, or a new team row), same ordering
+  // this check has always had, unchanged by Step 14.
   const accessibleTeamIds = req.user.teamIds || [];
-  if (!accessibleTeamIds.includes(homeTeamId) && !accessibleTeamIds.includes(opponentTeamId)) {
+  if (!accessibleTeamIds.includes(homeTeamId) && !accessibleTeamIds.includes(opponentTeamRaw)) {
     return res.status(403).json({ error: 'You do not have access to either team in this game' });
   }
+
+  // Step 14: resolves the opponent name through team identity matching
+  // (services/teamIdentity.js) instead of a raw find-or-create INSERT.
+  // A fuzzy match blocks game creation until a human resolves it --
+  // unlike stage tagging, a team is foundational to the game row itself,
+  // not an optional tag; there's no "leave it ambiguous for now" option.
+  const opponentResolution = await resolveTeamName({ name: opponentTeamRaw });
+  if (opponentResolution.status === 'pending_review') {
+    return res.status(409).json({
+      error: 'This opponent name looks similar to an existing team -- check the team identity review queue to confirm before creating this game.',
+      reviewId: opponentResolution.reviewId,
+    });
+  }
+  const opponentTeamId = opponentResolution.teamId;
 
   // See services/resolveGameStage.js for why this needs more than a
   // straight "does this id exist" check -- a stage belongs to one of the
@@ -51,8 +67,6 @@ router.post('/', requireRole('Statistician', 'Team Manager'), async (req, res) =
   if (!stageResolution.ok) {
     return res.status(400).json({ error: stageResolution.error });
   }
-
-  await db.prepare('INSERT INTO teams (id, name) VALUES (?, ?) ON CONFLICT (id) DO NOTHING').run(opponentTeamId, opponentTeamId);
 
   const result = await db.prepare(`
     INSERT INTO games (season_id, competition_id, home_team_id, opponent_team_id, game_date, venue, created_by, stage_id)
