@@ -114,7 +114,7 @@ async function extractBoxScore(filePath, preParsedLines = null) {
       'This extractor expects the standard FIBA LiveStats Box Score layout.',
     );
     err.code = 'EXTRACTION_NO_SECTIONS';
-    err.rawTextSample = data.text.slice(0, 2000);
+    err.rawTextSample = lines.join('\n').slice(0, 2000);
     throw err;
   }
 
@@ -185,7 +185,7 @@ async function extractBoxScore(filePath, preParsedLines = null) {
       'No player rows matched the expected Box Score layout inside the detected team sections.',
     );
     err.code = 'EXTRACTION_NO_MATCH';
-    err.rawTextSample = data.text.slice(0, 2000);
+    err.rawTextSample = lines.join('\n').slice(0, 2000);
     throw err;
   }
 
