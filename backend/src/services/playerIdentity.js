@@ -173,6 +173,27 @@ async function resolvePlayerName({ teamId, name, gameId = null, reportType = nul
 // protect here -- it's brand new). Both no-op (return null) on an
 // already-resolved or nonexistent review, so a double-click can't
 // double-process.
+// Backfills player_id onto every player_game_stats row this review's
+// candidate_text was left NULL on at insert time (bulkImport.js/
+// reports.js both insert with player_id = NULL while a fuzzy match is
+// pending -- see schema.sql's comment on player_game_stats.player_id).
+// player_game_stats has no team_id column of its own, so team_id is
+// derived the same way every other consumer in this codebase derives it:
+// join to games and check team_side against home_team_id/opponent_team_id.
+// Scoped to player_id IS NULL so this never overwrites a row some other,
+// already-resolved candidate legitimately linked.
+async function backfillPlayerIdOntoStats(teamId, candidateText, resolvedPlayerId) {
+  await db.prepare(`
+    UPDATE player_game_stats pgs
+    SET player_id = ?
+    FROM games g
+    WHERE pgs.game_id = g.id
+      AND pgs.player_id IS NULL
+      AND pgs.player_name = ?
+      AND ((pgs.team_side = 'home' AND g.home_team_id = ?) OR (pgs.team_side = 'opponent' AND g.opponent_team_id = ?))
+  `).run(resolvedPlayerId, candidateText, teamId, teamId);
+}
+
 async function confirmReview(reviewId, reviewedByUserId) {
   const review = await db.prepare(
     `SELECT * FROM player_identity_review WHERE id = ? AND status = 'pending'`,
@@ -187,6 +208,7 @@ async function confirmReview(reviewId, reviewedByUserId) {
   await db.prepare(
     `UPDATE player_identity_review SET status = 'confirmed', reviewed_by = ?, reviewed_at = NOW() WHERE id = ?`,
   ).run(reviewedByUserId, reviewId);
+  await backfillPlayerIdOntoStats(review.team_id, review.candidate_text, review.candidate_player_id);
 
   return { playerId: review.candidate_player_id };
 }
@@ -207,6 +229,7 @@ async function rejectReview(reviewId, reviewedByUserId) {
   await db.prepare(
     `UPDATE player_identity_review SET status = 'rejected', reviewed_by = ?, reviewed_at = NOW() WHERE id = ?`,
   ).run(reviewedByUserId, reviewId);
+  await backfillPlayerIdOntoStats(review.team_id, review.candidate_text, newPlayer.id);
 
   return { playerId: newPlayer.id };
 }

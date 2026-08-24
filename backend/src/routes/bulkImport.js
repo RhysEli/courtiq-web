@@ -44,8 +44,8 @@ const upload = multer({
 const insertStatStmt = db.prepare(`
   INSERT INTO player_game_stats
     (game_id, player_name, team_side, minutes, points, fgm, fga, three_pm, three_pa,
-     ftm, fta, oreb, dreb, reb, assists, steals, blocks, turnovers, fouls, plus_minus, raw_extraction)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+     ftm, fta, oreb, dreb, reb, assists, steals, blocks, turnovers, fouls, plus_minus, raw_extraction, player_id)
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `);
 
 const extraExtractors = {
@@ -250,34 +250,39 @@ router.post(
         `).run(game.id, file.originalname, file.path, req.user.id);
 
         await db.prepare('DELETE FROM player_game_stats WHERE game_id = ?').run(game.id);
-        for (const p of players) {
-          await insertStatStmt.run(
-            game.id, p.player_name, p.team_side, p.minutes, p.points, p.fgm, p.fga,
-            p.three_pm, p.three_pa, p.ftm, p.fta, p.oreb, p.dreb, p.reb,
-            p.assists, p.steals, p.blocks, p.turnovers, p.fouls, p.plus_minus,
-            JSON.stringify(p),
-          );
-        }
 
-        // Player identity resolution (playerIdentity.js) -- additive,
-        // doesn't gate or alter the player_game_stats insert above in any
-        // way (that stays keyed on the raw player_name string, unchanged;
-        // rewiring stat reads onto player_id is explicitly a separate,
-        // future round). Runs once per distinct (team, name) in this
-        // file's primary Box Score list -- the authoritative, always-
-        // present per-player roster for the game, not re-run per
-        // additional report type (persistAdditionalReports below reuses
-        // whatever this already resolved/queued, via the same exact-alias
-        // fast path, rather than re-deciding independently).
+        // Player identity resolution (playerIdentity.js) now runs BEFORE
+        // each row's insert, not after, so its already-computed decision
+        // can be written straight onto player_id -- previously this ran in
+        // a separate pass afterward and threw the result away, leaving
+        // every read to re-derive identity from the raw player_name string
+        // itself (see schema.sql's comment on player_game_stats.player_id).
+        // Still once per distinct (team, name) in this file's primary Box
+        // Score list -- the authoritative, always-present per-player
+        // roster for the game, not re-run per additional report type
+        // (persistAdditionalReports below reuses whatever this already
+        // resolved/queued, via the same exact-alias fast path, rather than
+        // re-deciding independently).
         const identitySummary = { linked: 0, created: 0, pendingReview: 0 };
         for (const p of players) {
           const playerTeamId = p.team_side === 'home' ? homeTeamId : awayTeamId;
           const resolution = await resolvePlayerName({
             teamId: playerTeamId, name: p.player_name, gameId: game.id, reportType: 'Box Score',
           });
-          if (resolution.status === 'linked') identitySummary.linked += 1;
-          else if (resolution.status === 'created') identitySummary.created += 1;
-          else if (resolution.status === 'pending_review') identitySummary.pendingReview += 1;
+          let playerId = null;
+          if (resolution.status === 'linked') { identitySummary.linked += 1; playerId = resolution.playerId; } else if (resolution.status === 'created') { identitySummary.created += 1; playerId = resolution.playerId; } else if (resolution.status === 'pending_review') {
+            // NULL until a human confirms/rejects the fuzzy match --
+            // confirmReview/rejectReview backfill it onto this exact row
+            // once resolved (matched on game_id + player_name + team_side,
+            // the same shape used everywhere else in this file).
+            identitySummary.pendingReview += 1;
+          }
+          await insertStatStmt.run(
+            game.id, p.player_name, p.team_side, p.minutes, p.points, p.fgm, p.fga,
+            p.three_pm, p.three_pa, p.ftm, p.fta, p.oreb, p.dreb, p.reb,
+            p.assists, p.steals, p.blocks, p.turnovers, p.fouls, p.plus_minus,
+            JSON.stringify(p), playerId,
+          );
         }
         entry.playerIdentity = identitySummary;
 

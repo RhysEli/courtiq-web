@@ -467,6 +467,24 @@ CREATE TABLE IF NOT EXISTS player_game_stats (
   raw_extraction TEXT -- JSON blob of the raw parsed row, for audit/debug
 );
 
+-- Player-identity persistence (investigated, then built, in the round
+-- after Step 15): player_name above stays exactly as extracted (raw text
+-- is still the provenance of record), but every consumer that needs "all
+-- of this canonical player's stats" should join on player_id instead of
+-- re-deriving identity from the raw string per query -- see season-stats/
+-- development in teams.js. Filled in at ingestion time from
+-- resolvePlayerName()'s already-computed result (bulkImport.js and
+-- reports.js both do this now), NOT resolved at query time the way
+-- Step 14's getGroupedTeamIds() resolves team-id variants -- unlike team
+-- duplicates (which are only ever discovered after the fact by a human),
+-- player identity is already decided synchronously at write time, so
+-- there's nothing to gain by re-deriving it on every read.
+-- NULL while a fuzzy-matched candidate is still awaiting human review
+-- (player_identity_review) -- confirmReview/rejectReview in
+-- playerIdentity.js backfill it onto these rows once resolved. Also NULL
+-- for a blank/skipped name, which has no meaningful identity to link.
+ALTER TABLE player_game_stats ADD COLUMN IF NOT EXISTS player_id INTEGER REFERENCES players(id);
+
 -- Team-level totals per game, derived from player_game_stats or parsed directly.
 CREATE TABLE IF NOT EXISTS team_game_stats (
   id SERIAL PRIMARY KEY,

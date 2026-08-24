@@ -6,6 +6,7 @@ const db = require('../db');
 const { requireAuth, requireRole, requireGameAccess, requireStatisticianOrFallback } = require('../middleware/auth');
 const { extractBoxScore } = require('../services/pdfExtraction');
 const { logAction } = require('../services/auditLog');
+const { resolvePlayerName } = require('../services/playerIdentity');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -65,17 +66,37 @@ router.post(
         const insertStat = db.prepare(`
           INSERT INTO player_game_stats
             (game_id, player_name, team_side, minutes, points, fgm, fga, three_pm, three_pa,
-             ftm, fta, oreb, dreb, reb, assists, steals, blocks, turnovers, fouls, plus_minus, raw_extraction)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             ftm, fta, oreb, dreb, reb, assists, steals, blocks, turnovers, fouls, plus_minus, raw_extraction, player_id)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `);
+        // Player identity resolution (playerIdentity.js) -- previously
+        // missing entirely on this ingestion path (unlike bulkImport.js's
+        // primary Box Score route), so a name uploaded through this single-
+        // report route got no players/player_name_aliases/
+        // player_identity_review entry at all until a later manual
+        // backfill happened to catch it. Same per-player resolve-then-
+        // insert shape as bulkImport.js now uses.
         for (const p of players) {
           const idx = players.indexOf(p);
           const teamSide = idx < midpoint ? 'home' : 'opponent';
+          const playerTeamId = teamSide === 'home' ? game.home_team_id : game.opponent_team_id;
+          let playerId = null;
+          if (playerTeamId) {
+            const resolution = await resolvePlayerName({
+              teamId: playerTeamId, name: p.player_name, gameId, reportType: 'Box Score',
+            });
+            if (resolution.status === 'linked' || resolution.status === 'created') {
+              playerId = resolution.playerId;
+            }
+            // 'pending_review' leaves playerId null -- confirmReview/
+            // rejectReview in playerIdentity.js backfill it onto this row
+            // once a human resolves the review, same as bulkImport.js.
+          }
           await insertStat.run(
             gameId, p.player_name, teamSide, p.minutes, p.points, p.fgm, p.fga,
             p.three_pm, p.three_pa, p.ftm, p.fta, p.oreb, p.dreb, p.reb,
             p.assists, p.steals, p.blocks, p.turnovers, p.fouls, p.plus_minus,
-            JSON.stringify(p),
+            JSON.stringify(p), playerId,
           );
         }
         await db.prepare('UPDATE reports SET extraction_status = ? WHERE id = ?').run('extracted', reportId);
