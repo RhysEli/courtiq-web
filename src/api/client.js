@@ -176,7 +176,12 @@ export const backendApi = {
   // getTeamSeasonStats above -- that averages a team's games against
   // everyone, this filters to games actually played against one opponent.
   getOpponentHistory: (teamId, opponentTeamId) => request(`/teams/${encodeURIComponent(teamId)}/opponents/${encodeURIComponent(opponentTeamId)}/history`),
-  getPlayerDevelopment: (teamId, playerName) => request(`/teams/${teamId}/players/${encodeURIComponent(playerName)}/development`),
+  // playerId, not playerName -- the route now filters by the stable
+  // player_id resolved at ingestion time (see backend/src/db/schema.sql's
+  // comment on player_game_stats.player_id), not the raw extracted name
+  // string, so two different real players who happen to share an
+  // identical name on the same team no longer collide.
+  getPlayerDevelopment: (teamId, playerId) => request(`/teams/${teamId}/players/${playerId}/development`),
   // FR-11: real roster CRUD against the `players` table (backend/src/routes/players.js).
   getTeamPlayers: (teamId) => request(`/teams/${teamId}/players`),
   addPlayer: (teamId, data) => request(`/teams/${teamId}/players`, { method: 'POST', body: data }),

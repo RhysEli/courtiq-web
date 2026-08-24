@@ -253,7 +253,8 @@ router.patch('/:teamId/logo', requireRole('Team Manager'), requireTeamAccess('te
 //     plus real shooting percentages computed from summed makes/
 //     attempts (not an average of per-game percentages, which would be
 //     skewed by low-attempt games).
-//   - players: same shape, grouped by player_name, so the frontend can
+//   - players: same shape, grouped by player_id (not the raw player_name
+//     string -- see the grouping comment below), so the frontend can
 //     offer a player-vs-player comparison scoped to real players who
 //     have actually appeared in this team's extracted box scores.
 router.get('/:teamId/season-stats', async (req, res) => {
@@ -308,27 +309,40 @@ router.get('/:teamId/season-stats', async (req, res) => {
       ftPct: pct(totals.ftm, totals.fta),
     };
 
-    // Group by player_name for per-player season averages. Uses
-    // player_name as extracted (not linked to the players/roster table,
-    // since no real roster data with positions has been entered anywhere
-    // in the system yet -- see project notes). This means two players
-    // with identical extracted names would merge into one row; not a
-    // concern for the current real dataset, worth revisiting once real
-    // roster data exists.
+    // Group by player_id, not the raw player_name string -- player_id is
+    // resolved once at ingestion time (resolvePlayerName(), see
+    // schema.sql's comment on player_game_stats.player_id) and is NULL
+    // only for a row still awaiting human review in player_identity_review.
+    // Those rows are excluded here rather than falling back to a raw-string
+    // grouping, which is exactly the fragile behavior this replaced (two
+    // spellings of the same real player -- e.g. a trailing "(C)" captain
+    // marker on some rows but not others -- used to split one person into
+    // two entries here; confirmed on real data before this round). An
+    // excluded player's stats reappear automatically once their review is
+    // confirmed/rejected (playerIdentity.js backfills player_id onto their
+    // rows at that point).
+    const linkedRows = allRows.filter((r) => r.player_id !== null);
     const byPlayer = {};
-    for (const r of allRows) {
-      if (!byPlayer[r.player_name]) byPlayer[r.player_name] = [];
-      byPlayer[r.player_name].push(r);
+    for (const r of linkedRows) {
+      if (!byPlayer[r.player_id]) byPlayer[r.player_id] = [];
+      byPlayer[r.player_id].push(r);
     }
 
-    const players = Object.entries(byPlayer).map(([name, rows]) => {
+    const playerIds = Object.keys(byPlayer).map(Number);
+    const playerRecords = playerIds.length
+      ? await db.prepare('SELECT id, full_name FROM players WHERE id = ANY(?)').all(playerIds)
+      : [];
+    const nameByPlayerId = Object.fromEntries(playerRecords.map((p) => [p.id, p.full_name]));
+
+    const players = Object.entries(byPlayer).map(([playerId, rows]) => {
       const gp = rows.length;
       const s = (key) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
       const totalFgm = s('fgm'); const totalFga = s('fga');
       const totalThreeM = s('three_pm'); const totalThreeA = s('three_pa');
       const totalFtm = s('ftm'); const totalFta = s('fta');
       return {
-        playerName: name,
+        playerId: Number(playerId),
+        playerName: nameByPlayerId[playerId] || rows[0].player_name,
         gamesPlayed: gp,
         ppg: Number((s('points') / gp).toFixed(1)),
         rpg: Number((s('reb') / gp).toFixed(1)),
@@ -496,25 +510,26 @@ router.get('/:teamId/opponents/:opponentTeamId/history', async (req, res) => {
 // registered player, enabling trend analysis of individual development
 // over time." (exact wording from the project proposal)
 //
-// Same honest limitation as the per-player grouping in the season-stats
-// route above: players are identified by their extracted player_name
-// string, not a real roster player_id -- there is no roster/player
-// linkage anywhere in the current data model. A player is therefore
-// scoped to (teamId, playerName) here, matching how the players list in
-// season-stats already works. Two different real players who happen to
-// share an identical extracted name on the same team would incorrectly
-// merge -- not a concern for the current real dataset, worth revisiting
-// if real roster data with stable player IDs is ever entered.
-router.get('/:teamId/players/:playerName/development', async (req, res) => {
+// Scoped to (teamId, playerId) now, not (teamId, playerName) -- playerId
+// is resolved once at ingestion time (see schema.sql's comment on
+// player_game_stats.player_id) and filtering on it instead of the raw
+// extracted string is what actually fixes the collision this route used
+// to be exposed to (two different real players sharing an identical
+// extracted name on the same team would previously merge; confirmed real
+// on this data before this round -- see [[player-identity-persistence]]).
+router.get('/:teamId/players/:playerId/development', async (req, res) => {
   try {
-    const { teamId, playerName } = req.params;
+    const { teamId, playerId } = req.params;
+
+    const playerRecord = await db.prepare('SELECT full_name FROM players WHERE id = ?').get(playerId);
+    const playerName = playerRecord ? playerRecord.full_name : null;
 
     const games = await db.prepare(
       'SELECT id, home_team_id, opponent_team_id, season_id, game_date FROM games WHERE home_team_id = ? OR opponent_team_id = ? ORDER BY game_date ASC',
     ).all(teamId, teamId);
 
     if (games.length === 0) {
-      return res.json({ teamId, playerName, career: null, seasons: [] });
+      return res.json({ teamId, playerId: Number(playerId), playerName, career: null, seasons: [] });
     }
 
     // Same per-game team_side resolution as season-stats -- which side
@@ -523,15 +538,15 @@ router.get('/:teamId/players/:playerName/development', async (req, res) => {
     for (const game of games) {
       const side = game.home_team_id === teamId ? 'home' : 'opponent';
       const rows = await db.prepare(
-        'SELECT * FROM player_game_stats WHERE game_id = ? AND team_side = ? AND player_name = ?',
-      ).all(game.id, side, playerName);
+        'SELECT * FROM player_game_stats WHERE game_id = ? AND team_side = ? AND player_id = ?',
+      ).all(game.id, side, playerId);
       for (const row of rows) {
         allRows.push({ ...row, season_id: game.season_id, game_date: game.game_date });
       }
     }
 
     if (allRows.length === 0) {
-      return res.json({ teamId, playerName, career: null, seasons: [] });
+      return res.json({ teamId, playerId: Number(playerId), playerName, career: null, seasons: [] });
     }
 
     const seasonNames = await db.prepare('SELECT id, name FROM seasons').all();
@@ -584,7 +599,7 @@ router.get('/:teamId/players/:playerName/development', async (req, res) => {
 
     const career = summarize(allRows);
 
-    res.json({ teamId, playerName, career, seasons });
+    res.json({ teamId, playerId: Number(playerId), playerName, career, seasons });
   } catch (err) {
     console.error('player development failed:', err);
     res.status(500).json({ error: err.message });

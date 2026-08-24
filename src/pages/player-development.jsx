@@ -14,17 +14,15 @@ import { useAuth } from '../contexts/AuthContext';
 // over time." (exact wording from the project proposal)
 //
 // Built the same way as FR-06 (statistics.jsx): real backend data only,
-// via the new /api/teams/:teamId/players/:playerName/development
-// endpoint, which computes both career-cumulative totals and per-season
-// averages directly from real extracted player_game_stats rows. A player
-// with no real games shows "No games recorded yet", never a fabricated
-// trend line.
+// via /api/teams/:teamId/players/:playerId/development, which computes
+// both career-cumulative totals and per-season averages directly from
+// real extracted player_game_stats rows. A player with no real games
+// shows "No games recorded yet", never a fabricated trend line.
 //
-// Known limitation, inherited from how players are identified everywhere
-// else in this system (see season-stats route): a player is scoped to
-// (team, extracted name) since there's no roster/player-ID linkage in the
-// data model yet. Two different real players with an identical extracted
-// name on the same team would incorrectly merge into one profile.
+// Scoped by playerId (a stable id resolved once at ingestion time), not
+// the raw extracted name string -- two different real players sharing an
+// identical extracted name on the same team no longer collide (see
+// backend/src/db/schema.sql's comment on player_game_stats.player_id).
 
 function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, currentUser }) {
   const { activeTeam } = useAuth();
@@ -35,7 +33,7 @@ function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, cu
 
   const [rosterPlayers, setRosterPlayers] = useState([]);
   const [rosterLoading, setRosterLoading] = useState(false);
-  const [playerName, setPlayerName] = useState('');
+  const [playerId, setPlayerId] = useState('');
 
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -71,21 +69,22 @@ function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, cu
   // Player picker is populated from the same season-stats endpoint
   // Statistics already uses -- its `players` array is exactly "every
   // player with at least one real extracted game for this team", which
-  // is the correct set of choices here too.
+  // is the correct set of choices here too. Each entry now carries both
+  // playerId (what's actually queried) and playerName (what's displayed).
   useEffect(() => {
     if (!teamId) return undefined;
     let cancelled = false;
     setRosterLoading(true);
-    setPlayerName('');
+    setPlayerId('');
     setProfile(null);
     backendApi.getTeamSeasonStats(teamId)
       .then((data) => {
         if (cancelled) return;
-        const names = (data.players || []).map((p) => p.playerName);
-        setRosterPlayers(names);
-        // An Athlete defaults to their own player_name, not the first
-        // roster entry.
-        setPlayerName((isAthlete && currentUser?.playerName) || names[0] || '');
+        const roster = (data.players || []).map((p) => ({ playerId: p.playerId, playerName: p.playerName }));
+        setRosterPlayers(roster);
+        // An Athlete defaults to their own player, not the first roster
+        // entry.
+        setPlayerId((isAthlete && currentUser?.playerId) || roster[0]?.playerId || '');
       })
       .catch(() => { if (!cancelled) setRosterPlayers([]); })
       .finally(() => { if (!cancelled) setRosterLoading(false); });
@@ -94,16 +93,16 @@ function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, cu
   }, [teamId]);
 
   useEffect(() => {
-    if (!teamId || !playerName) return undefined;
+    if (!teamId || !playerId) return undefined;
     let cancelled = false;
     setProfileLoading(true);
     setProfileError('');
-    backendApi.getPlayerDevelopment(teamId, playerName)
+    backendApi.getPlayerDevelopment(teamId, playerId)
       .then((data) => { if (!cancelled) setProfile(data); })
       .catch((err) => { if (!cancelled) setProfileError(err.message || 'Could not load player development profile.'); })
       .finally(() => { if (!cancelled) setProfileLoading(false); });
     return () => { cancelled = true; };
-  }, [teamId, playerName]);
+  }, [teamId, playerId]);
 
   const career = profile?.career;
   const seasons = profile?.seasons || [];
@@ -147,15 +146,15 @@ function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, cu
                 {isAthlete ? (
                   <Box>
                     <Typography variant="caption" color="text.secondary">Player</Typography>
-                    <Typography>{playerName || 'You'}</Typography>
+                    <Typography>{profile?.playerName || 'You'}</Typography>
                   </Box>
                 ) : (
                   <TextField
-                    fullWidth select label="Player" value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
+                    fullWidth select label="Player" value={playerId}
+                    onChange={(e) => setPlayerId(e.target.value)}
                     disabled={rosterLoading || rosterPlayers.length === 0}
                   >
-                    {rosterPlayers.map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
+                    {rosterPlayers.map((p) => <MenuItem key={p.playerId} value={p.playerId}>{p.playerName}</MenuItem>)}
                   </TextField>
                 )}
               </Grid>
