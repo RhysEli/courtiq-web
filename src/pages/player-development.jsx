@@ -2,8 +2,10 @@ import {
   Box, Grid, Card, CardContent, Typography, TextField, MenuItem, Table, TableBody,
   TableCell, TableHead, TableRow, Stack, CircularProgress, Alert, Button,
 } from '@mui/material';
+import DownloadIcon from '@mui/icons-material/Download';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useEffect, useMemo, useState } from 'react';
+import { jsPDF } from 'jspdf';
 import Layout from '../components/layout';
 import { backendApi } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
@@ -155,6 +157,64 @@ function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, cu
     APG: s.apg,
   })), [seasons]);
 
+  // FR-13: export the currently-displayed real profile as a PDF. Same
+  // jspdf pattern as statistics.jsx's exportPdf -- only ever rendered
+  // (see the button below) once `career` is real, so there's no path to
+  // generating a PDF with fabricated or absent stats.
+  const exportPdf = () => {
+    const doc = new jsPDF();
+    let y = 18;
+
+    doc.setFontSize(16);
+    doc.text(`CourtIQ Player Development Profile — ${profile?.playerName || 'Player'}`, 14, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.text(`Generated ${new Date().toLocaleString()} • ${career.gamesPlayed} real recorded game(s)`, 14, y);
+    y += 10;
+
+    doc.setFontSize(12);
+    doc.text('Career-cumulative averages', 14, y);
+    y += 6;
+    doc.setFontSize(10);
+    [
+      ['GP', career.gamesPlayed], ['PPG', career.ppg], ['RPG', career.rpg],
+      ['APG', career.apg], ['SPG', career.spg], ['BPG', career.bpg], ['TOPG', career.topg],
+      ['FG%', `${career.fgPct}%`], ['3P%', `${career.threePct}%`], ['FT%', `${career.ftPct}%`],
+    ].forEach(([label, value]) => {
+      doc.text(`${label}: ${value}`, 14, y);
+      y += 6;
+    });
+
+    y += 4;
+    doc.setFontSize(12);
+    doc.text('Per-season breakdown', 14, y);
+    y += 8;
+    doc.setFontSize(9);
+    doc.text('Season', 14, y);
+    doc.text('GP', 90, y);
+    doc.text('PPG', 110, y);
+    doc.text('RPG', 130, y);
+    doc.text('APG', 150, y);
+    doc.text('FG%', 170, y);
+    y += 5;
+    doc.line(14, y, 196, y);
+    y += 5;
+
+    seasons.forEach((s) => {
+      if (y > 280) { doc.addPage(); y = 18; }
+      doc.text(String(s.seasonName), 14, y);
+      doc.text(String(s.gamesPlayed), 90, y);
+      doc.text(String(s.ppg), 110, y);
+      doc.text(String(s.rpg), 130, y);
+      doc.text(String(s.apg), 150, y);
+      doc.text(`${s.fgPct}%`, 170, y);
+      y += 6;
+    });
+
+    const fileName = (profile?.playerName || 'player').replace(/\s+/g, '-').toLowerCase();
+    doc.save(`courtiq-player-development-${fileName}.pdf`);
+  };
+
   return (
     <Layout mode={mode} toggleTheme={toggleTheme} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -260,6 +320,12 @@ function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, cu
 
         {!profileLoading && !profileError && career && (
           <>
+            <Stack direction="row" alignItems="center" justifyContent="flex-end">
+              <Button variant="outlined" size="small" startIcon={<DownloadIcon />} onClick={exportPdf}>
+                Download as PDF
+              </Button>
+            </Stack>
+
             <Grid container spacing={2}>
               {[
                 ['Career GP', career.gamesPlayed],
