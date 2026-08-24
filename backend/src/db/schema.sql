@@ -620,6 +620,31 @@ CREATE TABLE IF NOT EXISTS annotations (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- FR-09 also covers "season summary" and "player profile" annotations,
+-- not just game records -- game_id becomes optional and two more nullable
+-- scope FKs are added alongside it. team_competition_season_id, not the
+-- raw seasons.id: seasons.js's own GET / applies no team scoping at all
+-- (a season is a shared, global entity multiple teams' competition
+-- memberships can point at), so a note on the raw season would be
+-- attached to something every team sharing that season could see --
+-- not what "a note on your team's season summary" means. team_competition_
+-- seasons is the real team-owned entity (already gated via
+-- requireTeamAccess in teamCompetitionSeasons.js).
+--
+-- Exactly one of the three scope columns must be set per row -- same DROP
+-- + re-ADD CHECK pattern as users_role_check above (Postgres has no ADD
+-- CONSTRAINT IF NOT EXISTS), safe to rerun every startup. Validates
+-- existing rows on add, same caveat as users_role_check -- fine here
+-- since every pre-existing row already has game_id NOT NULL and the two
+-- new columns start NULL, so exactly-one already holds for all of them.
+ALTER TABLE annotations ALTER COLUMN game_id DROP NOT NULL;
+ALTER TABLE annotations ADD COLUMN IF NOT EXISTS team_competition_season_id INTEGER REFERENCES team_competition_seasons(id);
+ALTER TABLE annotations ADD COLUMN IF NOT EXISTS player_id INTEGER REFERENCES players(id);
+ALTER TABLE annotations DROP CONSTRAINT IF EXISTS annotations_exactly_one_scope;
+ALTER TABLE annotations ADD CONSTRAINT annotations_exactly_one_scope CHECK (
+  (game_id IS NOT NULL)::int + (team_competition_season_id IS NOT NULL)::int + (player_id IS NOT NULL)::int = 1
+);
+
 -- FR-14: "The system shall maintain an audit log recording all data
 -- upload events, metric computation runs, and report generation actions
 -- with timestamps and the identity of the initiating user." Written via
