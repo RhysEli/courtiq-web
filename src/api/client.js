@@ -138,6 +138,13 @@ export const backendApi = {
   },
   computeMetrics: (gameId) => request(`/analysis/games/${gameId}/compute`, { method: 'POST' }),
   generateNarrative: (gameId) => request(`/analysis/games/${gameId}/narrative`, { method: 'POST' }),
+  // Real, already-computed metrics + narrative for one game (game_metrics/
+  // game_narratives), independent of the legacy localStorage-backed
+  // analysisEntry the rest of analysis.jsx's page still uses -- narrative
+  // is null whenever it hasn't been generated (or generation failed),
+  // which is a real, best-effort state (see routes/analysis.js's own
+  // narrative route), not an error.
+  getGameAnalysis: (gameId) => request(`/analysis/games/${gameId}`),
   sendInviteEmail: (payload) => request('/invites/send', { method: 'POST', body: payload }),
   listInvites: () => request('/invites'),
   revokeInvite: (token) => request(`/invites/${token}/revoke`, { method: 'POST' }),

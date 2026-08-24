@@ -2,7 +2,9 @@ import {
   Box, Grid, Card, CardContent, Typography, Chip, Stack, Divider, Alert,
   TextField, MenuItem, Button, CircularProgress,
 } from '@mui/material';
+import DownloadIcon from '@mui/icons-material/Download';
 import { useEffect, useState } from 'react';
+import { jsPDF } from 'jspdf';
 import Layout from '../components/layout';
 import { getAnalysisEntries } from '../services/analysisService';
 import { backendApi } from '../api/client';
@@ -26,6 +28,17 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
   const [noteText, setNoteText] = useState('');
   const [submittingNote, setSubmittingNote] = useState(false);
   const [noteError, setNoteError] = useState('');
+
+  // FR-13: real, selectedGameId-scoped match stats + AI narrative
+  // (game_metrics/game_narratives via GET /analysis/games/:gameId) --
+  // independent of the legacy analysisEntry data below (which is a
+  // localStorage-backed mock, not tied to a real gameId at all). Built
+  // specifically so the PDF export (and the cards it mirrors) reflect
+  // real numbers for the actual selected game, not whatever the last
+  // locally-stored mock entry happened to contain.
+  const [realAnalysis, setRealAnalysis] = useState(null);
+  const [realAnalysisLoading, setRealAnalysisLoading] = useState(false);
+  const [realAnalysisError, setRealAnalysisError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +66,117 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
     if (selectedGameId) loadNotes(selectedGameId);
   }, [selectedGameId]);
 
+  useEffect(() => {
+    if (!selectedGameId) { setRealAnalysis(null); return undefined; }
+    let cancelled = false;
+    setRealAnalysisLoading(true);
+    setRealAnalysisError('');
+    backendApi.getGameAnalysis(selectedGameId)
+      .then((data) => { if (!cancelled) setRealAnalysis(data); })
+      .catch((err) => { if (!cancelled) setRealAnalysisError(err.message || 'Could not load match analysis.'); })
+      .finally(() => { if (!cancelled) setRealAnalysisLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedGameId]);
+
+  // Plain made/attempted percentages (the same shape every other page in
+  // this app already shows -- FG%/3PT%/FT%), derived from the home side's
+  // raw box-score totals game_metrics stores, not the advanced metrics
+  // (effectiveFgPct etc) computeTeamMetrics also returns -- those are a
+  // different, unrelated stat, not what "Match summary" has ever labeled
+  // here. null (not zeroes) until metrics actually exist for this game --
+  // compute hasn't necessarily run yet.
+  const pct = (made, att) => (att > 0 ? Number(((made / att) * 100).toFixed(1)) : 0);
+  const homeRaw = realAnalysis?.metrics?.home?.raw;
+  const matchSummary = homeRaw ? {
+    points: homeRaw.points,
+    fgPct: pct(homeRaw.fgm, homeRaw.fga),
+    threePtPct: pct(homeRaw.three_pm, homeRaw.three_pa),
+    ftPct: pct(homeRaw.ftm, homeRaw.fta),
+    rebounds: homeRaw.reb,
+    assists: homeRaw.assists,
+  } : null;
+  const realNarrative = realAnalysis?.narrative || null;
+
+  const selectedGame = games.find((g) => g.id === selectedGameId);
+
+  // FR-13: export the currently-selected real game's summary as a PDF --
+  // match stats, AI narrative, and Coach notes, exactly what's rendered
+  // on screen for this game and nothing else. Each section honestly
+  // labels its own absence (metrics not computed yet / narrative not
+  // generated yet / no notes yet) rather than showing blank or fabricated
+  // content -- narrative especially is a real best-effort step elsewhere
+  // in this system (routes/analysis.js's narrative route can fail or
+  // simply never have been run), not something guaranteed to exist.
+  const exportGamePdf = () => {
+    const doc = new jsPDF();
+    let y = 18;
+
+    doc.setFontSize(16);
+    doc.text(`CourtIQ Game Summary — Game #${selectedGameId}`, 14, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.text(`Generated ${new Date().toLocaleString()} • ${selectedGame?.game_date || 'no date recorded'}`, 14, y);
+    y += 10;
+
+    doc.setFontSize(12);
+    doc.text('Match summary', 14, y);
+    y += 8;
+    doc.setFontSize(10);
+    if (matchSummary) {
+      [
+        ['Points', matchSummary.points], ['FG%', `${matchSummary.fgPct}%`],
+        ['3PT%', `${matchSummary.threePtPct}%`], ['FT%', `${matchSummary.ftPct}%`],
+        ['Rebounds', matchSummary.rebounds], ['Assists', matchSummary.assists],
+      ].forEach(([label, value]) => {
+        doc.text(`${label}: ${value}`, 14, y);
+        y += 6;
+      });
+    } else {
+      doc.text('Metrics have not been computed for this game yet.', 14, y);
+      y += 6;
+    }
+
+    y += 4;
+    doc.setFontSize(12);
+    doc.text('AI-generated narrative', 14, y);
+    y += 8;
+    doc.setFontSize(10);
+    if (realNarrative) {
+      const lines = doc.splitTextToSize(realNarrative, 180);
+      lines.forEach((line) => {
+        if (y > 280) { doc.addPage(); y = 18; }
+        doc.text(line, 14, y);
+        y += 6;
+      });
+    } else {
+      doc.text('No AI narrative has been generated for this game yet.', 14, y);
+      y += 6;
+    }
+
+    y += 4;
+    doc.setFontSize(12);
+    if (y > 270) { doc.addPage(); y = 18; }
+    doc.text('Coach notes', 14, y);
+    y += 8;
+    doc.setFontSize(10);
+    if (notes.length === 0) {
+      doc.text('No notes on this game yet.', 14, y);
+      y += 6;
+    } else {
+      notes.forEach((note) => {
+        if (y > 270) { doc.addPage(); y = 18; }
+        const lines = doc.splitTextToSize(note.body, 180);
+        lines.forEach((line) => { doc.text(line, 14, y); y += 6; });
+        doc.setFontSize(8);
+        doc.text(`${note.author_name || 'Coach'} • ${new Date(note.created_at).toLocaleString()}`, 14, y);
+        doc.setFontSize(10);
+        y += 8;
+      });
+    }
+
+    doc.save(`courtiq-game-summary-${selectedGameId}.pdf`);
+  };
+
   const handleAddNote = async () => {
     if (!noteText.trim()) return;
     setSubmittingNote(true);
@@ -75,10 +199,19 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
     <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="h6" fontWeight={700}>Coach notes</Typography>
-          <Typography color="text.secondary" sx={{ mb: 2 }}>
-            Free-text notes on a real game record, visible to the team and added by Coaches.
-          </Typography>
+          <Stack direction="row" alignItems="flex-start" justifyContent="space-between" flexWrap="wrap" gap={1}>
+            <Box>
+              <Typography variant="h6" fontWeight={700}>Coach notes</Typography>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                Free-text notes on a real game record, visible to the team and added by Coaches.
+              </Typography>
+            </Box>
+            {selectedGameId && (
+              <Button variant="outlined" size="small" startIcon={<DownloadIcon />} onClick={exportGamePdf}>
+                Download game summary as PDF
+              </Button>
+            )}
+          </Stack>
 
           {gamesError && <Alert severity="error" sx={{ mb: 2 }}>{gamesError}</Alert>}
 
@@ -129,6 +262,54 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
           )}
         </CardContent>
       </Card>
+
+      {selectedGameId && (
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid item xs={12} md={6}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" fontWeight={700}>Match summary</Typography>
+                <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>
+                  Computed from this game's real extracted Box Score.
+                </Typography>
+                {realAnalysisLoading ? (
+                  <CircularProgress size={24} />
+                ) : realAnalysisError ? (
+                  <Alert severity="error">{realAnalysisError}</Alert>
+                ) : matchSummary ? (
+                  <Stack spacing={1}>
+                    <Typography><strong>Points:</strong> {matchSummary.points}</Typography>
+                    <Typography><strong>FG%:</strong> {matchSummary.fgPct}%</Typography>
+                    <Typography><strong>3PT%:</strong> {matchSummary.threePtPct}%</Typography>
+                    <Typography><strong>FT%:</strong> {matchSummary.ftPct}%</Typography>
+                    <Typography><strong>Rebounds:</strong> {matchSummary.rebounds}</Typography>
+                    <Typography><strong>Assists:</strong> {matchSummary.assists}</Typography>
+                  </Stack>
+                ) : (
+                  <Alert severity="info">Metrics have not been computed for this game yet.</Alert>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" fontWeight={700}>AI-generated narrative</Typography>
+                {realAnalysisLoading ? (
+                  <CircularProgress size={24} sx={{ mt: 2 }} />
+                ) : realNarrative ? (
+                  <Typography sx={{ mt: 2, whiteSpace: 'pre-line' }}>{realNarrative}</Typography>
+                ) : (
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    No AI narrative has been generated for this game yet -- this is a best-effort step
+                    (see AI Analysis) and may not have been run, or may have failed.
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
 
       {!analysisEntry ? (
         <Alert severity="info">Upload a report and run analysis to populate this view.</Alert>
