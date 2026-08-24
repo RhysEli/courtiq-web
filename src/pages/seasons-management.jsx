@@ -18,11 +18,15 @@ import { backendApi } from '../api/client';
 //
 // Step 12: that gap is closed -- PATCH /seasons/:id can now flip `active`
 // after creation, so "mark a season concluded" is a real toggle button
-// here, not just a read-only Chip. Gated to role === 'Statistician'
-// specifically (not the page's own canManage-style shared check used
-// elsewhere) since that's the route's actual gate, same one-time
-// administrative-decision category as create/remove above.
-
+// here, not just a read-only Chip.
+//
+// Fixed alongside it: this page's Create/Remove actions had NO client-
+// side role check at all (POST/DELETE /seasons have been Statistician-
+// only since Step 6/8) -- a Team Manager saw fully clickable, no-warning
+// buttons that would 403 on submit. All three actions (create, remove,
+// toggle) now share one canManageSeasons check, genuinely hidden (not
+// disabled) for anyone else, same "don't show a working-looking button
+// the backend will reject" discipline as Phase 1's membership card.
 function SeasonsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const [seasons, setSeasons] = useState([]);
   const [seasonsLoading, setSeasonsLoading] = useState(true);
@@ -34,7 +38,7 @@ function SeasonsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
   const [removingId, setRemovingId] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
 
-  const canToggleActive = role === 'Statistician';
+  const canManageSeasons = role === 'Statistician';
 
   const loadSeasons = () => {
     setSeasonsLoading(true);
@@ -98,23 +102,29 @@ function SeasonsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
         <Card>
           <CardContent>
             <Typography variant="h5" fontWeight={700}>Season management</Typography>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={6}><TextField fullWidth label="Season ID (e.g. 2026/27)" value={form.id} onChange={(event) => setForm((prev) => ({ ...prev, id: event.target.value }))} /></Grid>
-              <Grid item xs={12} md={6}><TextField fullWidth label="Season name" value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} /></Grid>
-              <Grid item xs={12}>
-                <FormControlLabel
-                  control={<Checkbox checked={form.active} onChange={(event) => setForm((prev) => ({ ...prev, active: event.target.checked }))} />}
-                  label="Set as active season"
-                />
-              </Grid>
-            </Grid>
-            {submitError && <Alert severity="error" sx={{ mt: 2 }}>{submitError}</Alert>}
-            <Button
-              variant="contained" sx={{ mt: 2 }} onClick={createSeason}
-              disabled={submitting || !form.id.trim() || !form.name.trim()}
-            >
-              {submitting ? 'Creating…' : 'Create season'}
-            </Button>
+            {canManageSeasons ? (
+              <>
+                <Grid container spacing={2} sx={{ mt: 1 }}>
+                  <Grid item xs={12} md={6}><TextField fullWidth label="Season ID (e.g. 2026/27)" value={form.id} onChange={(event) => setForm((prev) => ({ ...prev, id: event.target.value }))} /></Grid>
+                  <Grid item xs={12} md={6}><TextField fullWidth label="Season name" value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} /></Grid>
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={<Checkbox checked={form.active} onChange={(event) => setForm((prev) => ({ ...prev, active: event.target.checked }))} />}
+                      label="Set as active season"
+                    />
+                  </Grid>
+                </Grid>
+                {submitError && <Alert severity="error" sx={{ mt: 2 }}>{submitError}</Alert>}
+                <Button
+                  variant="contained" sx={{ mt: 2 }} onClick={createSeason}
+                  disabled={submitting || !form.id.trim() || !form.name.trim()}
+                >
+                  {submitting ? 'Creating…' : 'Create season'}
+                </Button>
+              </>
+            ) : (
+              <Typography color="text.secondary" sx={{ mt: 1 }}>Only Statisticians can create or remove seasons.</Typography>
+            )}
           </CardContent>
         </Card>
 
@@ -142,8 +152,8 @@ function SeasonsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
                         <TableCell>{season.name}</TableCell>
                         <TableCell><Chip label={season.active ? 'Active' : 'Inactive'} color={season.active ? 'success' : 'default'} size="small" /></TableCell>
                         <TableCell>
-                          <Stack direction="row" spacing={1}>
-                            {canToggleActive && (
+                          {canManageSeasons ? (
+                            <Stack direction="row" spacing={1}>
                               <Button
                                 size="small" variant="outlined"
                                 disabled={togglingId === season.id}
@@ -151,15 +161,15 @@ function SeasonsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role
                               >
                                 {togglingId === season.id ? 'Updating…' : season.active ? 'Mark concluded' : 'Reactivate'}
                               </Button>
-                            )}
-                            <Button
-                              size="small" variant="outlined" color="error"
-                              disabled={removingId === season.id}
-                              onClick={() => removeSeason(season.id)}
-                            >
-                              {removingId === season.id ? 'Removing…' : 'Remove'}
-                            </Button>
-                          </Stack>
+                              <Button
+                                size="small" variant="outlined" color="error"
+                                disabled={removingId === season.id}
+                                onClick={() => removeSeason(season.id)}
+                              >
+                                {removingId === season.id ? 'Removing…' : 'Remove'}
+                              </Button>
+                            </Stack>
+                          ) : '—'}
                         </TableCell>
                       </TableRow>
                     ))}

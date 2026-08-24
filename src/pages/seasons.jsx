@@ -15,12 +15,15 @@ import { backendApi } from '../api/client';
 // simply decoupled from the old fake "Activate" semantics.
 //
 // Step 12: the real gap (no way to flip `active` after creation) is
-// closed -- "Active" is no longer purely read-only. The new toggle is
-// gated to role === 'Statistician' specifically, NOT the looser
-// canManage (Statistician + Team Manager) check the pre-existing Remove
-// button below uses -- PATCH /seasons/:id really is Statistician-only,
-// so this one reflects that precisely rather than inheriting the
-// page's existing, looser convention.
+// closed -- "Active" is no longer purely read-only.
+//
+// Fixed alongside it: Create ("Save season") and Remove both used a
+// looser canManage check (Statistician + Team Manager), but POST/DELETE
+// /seasons have been Statistician-only since Step 6/8 -- a Team Manager
+// saw fully clickable buttons that would 403 on submit. All three
+// actions now share one canManageSeasons check, genuinely hidden (not
+// disabled) for anyone else, same discipline as the new toggle already
+// used and as Phase 1's membership card.
 
 function Seasons({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, onSeasonChange, logout }) {
   const [seasons, setSeasons] = useState([]);
@@ -36,8 +39,7 @@ function Seasons({ mode, toggleTheme, selectedTeam, onTeamChange, role, selected
   const [togglingId, setTogglingId] = useState(null);
   const [notice, setNotice] = useState('');
 
-  const canManage = role === 'Statistician' || role === 'Team Manager';
-  const canToggleActive = role === 'Statistician';
+  const canManageSeasons = role === 'Statistician';
 
   const loadSeasons = () => {
     setSeasonsLoading(true);
@@ -122,7 +124,7 @@ function Seasons({ mode, toggleTheme, selectedTeam, onTeamChange, role, selected
                       </Box>
                       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                         <Chip label={season.active ? 'Active' : 'Inactive'} color={season.active ? 'success' : 'default'} size="small" />
-                        {canToggleActive && (
+                        {canManageSeasons && (
                           <Button
                             variant="outlined" size="small"
                             disabled={togglingId === season.id}
@@ -138,13 +140,15 @@ function Seasons({ mode, toggleTheme, selectedTeam, onTeamChange, role, selected
                         >
                           View
                         </Button>
-                        <Button
-                          variant="outlined" size="small" color="error"
-                          disabled={!canManage || removingId === season.id}
-                          onClick={() => removeSeason(season.id)}
-                        >
-                          {removingId === season.id ? 'Removing…' : 'Remove'}
-                        </Button>
+                        {canManageSeasons && (
+                          <Button
+                            variant="outlined" size="small" color="error"
+                            disabled={removingId === season.id}
+                            onClick={() => removeSeason(season.id)}
+                          >
+                            {removingId === season.id ? 'Removing…' : 'Remove'}
+                          </Button>
+                        )}
                       </Box>
                     </Box>
                   ))}
@@ -159,16 +163,20 @@ function Seasons({ mode, toggleTheme, selectedTeam, onTeamChange, role, selected
           <Card>
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={2}>Create season</Typography>
-              <Stack spacing={2}>
-                <TextField label="Season ID (e.g. 2026/27)" value={id} onChange={(event) => setId(event.target.value)} fullWidth />
-                <TextField label="Season name" value={name} onChange={(event) => setName(event.target.value)} fullWidth />
-                <FormControlLabel control={<Checkbox checked={active} onChange={(event) => setActive(event.target.checked)} />} label="Set as active season" />
-                {submitError && <Alert severity="error">{submitError}</Alert>}
-                <Button variant="contained" color="primary" onClick={addSeason} disabled={!canManage || submitting || !id.trim() || !name.trim()}>
-                  {submitting ? 'Saving…' : 'Save season'}
-                </Button>
-                {notice && <Alert severity="success">{notice}</Alert>}
-              </Stack>
+              {canManageSeasons ? (
+                <Stack spacing={2}>
+                  <TextField label="Season ID (e.g. 2026/27)" value={id} onChange={(event) => setId(event.target.value)} fullWidth />
+                  <TextField label="Season name" value={name} onChange={(event) => setName(event.target.value)} fullWidth />
+                  <FormControlLabel control={<Checkbox checked={active} onChange={(event) => setActive(event.target.checked)} />} label="Set as active season" />
+                  {submitError && <Alert severity="error">{submitError}</Alert>}
+                  <Button variant="contained" color="primary" onClick={addSeason} disabled={submitting || !id.trim() || !name.trim()}>
+                    {submitting ? 'Saving…' : 'Save season'}
+                  </Button>
+                  {notice && <Alert severity="success">{notice}</Alert>}
+                </Stack>
+              ) : (
+                <Typography color="text.secondary">Only Statisticians can create or remove seasons.</Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
