@@ -3,6 +3,7 @@ const db = require('../db');
 const { requireAuth, requireRole, requireTeamAccess } = require('../middleware/auth');
 const { imageUpload, uploadImage } = require('../services/imageUpload');
 const { findCandidate, queuePendingReview } = require('../services/teamIdentity');
+const { getGroupedTeamIds } = require('../services/teamIdentityGroups');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -344,6 +345,148 @@ router.get('/:teamId/season-stats', async (req, res) => {
     res.json({ teamId, gamesPlayed, team, players });
   } catch (err) {
     console.error('team season-stats failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// FR-07 (Opponent Intelligence Module): "generating an opponent
+// intelligence profile by aggregating all historical data from games
+// played against a named opponent, computing cross-encounter averages
+// and identifying recurring tactical patterns." A different computation
+// from season-stats just above -- that one averages a team's games
+// against EVERYONE; this one filters to games against one specific
+// opponent.
+//
+// Both teamId and opponentTeamId are resolved through Step 14's
+// grouping layer (getGroupedTeamIds) before anything else -- every game
+// query below filters against the FULL set of ids sharing each side's
+// canonical identity, never the two raw path params directly. A team
+// grouped under (or as the canonical of) either id is included
+// automatically, so a duplicate split across two ids (the exact
+// usiu-men/USIU TIGERS shape, before Step 14 Phase C resolved that
+// specific case directly) is treated as one opponent, not two, without
+// this route needing to know anything about that history.
+//
+// Insight tags (metrics.js's tagInsights, already computed and stored
+// per game -- "Turnover Destruction", "3-Point Collapse", etc.) are
+// relabeled 'mine'/'opponent' per encounter (team_side flips per game,
+// same as season-stats' own home/opponent resolution) and counted
+// across the whole head-to-head history. This is a frequency count of
+// existing, already-validated per-game tags -- not a new pattern-
+// detection algorithm.
+//
+// No role gate, same precedent as season-stats just above: read-only
+// aggregate stats, viewable by any authenticated user regardless of
+// team membership -- Opponent Analysis already works this way for any
+// two teams' independent season averages, and this is the same category
+// of read, just filtered to shared games instead of all of them.
+router.get('/:teamId/opponents/:opponentTeamId/history', async (req, res) => {
+  try {
+    const { teamId, opponentTeamId } = req.params;
+
+    const myTeamIds = await getGroupedTeamIds(teamId);
+    const opponentIds = await getGroupedTeamIds(opponentTeamId);
+
+    const games = await db.prepare(`
+      SELECT * FROM games
+      WHERE (home_team_id = ANY(?) AND opponent_team_id = ANY(?))
+         OR (home_team_id = ANY(?) AND opponent_team_id = ANY(?))
+      ORDER BY game_date ASC, id ASC
+    `).all(myTeamIds, opponentIds, opponentIds, myTeamIds);
+
+    if (games.length === 0) {
+      return res.json({
+        teamId, opponentTeamId, myTeamIds, opponentIds,
+        encounters: [], aggregate: null, tagFrequency: [],
+      });
+    }
+
+    const pct = (made, att) => (att > 0 ? Number(((made / att) * 100).toFixed(1)) : 0);
+
+    // Same shape as season-stats' own `team` object, reused for both a
+    // single encounter (gamesPlayed = 1) and the full aggregate
+    // (gamesPlayed = every shared game) -- one shape, one frontend
+    // rendering path for either.
+    function summarizeStatRows(rows, gamesPlayed) {
+      const sum = (key) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+      const totals = {
+        points: sum('points'), fgm: sum('fgm'), fga: sum('fga'),
+        three_pm: sum('three_pm'), three_pa: sum('three_pa'),
+        ftm: sum('ftm'), fta: sum('fta'),
+        reb: sum('reb'), assists: sum('assists'), steals: sum('steals'),
+        blocks: sum('blocks'), turnovers: sum('turnovers'),
+      };
+      const perGame = (key) => (gamesPlayed > 0 ? Number((totals[key] / gamesPlayed).toFixed(1)) : 0);
+      return {
+        gamesPlayed,
+        ppg: perGame('points'), rpg: perGame('reb'), apg: perGame('assists'),
+        spg: perGame('steals'), bpg: perGame('blocks'), topg: perGame('turnovers'),
+        fgPct: pct(totals.fgm, totals.fga),
+        threePct: pct(totals.three_pm, totals.three_pa),
+        ftPct: pct(totals.ftm, totals.fta),
+      };
+    }
+
+    const encounters = [];
+    let allMyRows = [];
+    let allOppRows = [];
+    const tagCounts = {};
+
+    for (const game of games) {
+      const iAmHome = myTeamIds.includes(game.home_team_id);
+      const mySide = iAmHome ? 'home' : 'opponent';
+      const theirSide = iAmHome ? 'opponent' : 'home';
+
+      const myRows = await db.prepare('SELECT * FROM player_game_stats WHERE game_id = ? AND team_side = ?').all(game.id, mySide);
+      const oppRows = await db.prepare('SELECT * FROM player_game_stats WHERE game_id = ? AND team_side = ?').all(game.id, theirSide);
+      allMyRows = allMyRows.concat(myRows);
+      allOppRows = allOppRows.concat(oppRows);
+
+      const stage = game.stage_id
+        ? await db.prepare('SELECT id, name FROM stages WHERE id = ?').get(game.stage_id)
+        : null;
+
+      const metricsRow = await db.prepare('SELECT insight_tags_json FROM game_metrics WHERE game_id = ?').get(game.id);
+      const rawTags = metricsRow ? JSON.parse(metricsRow.insight_tags_json || '[]') : [];
+      const tags = rawTags.map((t) => {
+        const mine = (t.team === 'home') === iAmHome;
+        const relabeled = mine ? 'mine' : 'opponent';
+        const key = `${t.tag}::${relabeled}`;
+        tagCounts[key] = (tagCounts[key] || 0) + 1;
+        return { tag: t.tag, team: relabeled, detail: t.detail };
+      });
+
+      encounters.push({
+        gameId: game.id,
+        gameDate: game.game_date,
+        seasonId: game.season_id,
+        competitionId: game.competition_id,
+        stageId: game.stage_id,
+        stageName: stage ? stage.name : null,
+        myTeamId: game[`${mySide}_team_id`],
+        opponentTeamId: game[`${theirSide}_team_id`],
+        myStats: summarizeStatRows(myRows, 1),
+        opponentStats: summarizeStatRows(oppRows, 1),
+        tags,
+      });
+    }
+
+    const aggregate = {
+      encounters: games.length,
+      mine: summarizeStatRows(allMyRows, games.length),
+      opponent: summarizeStatRows(allOppRows, games.length),
+    };
+
+    const tagFrequency = Object.entries(tagCounts)
+      .map(([key, count]) => {
+        const [tag, team] = key.split('::');
+        return { tag, team, count };
+      })
+      .sort((a, b) => b.count - a.count);
+
+    res.json({ teamId, opponentTeamId, myTeamIds, opponentIds, encounters, aggregate, tagFrequency });
+  } catch (err) {
+    console.error('team opponent history failed:', err);
     res.status(500).json({ error: err.message });
   }
 });
