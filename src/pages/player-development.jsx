@@ -1,6 +1,6 @@
 import {
   Box, Grid, Card, CardContent, Typography, TextField, MenuItem, Table, TableBody,
-  TableCell, TableHead, TableRow, Stack, CircularProgress, Alert,
+  TableCell, TableHead, TableRow, Stack, CircularProgress, Alert, Button,
 } from '@mui/material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useEffect, useMemo, useState } from 'react';
@@ -38,6 +38,15 @@ function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, cu
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState('');
+
+  // FR-09: player-profile annotations, scoped to the same playerId this
+  // page already resolves and queries development stats by (Step 16a) --
+  // stable and real, not a raw name, so no identity-collision risk here.
+  const [playerNotes, setPlayerNotes] = useState([]);
+  const [playerNotesLoading, setPlayerNotesLoading] = useState(false);
+  const [playerNoteText, setPlayerNoteText] = useState('');
+  const [submittingPlayerNote, setSubmittingPlayerNote] = useState(false);
+  const [playerNoteError, setPlayerNoteError] = useState('');
 
   // FR-10: an Athlete's own account has a real `team`/`playerName` (see
   // authService.js) -- scope them to their own profile and hide both
@@ -104,6 +113,36 @@ function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, cu
     return () => { cancelled = true; };
   }, [teamId, playerId]);
 
+  const loadPlayerNotes = (id) => {
+    if (!id) return;
+    setPlayerNotesLoading(true);
+    backendApi.getPlayerAnnotations(id)
+      .then(setPlayerNotes)
+      .catch((err) => setPlayerNoteError(err.message || 'Could not load notes.'))
+      .finally(() => setPlayerNotesLoading(false));
+  };
+
+  useEffect(() => {
+    setPlayerNotes([]);
+    setPlayerNoteError('');
+    if (playerId) loadPlayerNotes(playerId);
+  }, [playerId]);
+
+  const handleAddPlayerNote = async () => {
+    if (!playerNoteText.trim() || !playerId) return;
+    setSubmittingPlayerNote(true);
+    setPlayerNoteError('');
+    try {
+      await backendApi.addPlayerAnnotation(playerId, playerNoteText.trim());
+      setPlayerNoteText('');
+      loadPlayerNotes(playerId);
+    } catch (err) {
+      setPlayerNoteError(err.message || 'Could not add note.');
+    } finally {
+      setSubmittingPlayerNote(false);
+    }
+  };
+
   const career = profile?.career;
   const seasons = profile?.seasons || [];
 
@@ -165,6 +204,49 @@ function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, cu
             )}
           </CardContent>
         </Card>
+
+        {playerId && (
+          <Card>
+            <CardContent>
+              <Typography variant="h6" fontWeight={700}>Player notes</Typography>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                Free-text notes on this player's profile, visible to the team and added by Coaches.
+              </Typography>
+
+              {playerNotesLoading ? (
+                <CircularProgress size={24} />
+              ) : (
+                <Stack spacing={1.5} sx={{ mb: 2 }}>
+                  {playerNotes.length === 0 && <Typography color="text.secondary">No notes on this player yet.</Typography>}
+                  {playerNotes.map((note) => (
+                    <Box key={note.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 1.5 }}>
+                      <Typography>{note.body}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {note.author_name || 'Coach'} • {new Date(note.created_at).toLocaleString()}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+
+              {role === 'Coach' && (
+                <Stack spacing={1}>
+                  <TextField
+                    multiline minRows={2} fullWidth label="Add a note"
+                    value={playerNoteText} onChange={(e) => setPlayerNoteText(e.target.value)}
+                  />
+                  {playerNoteError && <Alert severity="error">{playerNoteError}</Alert>}
+                  <Button
+                    variant="contained" onClick={handleAddPlayerNote}
+                    disabled={submittingPlayerNote || !playerNoteText.trim()} sx={{ alignSelf: 'flex-start' }}
+                  >
+                    {submittingPlayerNote ? 'Adding…' : 'Add note'}
+                  </Button>
+                </Stack>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {profileLoading && (
           <Stack alignItems="center" sx={{ py: 4 }}><CircularProgress /></Stack>

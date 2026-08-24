@@ -116,6 +116,12 @@ export const backendApi = {
   // annotations for why).
   getSeasonAnnotations: (teamCompetitionSeasonId) => request(`/annotations?teamCompetitionSeasonId=${teamCompetitionSeasonId}`),
   addSeasonAnnotation: (teamCompetitionSeasonId, body) => request('/annotations', { method: 'POST', body: { teamCompetitionSeasonId, body } }),
+  // FR-09: player-profile annotation scope, same backend table/route as
+  // the two pairs above -- keyed by playerId, the same stable id
+  // player-development.jsx already resolves and queries stats by
+  // (Step 16a), not a raw name.
+  getPlayerAnnotations: (playerId) => request(`/annotations?playerId=${playerId}`),
+  addPlayerAnnotation: (playerId, body) => request('/annotations', { method: 'POST', body: { playerId, body } }),
   bulkImport: (files, { seasonId, competitionId, stageId } = {}) => {
     const form = new FormData();
     files.forEach((file) => form.append('files', file));
