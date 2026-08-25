@@ -27,13 +27,19 @@ function buildInviteEmail({ appUrl, token, role, teamName, institutionName }) {
 // Statisticians and Team Managers can invite people -- matches the roles
 // that make sense to be adding Coaches/Athletes/other Statisticians to a
 // team.
-// NOTE: requireTeamAccess is deliberately NOT applied here yet. Every real
-// backend request currently authenticates as one shared service account
-// (see src/api/client.js's documented "two auth systems" gap) rather than
-// the real logged-in person, so a team-access check here would enforce
-// against that fixed shared account's team, not the actual user's -- pure
-// noise, not real protection. Re-add requireTeamAccess('teamId') once the
-// frontend sends the real user's own token instead of the shared one.
+// KNOWN GAP, STILL LIVE (confirmed directly during the player_id
+// investigation round, not assumed): requireTeamAccess is NOT applied
+// here, so any Statistician/Team Manager can currently send an invite --
+// including one linking a real player row (see player_id above) -- for
+// ANY team, not just their own. The premise this omission used to rest
+// on (every real backend request authenticating as one shared service
+// account, per src/api/client.js's "two auth systems" note) is no longer
+// true: a real per-user token has flowed correctly for every invite-
+// accepted account since well before this comment was checked, confirmed
+// empirically (see the login/currentUser.playerId chain this same round
+// wired up). This route just never got requireTeamAccess('teamId') added
+// once that stopped being a real obstacle. Tracked as its own follow-up,
+// not fixed here -- out of scope for this round.
 router.post('/send', requireAuth, requireRole(...ROLES_THAT_CAN_INVITE), async (req, res) => {
   try {
     const { toEmail, role, teamId, appUrl, playerName } = req.body;
