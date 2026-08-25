@@ -26,21 +26,20 @@ function buildInviteEmail({ appUrl, token, role, teamName, institutionName }) {
 // Create a real invite record and send a real email. Role-gated: only
 // Statisticians and Team Managers can invite people -- matches the roles
 // that make sense to be adding Coaches/Athletes/other Statisticians to a
-// team.
-// KNOWN GAP, STILL LIVE (confirmed directly during the player_id
-// investigation round, not assumed): requireTeamAccess is NOT applied
-// here, so any Statistician/Team Manager can currently send an invite --
-// including one linking a real player row (see player_id above) -- for
-// ANY team, not just their own. The premise this omission used to rest
-// on (every real backend request authenticating as one shared service
-// account, per src/api/client.js's "two auth systems" note) is no longer
-// true: a real per-user token has flowed correctly for every invite-
-// accepted account since well before this comment was checked, confirmed
-// empirically (see the login/currentUser.playerId chain this same round
-// wired up). This route just never got requireTeamAccess('teamId') added
-// once that stopped being a real obstacle. Tracked as its own follow-up,
-// not fixed here -- out of scope for this round.
-router.post('/send', requireAuth, requireRole(...ROLES_THAT_CAN_INVITE), async (req, res) => {
+// team. requireTeamAccess('teamId') added here -- previously absent
+// (see git history for the now-resolved gap this left: any Statistician/
+// Team Manager could invite someone, including one linking a real player
+// row, to a team they had no membership on). That omission rested on
+// every real backend request authenticating as one shared service
+// account (src/api/client.js's old "two auth systems" note); confirmed
+// during the player_id investigation round that a real per-user token
+// has flowed correctly for every invite-accepted account well before
+// this fix, so the check below enforces against the real caller's own
+// teams, not a fixed shared account. Reads teamId off req.body via
+// requireTeamAccess's existing params/body/query fallback -- the same
+// shape requireGameAccess already uses for annotations.js's own
+// body-keyed routes, no middleware changes needed.
+router.post('/send', requireAuth, requireRole(...ROLES_THAT_CAN_INVITE), requireTeamAccess('teamId'), async (req, res) => {
   try {
     const { toEmail, role, teamId, appUrl, playerName } = req.body;
     // teamId is mandatory -- a user should never come into existence with
