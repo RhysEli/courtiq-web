@@ -243,6 +243,17 @@ CREATE TABLE IF NOT EXISTS invites (
   accepted_at TIMESTAMPTZ
 );
 
+-- Links an Athlete invite to the real roster row they represent, per
+-- schema.sql's own comment on player_game_stats.player_id/annotations --
+-- users.player_id already existed but nothing ever set it (auth.js's own
+-- login response fetched it via SELECT * and then dropped it, unread by
+-- anything). Only ever meaningful for role='Athlete' invites; NULL for
+-- every other role and NULL is also a valid state for an Athlete invite
+-- itself (a player name is optional at invite time -- see routes/
+-- invites.js's POST /send -- so this can go out unlinked and be linked
+-- later, same as an unresolved player_identity_review candidate would).
+ALTER TABLE invites ADD COLUMN IF NOT EXISTS player_id INTEGER REFERENCES players(id);
+
 -- No Administrator role -- same DROP + re-ADD as users_role_check above.
 -- No existing invites.role='Administrator' rows to worry about (checked
 -- before this went in), so no data cleanup needed here.

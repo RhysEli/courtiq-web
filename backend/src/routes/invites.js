@@ -4,6 +4,7 @@ const db = require('../db');
 const { requireAuth, requireRole, requireTeamAccess } = require('../middleware/auth');
 const { hashPassword } = require('../utils/passwords');
 const { sendMail } = require('../services/mailer');
+const { resolvePlayerName } = require('../services/playerIdentity');
 
 const router = express.Router();
 
@@ -35,7 +36,7 @@ function buildInviteEmail({ appUrl, token, role, teamName, institutionName }) {
 // frontend sends the real user's own token instead of the shared one.
 router.post('/send', requireAuth, requireRole(...ROLES_THAT_CAN_INVITE), async (req, res) => {
   try {
-    const { toEmail, role, teamId, appUrl } = req.body;
+    const { toEmail, role, teamId, appUrl, playerName } = req.body;
     // teamId is mandatory -- a user should never come into existence with
     // no team (see schema.sql's mandatory invites.team_id, which this
     // guarantees an invite always has before it can ever be accepted).
@@ -46,14 +47,44 @@ router.post('/send', requireAuth, requireRole(...ROLES_THAT_CAN_INVITE), async (
       return res.status(400).json({ error: 'toEmail, role, and teamId are required' });
     }
 
+    // Links this Athlete invite to the real roster row they represent --
+    // optional (a player row doesn't always exist yet at invite time; see
+    // schema.sql's comment on invites.player_id), and only meaningful for
+    // role='Athlete' (silently ignored otherwise, same as a stray field
+    // any other route wouldn't act on). Same resolvePlayerName() exact/
+    // fuzzy/new resolution players.js's roster-add already uses, not a
+    // plain dropdown -- a fuzzy match doesn't block the invite from going
+    // out, it just leaves player_id NULL for now (the same non-blocking
+    // precedent roster-add already established for this exact case), and
+    // the review can be confirmed/rejected later from Player Management
+    // like any other pending candidate.
+    let playerLink = null;
+    let playerId = null;
+    if (role === 'Athlete' && playerName?.trim()) {
+      const resolution = await resolvePlayerName({ teamId, name: playerName.trim(), reportType: 'invite' });
+      if (resolution.status === 'linked') {
+        playerId = resolution.playerId;
+        const player = await db.prepare('SELECT full_name FROM players WHERE id = ?').get(playerId);
+        playerLink = { status: 'linked', playerId, playerName: player?.full_name };
+      } else if (resolution.status === 'created') {
+        playerId = resolution.playerId;
+        playerLink = { status: 'created', playerId, playerName: playerName.trim() };
+      } else if (resolution.status === 'pending_review') {
+        playerLink = {
+          status: 'pending_review',
+          message: `"${playerName.trim()}" looks like it might already be on this roster under a different spelling. The invite will still be sent, but this account won't be linked to a player profile until a Statistician or Team Manager confirms or rejects the match in Player Management.`,
+        };
+      }
+    }
+
     const token = crypto.randomBytes(24).toString('hex');
     const expiresAt = new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 
     const insertResult = await db.prepare(`
-      INSERT INTO invites (email, role, team_id, token, invited_by, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO invites (email, role, team_id, token, invited_by, expires_at, player_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       RETURNING id
-    `).run(toEmail, role, teamId || null, token, req.user.id, expiresAt);
+    `).run(toEmail, role, teamId || null, token, req.user.id, expiresAt, playerId);
 
     let teamName = null;
     let institutionName = null;
@@ -80,12 +111,12 @@ router.post('/send', requireAuth, requireRole(...ROLES_THAT_CAN_INVITE), async (
       // failed" and the token is still usable as a shareable link.
       return res.status(201).json({
         id: insertResult.lastInsertRowid, token, email: toEmail, role, teamId: teamId || null,
-        emailSent: false, emailError: mailErr.message,
+        emailSent: false, emailError: mailErr.message, playerLink,
       });
     }
 
     res.status(201).json({
-      id: insertResult.lastInsertRowid, token, email: toEmail, role, teamId: teamId || null, emailSent: true,
+      id: insertResult.lastInsertRowid, token, email: toEmail, role, teamId: teamId || null, emailSent: true, playerLink,
     });
   } catch (err) {
     console.error('send invite failed:', err);

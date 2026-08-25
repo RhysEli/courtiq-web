@@ -44,6 +44,13 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
   const [inviteStatus, setInviteStatus] = useState({ open: false, message: '', severity: 'success' });
   const [sendingInvite, setSendingInvite] = useState(false);
   const [inviteTeamId, setInviteTeamId] = useState('');
+  // Only meaningful for role='Athlete' -- links the invite to the real
+  // roster row this person represents (resolvePlayerName's same exact/
+  // fuzzy/new resolution players-management.jsx's roster-add already
+  // uses), optional since a real player row doesn't always exist yet at
+  // invite time (see backend/src/db/schema.sql's comment on
+  // invites.player_id).
+  const [invitePlayerName, setInvitePlayerName] = useState('');
   const [refreshToken, setRefreshToken] = useState(0);
 
   // Real teams (for the invite form's team picker) and real pending
@@ -100,13 +107,31 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
         role: inviteRole,
         teamId: inviteTeamId,
         appUrl: window.location.origin,
+        playerName: inviteRole === 'Athlete' && invitePlayerName.trim() ? invitePlayerName.trim() : undefined,
       });
-      if (result.emailSent) {
-        setInviteStatus({ open: true, message: `Invite email sent to ${inviteEmail}.`, severity: 'success' });
+      // playerLink mirrors players-management.jsx's own three-outcome
+      // handling of the same resolvePlayerName() resolution -- linked
+      // (exact match to an existing roster player), created (a genuinely
+      // new one), or pending_review (nothing linked yet, sent to the
+      // identity review queue in Player Management).
+      let message;
+      let severity = 'success';
+      if (!result.emailSent) {
+        message = `Invite created, but the email failed to send: ${result.emailError}. The invite link below still works if shared manually.`;
+        severity = 'warning';
+      } else if (result.playerLink?.status === 'linked') {
+        message = `Invite email sent to ${inviteEmail}, linked to the existing player ${result.playerLink.playerName}.`;
+      } else if (result.playerLink?.status === 'created') {
+        message = `Invite email sent to ${inviteEmail}, linked to a new player profile (${result.playerLink.playerName}).`;
+      } else if (result.playerLink?.status === 'pending_review') {
+        message = `Invite email sent to ${inviteEmail}. ${result.playerLink.message}`;
+        severity = 'warning';
       } else {
-        setInviteStatus({ open: true, message: `Invite created, but the email failed to send: ${result.emailError}. The invite link below still works if shared manually.`, severity: 'warning' });
+        message = `Invite email sent to ${inviteEmail}.`;
       }
+      setInviteStatus({ open: true, message, severity });
       setInviteEmail('');
+      setInvitePlayerName('');
       setRefreshToken((prev) => prev + 1);
     } catch (err) {
       setInviteStatus({ open: true, message: `Could not create invite: ${err.message}`, severity: 'error' });
@@ -229,6 +254,15 @@ function Users({ selectedTeam, onTeamChange, role, selectedSeason, logout }) {
                   ))}
                 </TextField>
               </Grid>
+              {inviteRole === 'Athlete' && (
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth label="Player (optional)" placeholder="e.g. JOSHUA ATHIAN"
+                    value={invitePlayerName} onChange={(event) => setInvitePlayerName(event.target.value)}
+                    helperText="Links this account to the real roster player it represents. Leave blank if there isn't one yet -- it can be linked later."
+                  />
+                </Grid>
+              )}
             </Grid>
             <Button variant="contained" sx={{ mt: 2 }} onClick={createInviteCode} disabled={sendingInvite || !inviteEmail || !inviteTeamId}>
               {sendingInvite ? 'Sending invite email…' : 'Create invite & send email'}
