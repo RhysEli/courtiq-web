@@ -93,9 +93,16 @@ function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, cu
         if (cancelled) return;
         const roster = (data.players || []).map((p) => ({ playerId: p.playerId, playerName: p.playerName }));
         setRosterPlayers(roster);
-        // An Athlete defaults to their own player, not the first roster
-        // entry.
-        setPlayerId((isAthlete && currentUser?.playerId) || roster[0]?.playerId || '');
+        // An Athlete is scoped ONLY to their own linked player -- never
+        // falls back to the roster's first entry. That fallback used to
+        // apply unconditionally here, which meant an Athlete whose
+        // account wasn't linked yet (currentUser.playerId null/undefined
+        // -- a real, valid state, see auth.js's comment on
+        // user.player_id) silently saw roster[0]'s stats presented as
+        // their own, a real correctness bug, not cosmetic. An unlinked
+        // Athlete now gets no playerId at all here, which athleteUnlinked
+        // below turns into an honest message instead of any stats.
+        setPlayerId(isAthlete ? (currentUser?.playerId || '') : (roster[0]?.playerId || ''));
       })
       .catch(() => { if (!cancelled) setRosterPlayers([]); })
       .finally(() => { if (!cancelled) setRosterLoading(false); });
@@ -144,6 +151,15 @@ function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, cu
       setSubmittingPlayerNote(false);
     }
   };
+
+  // True as soon as we know it (doesn't wait on the roster/profile
+  // fetches) -- an Athlete role with no playerId on their own account.
+  // Drives the honest "not linked yet" state everywhere on this page
+  // that would otherwise have nothing to show (playerId stays '' for
+  // this case, so the notes card and PDF export below -- both gated on
+  // playerId being truthy -- correctly disappear on their own; this
+  // flag exists to explain why, instead of the page just going quiet).
+  const athleteUnlinked = isAthlete && !currentUser?.playerId;
 
   const career = profile?.career;
   const seasons = profile?.seasons || [];
@@ -245,7 +261,7 @@ function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, cu
                 {isAthlete ? (
                   <Box>
                     <Typography variant="caption" color="text.secondary">Player</Typography>
-                    <Typography>{profile?.playerName || 'You'}</Typography>
+                    <Typography>{athleteUnlinked ? 'Not linked yet' : (profile?.playerName || 'You')}</Typography>
                   </Box>
                 ) : (
                   <TextField
@@ -261,6 +277,12 @@ function PlayerDevelopment({ mode, toggleTheme, role, selectedSeason, logout, cu
             {teamsError && <Alert severity="error" sx={{ mt: 2 }}>{teamsError}</Alert>}
             {!rosterLoading && teamId && rosterPlayers.length === 0 && (
               <Alert severity="info" sx={{ mt: 2 }}>No players with recorded games for this team yet.</Alert>
+            )}
+            {athleteUnlinked && (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                Your account isn't linked to a player profile yet. Nothing on this page is shown until that's done,
+                so you're never looking at a teammate's stats.
+              </Alert>
             )}
           </CardContent>
         </Card>
