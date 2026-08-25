@@ -245,6 +245,12 @@ export async function loginUser({ email, password, rememberMe = false }) {
         // directly. See seedThemeModeForNextLoad below for the
         // next-page-load path.
         themeMode: data.user.themeMode,
+        // The real per-user linkage FR-10's Athlete-scoping pages need
+        // (player-development.jsx). Null for an Athlete invited without a
+        // player-name link, or any non-Athlete role -- a real, valid
+        // state consumers must treat as "not linked yet", not fall back
+        // to someone else's data.
+        playerId: data.user.playerId,
       },
       role: data.user.role,
       rememberMe,

@@ -198,10 +198,10 @@ router.post('/:token/accept', async (req, res) => {
 
     const passwordHash = hashPassword(password);
     const insertUser = await db.prepare(`
-      INSERT INTO users (name, email, password_hash, role, team_id)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO users (name, email, password_hash, role, team_id, player_id)
+      VALUES (?, ?, ?, ?, ?, ?)
       RETURNING id
-    `).run(name, invite.email, passwordHash, invite.role, invite.team_id);
+    `).run(name, invite.email, passwordHash, invite.role, invite.team_id, invite.player_id);
 
     const userId = insertUser.lastInsertRowid;
     if (invite.team_id) {

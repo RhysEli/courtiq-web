@@ -40,6 +40,15 @@ router.post('/login', async (req, res) => {
       // the user themselves, but read back here the same as any other
       // profile field so avatars everywhere can show it.
       photoUrl: user.photo_url,
+      // Set at invite-accept time from the invite's own player_id (see
+      // invites.js's POST /send and /:token/accept) -- was already pulled
+      // off the row by the SELECT * above but never actually returned
+      // here, so nothing downstream (player-development.jsx's Athlete
+      // auto-scope) ever saw it. NULL is a real, valid state (an Athlete
+      // invited without a player-name link, or one still pending identity
+      // review), not an error -- consumers must handle it as "not linked
+      // yet", not fall back to someone else's data.
+      playerId: user.player_id,
     },
   });
 });
