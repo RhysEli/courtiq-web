@@ -3,6 +3,7 @@ const db = require('../db');
 const { requireAuth, requireRole, requireGameAccess } = require('../middleware/auth');
 const { resolveGameStageId } = require('../services/resolveGameStage');
 const { resolveTeamName } = require('../services/teamIdentity');
+const { normalizeTeamName } = require('../services/teamSide');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -141,6 +142,29 @@ async function getGameWithReportStatus(gameId) {
   const scoreSheet = await db.prepare(
     'SELECT winning_team, final_score_team_a, final_score_team_b FROM game_score_sheet WHERE game_id = ?',
   ).get(gameId);
+  // winningTeamId: winning_team is raw text off the Score Sheet PDF (e.g.
+  // "USIU TIGERS"), not a resolved team id -- resolved here against this
+  // game's own two real sides using the same normalized-substring match
+  // teamSide.js's assignTeamSides already uses for exactly this kind of
+  // raw-PDF-text-vs-team-identity reconciliation, reused directly rather
+  // than duplicated. Confirmed against real production data before
+  // relying on this: winning_team matches home_team_id/opponent_team_id
+  // directly in every existing real game_score_sheet row. null (not a
+  // guess) if it matches neither side -- an honestly unresolved outcome,
+  // distinct from no Score Sheet having been uploaded at all.
+  let winningTeamId = null;
+  if (scoreSheet) {
+    const normalizedWinner = normalizeTeamName(scoreSheet.winning_team);
+    if (normalizedWinner) {
+      const normalizedHome = normalizeTeamName(game.home_team_id);
+      const normalizedOpponent = normalizeTeamName(game.opponent_team_id);
+      if (normalizedHome && (normalizedWinner.includes(normalizedHome) || normalizedHome.includes(normalizedWinner))) {
+        winningTeamId = game.home_team_id;
+      } else if (normalizedOpponent && (normalizedWinner.includes(normalizedOpponent) || normalizedOpponent.includes(normalizedWinner))) {
+        winningTeamId = game.opponent_team_id;
+      }
+    }
+  }
   // Whether this game has any real extracted player stats -- the actual
   // condition that determines whether it's safe to delete (see DELETE
   // /:id below), not a proxy like "outcome pending" (a game can have real
@@ -152,7 +176,7 @@ async function getGameWithReportStatus(gameId) {
     ...game,
     reportChecklist,
     outcome: scoreSheet
-      ? { winningTeam: scoreSheet.winning_team, scoreA: scoreSheet.final_score_team_a, scoreB: scoreSheet.final_score_team_b }
+      ? { winningTeam: scoreSheet.winning_team, winningTeamId, scoreA: scoreSheet.final_score_team_a, scoreB: scoreSheet.final_score_team_b }
       : null,
     hasStats: Boolean(statsRow.has_stats),
   };

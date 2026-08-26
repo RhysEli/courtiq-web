@@ -19,10 +19,13 @@ import { useAuth } from '../contexts/AuthContext';
 // with zero real games shows "No games recorded yet", never a fabricated
 // number.
 //
-// Known limitation: the games table has no stored score/outcome field, so
-// win/loss progression and per-game trend lines aren't available from this
-// endpoint -- what's shown here is real season-aggregate team and player
-// averages, computed from real extracted stats.
+// Win/loss progression (below) is a separate real data source from season-
+// stats: GET /games's outcome field, backed by game_score_sheet, which can
+// now be populated via either bulk-import or the single-report upload path
+// (reports.js's Score Sheet extraction, wired up this round -- previously
+// only bulk-import ever populated it, which is why outcomes used to be so
+// inconsistently available). A game with no Score Sheet uploaded yet shows
+// "Outcome pending", never a fabricated result.
 
 const emptyStats = {
   gamesPlayed: 0, ppg: 0, rpg: 0, apg: 0, spg: 0, bpg: 0, topg: 0,
@@ -39,6 +42,17 @@ function Statistics({ mode, toggleTheme, role, selectedSeason, logout }) {
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState('');
+
+  // FR-06 win/loss progression: a separate real data source from
+  // season-stats above -- GET /games already resolves each game's real
+  // outcome (games.js's getGameWithReportStatus, backed by
+  // game_score_sheet) independent of player_game_stats, so this needs its
+  // own fetch and its own "no games yet" gate rather than reusing
+  // team.gamesPlayed (a team could have a real Score Sheet on a game with
+  // no Box Score/player stats extracted at all).
+  const [games, setGames] = useState([]);
+  const [gamesLoading, setGamesLoading] = useState(false);
+  const [gamesError, setGamesError] = useState('');
 
   // FR-10: an Athlete's own account has a real `team` name (see
   // authService.js) -- scope them to it and hide the picker, rather than
@@ -95,6 +109,18 @@ function Statistics({ mode, toggleTheme, role, selectedSeason, logout }) {
       .then((data) => { if (!cancelled) setStats(data); })
       .catch((err) => { if (!cancelled) setStatsError(err.message || 'Could not load season stats.'); })
       .finally(() => { if (!cancelled) setStatsLoading(false); });
+    return () => { cancelled = true; };
+  }, [teamId]);
+
+  useEffect(() => {
+    if (!teamId) return undefined;
+    let cancelled = false;
+    setGamesLoading(true);
+    setGamesError('');
+    backendApi.getGames()
+      .then((data) => { if (!cancelled) setGames(data); })
+      .catch((err) => { if (!cancelled) setGamesError(err.message || 'Could not load games.'); })
+      .finally(() => { if (!cancelled) setGamesLoading(false); });
     return () => { cancelled = true; };
   }, [teamId]);
 
@@ -159,6 +185,41 @@ function Statistics({ mode, toggleTheme, role, selectedSeason, logout }) {
 
   const team = stats?.team || emptyStats;
   const players = stats?.players || [];
+
+  // Chronological, this team's games only (GET /games already scopes to
+  // games the caller's own teams were home OR opponent in, system-wide --
+  // filtered here to just the selected team, since a Coach/Statistician on
+  // several teams can select any of them above).
+  const teamGames = useMemo(() => games
+    .filter((g) => g.home_team_id === teamId || g.opponent_team_id === teamId)
+    .slice()
+    .sort((a, b) => (a.game_date < b.game_date ? -1 : a.game_date > b.game_date ? 1 : 0)), [games, teamId]);
+
+  // 'pending': no Score Sheet uploaded yet (outcome is null) -- honest,
+  // not a guess. 'unclear': a Score Sheet exists but its winning_team text
+  // didn't resolve to either real side (games.js's winningTeamId, null in
+  // that case) -- a real, if rare, extraction-quality edge case, distinct
+  // from "not uploaded yet" and worth surfacing as its own state rather
+  // than folding it into "pending".
+  const progression = useMemo(() => teamGames.map((g) => {
+    const opponentId = g.home_team_id === teamId ? g.opponent_team_id : g.home_team_id;
+    const opponentName = teams.find((t) => t.id === opponentId)?.name || opponentId;
+    let result = 'pending';
+    if (g.outcome) {
+      if (g.outcome.winningTeamId === teamId) result = 'win';
+      else if (g.outcome.winningTeamId) result = 'loss';
+      else result = 'unclear';
+    }
+    return { gameId: g.id, gameDate: g.game_date, opponentName, result, outcome: g.outcome };
+  }), [teamGames, teamId, teams]);
+
+  const record = useMemo(() => progression.reduce((acc, p) => {
+    if (p.result === 'win') acc.wins += 1;
+    else if (p.result === 'loss') acc.losses += 1;
+    else if (p.result === 'unclear') acc.unclear += 1;
+    else acc.pending += 1;
+    return acc;
+  }, { wins: 0, losses: 0, unclear: 0, pending: 0 }), [progression]);
 
   const shootingData = useMemo(() => ([
     { category: 'FG%', value: team.fgPct },
@@ -332,6 +393,47 @@ function Statistics({ mode, toggleTheme, role, selectedSeason, logout }) {
                     </Button>
                   </Stack>
                 )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
+            <Typography variant="h6" fontWeight={700}>Win/Loss Progression</Typography>
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              Real outcomes from each game's Score Sheet, in chronological order. A game shows "Outcome pending"
+              until a Score Sheet has actually been uploaded and extracted for it -- never a guessed result.
+            </Typography>
+
+            {gamesError && <Alert severity="error" sx={{ mb: 2 }}>{gamesError}</Alert>}
+
+            {gamesLoading ? (
+              <CircularProgress size={24} />
+            ) : teamGames.length === 0 ? (
+              <Typography color="text.secondary">No games recorded yet for this team.</Typography>
+            ) : (
+              <>
+                <Typography sx={{ mb: 2 }}>
+                  <strong>{record.wins}-{record.losses}</strong>
+                  {record.pending > 0 && ` • ${record.pending} outcome${record.pending === 1 ? '' : 's'} pending`}
+                  {record.unclear > 0 && ` • ${record.unclear} unclear`}
+                </Typography>
+                <Stack spacing={1}>
+                  {progression.map((p) => (
+                    <Stack
+                      key={p.gameId} direction="row" alignItems="center" justifyContent="space-between"
+                      sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+                    >
+                      <Typography color="text.secondary" sx={{ minWidth: 110 }}>{p.gameDate || 'no date'}</Typography>
+                      <Typography sx={{ flex: 1, mx: 2 }}>vs {p.opponentName}</Typography>
+                      {p.result === 'win' && <Typography color="success.main" fontWeight={700}>W {p.outcome.scoreA}-{p.outcome.scoreB}</Typography>}
+                      {p.result === 'loss' && <Typography color="error.main" fontWeight={700}>L {p.outcome.scoreA}-{p.outcome.scoreB}</Typography>}
+                      {p.result === 'unclear' && <Typography color="warning.main">Outcome unclear</Typography>}
+                      {p.result === 'pending' && <Typography color="text.secondary">Outcome pending</Typography>}
+                    </Stack>
+                  ))}
+                </Stack>
               </>
             )}
           </CardContent>
