@@ -261,4 +261,25 @@ async function persistAdditionalReports(gameId, additionalReports) {
   return summary;
 }
 
-module.exports = { persistAdditionalReports };
+// Individual per-type functions exported too (not just the bulk-import-
+// shaped persistAdditionalReports wrapper above): each one unconditionally
+// deletes ONLY its own table's rows for gameId before inserting, so
+// calling persistAdditionalReports with just one key populated -- as
+// reports.js's single-report route would need to, uploading one report
+// type per request -- would silently wipe the other five tables' already-
+// persisted data for that game on every subsequent upload (confirmed
+// directly: uploaded 6 different report types to the same disposable game
+// one at a time, only the last type survived). reports.js calls these
+// directly instead, one at a time, touching only the table for the type
+// actually being persisted. persistAdditionalReports itself is unchanged
+// and still the right choice for bulk-import's own use, where all 6 are
+// genuinely being persisted together in one pass for one uploaded PDF.
+module.exports = {
+  persistAdditionalReports,
+  persistQuarter,
+  persistPlusMinus,
+  persistLineupAnalysis,
+  persistRotationsSummary,
+  persistPlayByPlay,
+  persistScoreSheet,
+};

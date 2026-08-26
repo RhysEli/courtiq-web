@@ -7,6 +7,22 @@ const { requireAuth, requireRole, requireGameAccess, requireStatisticianOrFallba
 const { extractBoxScore } = require('../services/pdfExtraction');
 const { logAction } = require('../services/auditLog');
 const { resolvePlayerName } = require('../services/playerIdentity');
+const {
+  extractQuarterReport,
+  extractPlusMinusSummary,
+  extractLineupAnalysis,
+  extractRotationsSummary,
+  extractPlayByPlay,
+} = require('../services/reportExtractors');
+const { extractScoreSheet } = require('../services/parseScoreSheet');
+const {
+  persistQuarter,
+  persistPlusMinus,
+  persistLineupAnalysis,
+  persistRotationsSummary,
+  persistPlayByPlay,
+  persistScoreSheet,
+} = require('../services/persistExtractedReports');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -28,6 +44,33 @@ const upload = multer({
     cb(null, true);
   },
 });
+
+// Maps the reportType string this route receives (matching games.js's
+// REPORT_TYPES) to the same real extractor + persist function bulkImport.js
+// already uses for its own 6-extractor pass. Deliberately NOT going
+// through persistExtractedReports.js's persistAdditionalReports wrapper:
+// that function unconditionally runs all 6 persist* functions on every
+// call, and each one unconditionally deletes its own table's rows for
+// gameId before checking whether it was actually passed real data for
+// this call -- correct for bulk-import (one call, all 6 keys genuinely
+// populated together from the same PDF), but confirmed directly to
+// silently wipe every other already-persisted report type for a game the
+// moment a DIFFERENT type gets uploaded through this one-type-per-request
+// route. Calling the individual persist* function here touches only the
+// table for the type actually being persisted.
+//
+// Box Score is handled separately below (its own player_game_stats/
+// identity-resolution path, unrelated to any of this). Player Evaluation,
+// Shot Areas, and Shot Charts have no real extractor anywhere in this
+// codebase -- genuinely not yet implemented, not just missing from this map.
+const REPORT_TYPE_EXTRACTORS = {
+  'Quarter Scoring': { key: 'quarter', extract: extractQuarterReport, persist: persistQuarter },
+  'Plus Minus Summary': { key: 'plusMinus', extract: extractPlusMinusSummary, persist: persistPlusMinus },
+  'Lineup Analysis': { key: 'lineupAnalysis', extract: extractLineupAnalysis, persist: persistLineupAnalysis },
+  'Rotation Summary': { key: 'rotationsSummary', extract: extractRotationsSummary, persist: persistRotationsSummary },
+  'Play-by-Play': { key: 'playByPlay', extract: extractPlayByPlay, persist: persistPlayByPlay },
+  'Score Sheet': { key: 'scoreSheet', extract: extractScoreSheet, persist: persistScoreSheet },
+};
 
 // Upload a single FIBA report PDF for a game and extract it. Statistician-
 // primary; Team Manager falls back to this (import/store only, not the
@@ -121,9 +164,56 @@ router.post(
       }
     }
 
-    // Other 9 report types (Play-by-Play, Player Evaluation, etc.) are
-    // stored but not yet parsed — extraction for those follows the same
-    // pattern as extractBoxScore once you supply real sample PDFs for each.
+    // The 6 report types that already have a real, working extractor --
+    // the same ones bulkImport.js runs on every uploaded PDF, wired here
+    // to the SAME extractor function and the SAME persistExtractedReports.js
+    // persistence path, not reimplemented. Unlike bulkImport.js (which
+    // tries all 6 unconditionally against a possibly-merged PDF and
+    // silently skips whichever don't match), this route trusts the
+    // caller's own reportType selection -- a real extraction failure here
+    // is a genuine error (422), the same way the Box Score branch above
+    // already treats one.
+    const mapped = REPORT_TYPE_EXTRACTORS[reportType];
+    if (mapped) {
+      try {
+        // homeTeamName: bulkImport.js derives this from the SAME PDF's own
+        // Box Score header (extracted moments earlier in that flow) --
+        // this route only ever extracts one report type per upload, so
+        // there's no co-extracted header text available here. game.
+        // home_team_id (already fetched above) is the best real stand-in:
+        // assignTeamSides (services/teamSide.js) does a normalized
+        // substring match against it, and gracefully falls back to
+        // positional assignment with team_side_unconfirmed: true if it
+        // doesn't match -- never a hard failure either way.
+        const result = await mapped.extract(req.file.path, game.home_team_id);
+        // teamIdBySide: same shape persistAdditionalReports builds
+        // internally for persistQuarter/persistPlusMinus's own player-
+        // identity resolution -- built here directly since `game` is
+        // already in scope, rather than re-fetching it. Harmless to pass
+        // to the other 4 persist* functions too; none of them accept a
+        // third argument, so it's simply unused there.
+        const teamIdBySide = { home: game.home_team_id, opponent: game.opponent_team_id };
+        const rows = await mapped.persist(gameId, result, teamIdBySide);
+
+        await db.prepare('UPDATE reports SET extraction_status = ? WHERE id = ?').run('extracted', reportId);
+        await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (extracted)`, true);
+        return res.status(201).json({ reportId, extraction: { status: 'stored', rows } });
+      } catch (err) {
+        await db.prepare('UPDATE reports SET extraction_status = ?, extraction_error = ? WHERE id = ?')
+          .run('failed', err.message, reportId);
+        await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (${err.message})`, false);
+        return res.status(422).json({
+          reportId,
+          error: err.message,
+          code: err.code,
+          rawTextSample: err.rawTextSample,
+        });
+      }
+    }
+
+    // Only Player Evaluation, Shot Areas, and Shot Charts land here --
+    // genuinely no extractor exists anywhere in this codebase for these
+    // three, unlike the 6 above.
     await db.prepare('UPDATE reports SET extraction_status = ? WHERE id = ?').run('pending', reportId);
     await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (stored, not yet parsed)`, true);
     res.status(201).json({
