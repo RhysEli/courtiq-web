@@ -41,12 +41,11 @@ const upload = multer({
   },
 });
 
-const insertStatStmt = db.prepare(`
-  INSERT INTO player_game_stats
-    (game_id, player_name, team_side, minutes, points, fgm, fga, three_pm, three_pa,
-     ftm, fta, oreb, dreb, reb, assists, steals, blocks, turnovers, fouls, plus_minus, raw_extraction, player_id)
-  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-`);
+const PLAYER_GAME_STATS_COLUMNS = [
+  'game_id', 'player_name', 'team_side', 'minutes', 'points', 'fgm', 'fga', 'three_pm', 'three_pa',
+  'ftm', 'fta', 'oreb', 'dreb', 'reb', 'assists', 'steals', 'blocks', 'turnovers', 'fouls', 'plus_minus',
+  'raw_extraction', 'player_id',
+];
 
 const extraExtractors = {
   quarter: extractQuarterReport,
@@ -264,6 +263,7 @@ router.post(
         // resolved/queued, via the same exact-alias fast path, rather than
         // re-deciding independently).
         const identitySummary = { linked: 0, created: 0, pendingReview: 0 };
+        const statRows = [];
         for (const p of players) {
           const playerTeamId = p.team_side === 'home' ? homeTeamId : awayTeamId;
           const resolution = await resolvePlayerName({
@@ -277,13 +277,18 @@ router.post(
             // the same shape used everywhere else in this file).
             identitySummary.pendingReview += 1;
           }
-          await insertStatStmt.run(
+          // Identity resolution stays a sequential per-player await (a
+          // later name's exact/fuzzy decision can depend on an alias this
+          // same loop just created) -- only the actual row insert is
+          // collected and batched, once every player's playerId is known.
+          statRows.push([
             game.id, p.player_name, p.team_side, p.minutes, p.points, p.fgm, p.fga,
             p.three_pm, p.three_pa, p.ftm, p.fta, p.oreb, p.dreb, p.reb,
             p.assists, p.steals, p.blocks, p.turnovers, p.fouls, p.plus_minus,
             JSON.stringify(p), playerId,
-          );
+          ]);
         }
+        await db.batchInsert('player_game_stats', PLAYER_GAME_STATS_COLUMNS, statRows);
         entry.playerIdentity = identitySummary;
 
         // Replaces entry.additionalReports (previously the raw per-extractor

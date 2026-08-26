@@ -106,19 +106,18 @@ router.post(
         // but don't always make home/away unambiguous from text alone.
         // Simplification for this pass: first half of parsed rows = home.
         const midpoint = Math.ceil(players.length / 2);
-        const insertStat = db.prepare(`
-          INSERT INTO player_game_stats
-            (game_id, player_name, team_side, minutes, points, fgm, fga, three_pm, three_pa,
-             ftm, fta, oreb, dreb, reb, assists, steals, blocks, turnovers, fouls, plus_minus, raw_extraction, player_id)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        `);
         // Player identity resolution (playerIdentity.js) -- previously
         // missing entirely on this ingestion path (unlike bulkImport.js's
         // primary Box Score route), so a name uploaded through this single-
         // report route got no players/player_name_aliases/
         // player_identity_review entry at all until a later manual
         // backfill happened to catch it. Same per-player resolve-then-
-        // insert shape as bulkImport.js now uses.
+        // insert shape as bulkImport.js now uses -- identity resolution
+        // stays a sequential per-player await (a later name's decision can
+        // depend on an alias this same loop just created); only the
+        // actual row insert is collected and batched afterward, the same
+        // fix bulkImport.js's own Box Score loop got.
+        const statRows = [];
         for (const p of players) {
           const idx = players.indexOf(p);
           const teamSide = idx < midpoint ? 'home' : 'opponent';
@@ -135,13 +134,20 @@ router.post(
             // rejectReview in playerIdentity.js backfill it onto this row
             // once a human resolves the review, same as bulkImport.js.
           }
-          await insertStat.run(
+          statRows.push([
             gameId, p.player_name, teamSide, p.minutes, p.points, p.fgm, p.fga,
             p.three_pm, p.three_pa, p.ftm, p.fta, p.oreb, p.dreb, p.reb,
             p.assists, p.steals, p.blocks, p.turnovers, p.fouls, p.plus_minus,
             JSON.stringify(p), playerId,
-          );
+          ]);
         }
+        await db.batchInsert(
+          'player_game_stats',
+          ['game_id', 'player_name', 'team_side', 'minutes', 'points', 'fgm', 'fga', 'three_pm', 'three_pa',
+            'ftm', 'fta', 'oreb', 'dreb', 'reb', 'assists', 'steals', 'blocks', 'turnovers', 'fouls', 'plus_minus',
+            'raw_extraction', 'player_id'],
+          statRows,
+        );
         await db.prepare('UPDATE reports SET extraction_status = ? WHERE id = ?').run('extracted', reportId);
         await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (${players.length} players extracted)`, true);
         return res.status(201).json({
