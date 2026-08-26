@@ -188,21 +188,30 @@ async function persistRotationsSummary(gameId, rotationsResult) {
   return rows;
 }
 
+// Phase 1 of the round-trip batching fix (see db/index.js's batchInsert
+// comment for the measured root cause): this was 540 individually-
+// awaited single-row INSERTs, confirmed directly to cost ~144.6s for a
+// real Play-by-Play report at this project's real remote-DB latency --
+// by far the dominant case, since Play-by-Play routinely has 500-750+
+// rows per game (531-747 measured across real production games) versus
+// 20-40 for every other report type here. Batched first, in isolation,
+// specifically for the clearest before/after signal.
 async function persistPlayByPlay(gameId, playByPlayResult) {
   await del.playByPlay.run(gameId);
   if (!playByPlayResult || !playByPlayResult.events) return 0;
 
-  let idx = 0;
-  for (const e of playByPlayResult.events) {
-    await insert.playByPlayEvent.run(
-      gameId, idx, e.quarter, e.time, e.team, e.jersey_number,
-      e.player_surname, e.player_initial, e.action_text,
-      e.score ? JSON.stringify(e.score) : null,
-      null, // raw_text: not returned by extractPlayByPlay today
-    );
-    idx += 1;
-  }
-  return idx;
+  const rows = playByPlayResult.events.map((e, idx) => [
+    gameId, idx, e.quarter, e.time, e.team, e.jersey_number,
+    e.player_surname, e.player_initial, e.action_text,
+    e.score ? JSON.stringify(e.score) : null,
+    null, // raw_text: not returned by extractPlayByPlay today
+  ]);
+
+  return db.batchInsert(
+    'game_play_by_play',
+    ['game_id', 'sequence_index', 'quarter', 'event_time', 'team_code', 'jersey_number', 'surname', 'initial', 'action_text', 'score', 'raw_text'],
+    rows,
+  );
 }
 
 async function persistScoreSheet(gameId, scoreSheetResult) {

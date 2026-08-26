@@ -73,6 +73,50 @@ async function exec(sql) {
   await pool.query(sql);
 }
 
+// Batch-inserts `rows` (each an array of column values, in the exact
+// order `columns` lists them) into `tableName` via one or a few
+// multi-row `INSERT ... VALUES (...), (...), ...` statements, instead of
+// one individually-awaited single-row INSERT per row -- confirmed
+// directly (not assumed) to be the real, dominant cost of persisting a
+// real Play-by-Play report: 540 sequential round trips to this project's
+// remote Supabase instance measured at ~144.6s, against a measured
+// ~200ms baseline round-trip latency for a trivial query on the same
+// connection. Collapsing many rows into few round trips is the fix.
+//
+// tableName/columns are always literal strings the CALLING code
+// controls, never derived from request input -- same reasoning already
+// established for annotations.js's resolveAnnotationScope (Step 17),
+// which interpolates a column name into SQL text the same way. Only the
+// actual VALUES are parameterized (via `?`, same as every other query in
+// this shim).
+//
+// Chunked to stay safely under PostgreSQL's real, hard 65535-parameter-
+// per-query limit (the extended query protocol's parameter count is a
+// 16-bit field) -- computed per call from columns.length, not assumed
+// safe for every table just because it happens to be for the widest one.
+// Returns the total number of rows inserted; 0 (no query run at all) if
+// `rows` is empty, matching every existing persist* function's own
+// "nothing to insert" no-op.
+const POSTGRES_MAX_PARAMS = 65535;
+const BATCH_INSERT_SAFETY_CEILING = 2000; // well under the hard limit even for the widest real table (22 columns -> 44,000 params)
+
+async function batchInsert(tableName, columns, rows) {
+  if (rows.length === 0) return 0;
+
+  const maxRowsPerChunk = Math.max(1, Math.floor(POSTGRES_MAX_PARAMS / columns.length));
+  const chunkSize = Math.min(maxRowsPerChunk, BATCH_INSERT_SAFETY_CEILING);
+
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const rowPlaceholders = chunk.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
+    const sql = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES ${rowPlaceholders}`;
+    const flatParams = chunk.flat();
+    await prepare(sql).run(...flatParams);
+  }
+
+  return rows.length;
+}
+
 async function migrate() {
   let schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   // Strip a leading UTF-8 BOM if present -- Postgres fails with
@@ -86,6 +130,6 @@ async function migrate() {
   await exec(schema);
 }
 
-const db = { prepare, exec, pool, migrate };
+const db = { prepare, exec, pool, migrate, batchInsert };
 
 module.exports = db;
