@@ -94,29 +94,36 @@ const insert = {
 // fast path), rather than deciding independently -- a name repeated
 // across report types for the same game just re-hits the alias just
 // created, it doesn't re-trigger its own review.
+// Phase 2 of the round-trip batching fix (see db/index.js's batchInsert
+// comment and persistPlayByPlay's Phase 1 comment). resolvePlayerName()
+// stays a per-player sequential await, unbatched -- it's identity
+// resolution, not a row insert, and each call's exact/fuzzy decision
+// depends on aliases already created earlier in this SAME loop (a repeat
+// name later in the same file re-hitting an alias just created moments
+// before). Only the actual game_quarter_team/game_quarter_player row
+// inserts are collected and batched, after identity resolution for every
+// player has already run.
 async function persistQuarter(gameId, quarterResult, teamIdBySide) {
   await del.quarterPlayers.run(gameId);
   await del.quarterTeams.run(gameId);
   if (!quarterResult || !quarterResult.teams) return { teamRows: 0, playerRows: 0 };
 
-  let teamRows = 0;
-  let playerRows = 0;
+  const teamRows = [];
+  const playerRows = [];
   for (const team of quarterResult.teams) {
-    await insert.quarterTeam.run(
+    teamRows.push([
       gameId, team.team_side, team.team_name, team.final_score,
       team.quarterTotals ? team.quarterTotals.q1 : null,
       team.quarterTotals ? team.quarterTotals.q2 : null,
       team.quarterTotals ? team.quarterTotals.q3 : null,
       team.quarterTotals ? team.quarterTotals.q4 : null,
       team.cumulativeScore ? JSON.stringify(team.cumulativeScore) : null,
-    );
-    teamRows += 1;
+    ]);
     for (const p of (team.players || [])) {
-      await insert.quarterPlayer.run(
+      playerRows.push([
         gameId, team.team_side, p.jersey_number, p.player_name,
         p.points_total, p.points_q1, p.points_q2, p.points_q3, p.points_q4,
-      );
-      playerRows += 1;
+      ]);
       if (teamIdBySide && teamIdBySide[team.team_side]) {
         await resolvePlayerName({
           teamId: teamIdBySide[team.team_side], name: p.player_name, gameId, reportType: 'Quarter Scoring',
@@ -124,24 +131,35 @@ async function persistQuarter(gameId, quarterResult, teamIdBySide) {
       }
     }
   }
-  return { teamRows, playerRows };
+
+  await db.batchInsert(
+    'game_quarter_team',
+    ['game_id', 'team_side', 'team_name', 'final_score', 'q1', 'q2', 'q3', 'q4', 'cumulative_score_json'],
+    teamRows,
+  );
+  await db.batchInsert(
+    'game_quarter_player',
+    ['game_id', 'team_side', 'jersey_number', 'player_name', 'points_total', 'points_q1', 'points_q2', 'points_q3', 'points_q4'],
+    playerRows,
+  );
+
+  return { teamRows: teamRows.length, playerRows: playerRows.length };
 }
 
 async function persistPlusMinus(gameId, plusMinusResult, teamIdBySide) {
   await del.plusMinus.run(gameId);
   if (!plusMinusResult || !plusMinusResult.teams) return 0;
 
-  let rows = 0;
+  const rows = [];
   for (const team of plusMinusResult.teams) {
     for (const p of (team.players || [])) {
-      await insert.plusMinus.run(
+      rows.push([
         gameId, team.team_side, p.jersey_number, p.player_name,
         p.minutes_on, p.minutes_off, p.score_while_on, p.score_while_off,
         p.points_diff_on, p.points_diff_off, p.points_per_min_on, p.points_per_min_off,
         p.assists_on, p.assists_off, p.rebounds_on, p.rebounds_off,
         p.steals_on, p.steals_off, p.turnovers_on, p.turnovers_off,
-      );
-      rows += 1;
+      ]);
       if (teamIdBySide && teamIdBySide[team.team_side]) {
         await resolvePlayerName({
           teamId: teamIdBySide[team.team_side], name: p.player_name, gameId, reportType: 'Plus Minus Summary',
@@ -149,43 +167,61 @@ async function persistPlusMinus(gameId, plusMinusResult, teamIdBySide) {
       }
     }
   }
-  return rows;
+
+  return db.batchInsert(
+    'game_plus_minus',
+    ['game_id', 'team_side', 'jersey_number', 'player_name', 'minutes_on', 'minutes_off',
+      'score_while_on', 'score_while_off', 'points_diff_on', 'points_diff_off',
+      'points_per_min_on', 'points_per_min_off', 'assists_on', 'assists_off',
+      'rebounds_on', 'rebounds_off', 'steals_on', 'steals_off', 'turnovers_on', 'turnovers_off'],
+    rows,
+  );
 }
 
 async function persistLineupAnalysis(gameId, lineupResult) {
   await del.lineupAnalysis.run(gameId);
   if (!lineupResult || !lineupResult.teams) return 0;
 
-  let rows = 0;
+  const rows = [];
   for (const team of lineupResult.teams) {
     for (const l of (team.lineups || [])) {
-      await insert.lineupAnalysis.run(
+      rows.push([
         gameId, team.team_side, team.team_name, JSON.stringify(l.players),
         l.time_on_court, l.score, l.score_diff, l.points_per_min,
         l.rebounds, l.steals, l.turnovers, l.assists,
-      );
-      rows += 1;
+      ]);
     }
   }
-  return rows;
+
+  return db.batchInsert(
+    'game_lineup_analysis',
+    ['game_id', 'team_side', 'team_name', 'players_json', 'time_on_court', 'score',
+      'score_diff', 'points_per_min', 'rebounds', 'steals', 'turnovers', 'assists'],
+    rows,
+  );
 }
 
 async function persistRotationsSummary(gameId, rotationsResult) {
   await del.rotationStints.run(gameId);
   if (!rotationsResult || !rotationsResult.teams) return 0;
 
-  let rows = 0;
+  const rows = [];
   for (const team of rotationsResult.teams) {
     for (const s of (team.stints || [])) {
-      await insert.rotationStint.run(
+      rows.push([
         gameId, team.team_side, team.team_name, JSON.stringify(s.players),
         s.quarter_on, s.time_on, s.quarter_off, s.time_off, s.time_on_court,
         s.score, s.score_diff, s.rebounds, s.steals, s.turnovers, s.assists,
-      );
-      rows += 1;
+      ]);
     }
   }
-  return rows;
+
+  return db.batchInsert(
+    'game_rotation_stints',
+    ['game_id', 'team_side', 'team_name', 'players_json', 'quarter_on', 'time_on', 'quarter_off',
+      'time_off', 'time_on_court', 'score', 'score_diff', 'rebounds', 'steals', 'turnovers', 'assists'],
+    rows,
+  );
 }
 
 // Phase 1 of the round-trip batching fix (see db/index.js's batchInsert
@@ -214,6 +250,11 @@ async function persistPlayByPlay(gameId, playByPlayResult) {
   );
 }
 
+// Checked, not silently skipped: this only ever inserts exactly one row
+// per game (a Score Sheet reports one final result, never a list), so
+// there is nothing to batch here -- a "batch" of 1 row is the same
+// single round trip this already is. Left as an individual INSERT
+// deliberately.
 async function persistScoreSheet(gameId, scoreSheetResult) {
   await del.scoreSheet.run(gameId);
   if (!scoreSheetResult || scoreSheetResult.error) return 0;
