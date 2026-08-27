@@ -61,7 +61,13 @@ export function buildAnalysisFromRealMetrics({ matchId, metrics, insightTags, na
     turnovers: home.raw.turnovers,
     steals: home.raw.steals,
     blocks: home.raw.blocks,
-    benchPoints: null,      // needs Rotation Summary (not yet parsed)
+    // Real, computed from game_rotation_stints (Step 26 investigation +
+    // implementation) -- backend/src/routes/analysis.js's compute route
+    // attaches this onto home/opponent directly. null means Rotation
+    // Summary hasn't been extracted for this game yet, not a fabricated
+    // placeholder -- a real, honest "no data" distinct from a real,
+    // computed 0.
+    benchPoints: home.benchPoints ?? null,
     fastBreakPoints: null,  // needs Play-by-Play (not yet parsed)
     paintPoints: null,      // needs Shot Areas (not yet parsed)
     secondChancePoints: null,

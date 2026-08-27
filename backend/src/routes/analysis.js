@@ -23,6 +23,50 @@ function aggregateTeamTotals(playerRows) {
   return totals;
 }
 
+// Starting five's jersey numbers for `realTeamId` in this game, read off
+// the first game_rotation_stints row (the opening tip: quarter_on 1, the
+// highest/earliest time_on since the clock counts down) -- confirmed
+// against 6 real games that this row always lists exactly the starting
+// five, with a jersey-number join to player_game_stats reconciling
+// exactly to the team's real final score every time (investigation,
+// Step 26).
+//
+// Joined on team_name, never team_side: game_rotation_stints.team_side
+// does NOT reliably agree with player_game_stats.team_side for the same
+// physical team (confirmed inverted in 2 of 6 real games checked --
+// each report type's extractor decides home/opponent independently).
+// team_name is the real team id string in every game checked and is
+// what's actually reliable here. Flagged, not fixed -- the team_side
+// disagreement itself is a separate, pre-existing bug out of this
+// round's scope.
+//
+// Returns null (not an empty Set) when this team has no rotation data
+// for this game at all -- the caller uses that to report bench points as
+// honestly absent, not a guessed/fabricated zero.
+async function getStarterJerseys(gameId, realTeamId) {
+  const firstStint = await db.prepare(`
+    SELECT players_json FROM game_rotation_stints
+    WHERE game_id = ? AND team_name = ?
+    ORDER BY quarter_on ASC, time_on DESC LIMIT 1
+  `).get(gameId, realTeamId);
+  if (!firstStint) return null;
+  return new Set(JSON.parse(firstStint.players_json).map((p) => p.jersey_number));
+}
+
+// Splits one side's player_game_stats rows into starter/bench point
+// totals using each row's own raw_extraction.jersey_number (already
+// embedded per row at ingestion time -- see persistExtractedReports.js/
+// bulkImport.js/reports.js's Box Score persistence) against the starter
+// jersey Set from getStarterJerseys above.
+function benchPointsFromRows(playerRows, starterJerseys) {
+  let benchPoints = 0;
+  for (const row of playerRows) {
+    const jersey = JSON.parse(row.raw_extraction).jersey_number;
+    if (!starterJerseys.has(jersey)) benchPoints += row.points || 0;
+  }
+  return benchPoints;
+}
+
 // Trigger metric computation for a game once its Box Score is extracted.
 // (Full pipeline needs all 10 reports per the proposal; this computes what's
 // derivable from Box Score data alone, which covers the core Four Factors.)
@@ -57,6 +101,20 @@ router.post('/games/:gameId/compute', requireRole('Statistician', 'Team Manager'
 
     const homeMetrics = computeTeamMetrics(homeTotals, oppTotals);
     const oppMetrics = computeTeamMetrics(oppTotals, homeTotals);
+
+    // Bench points: real, computed from already-extracted rotation data
+    // (Step 26 investigation), not a fabricated placeholder. Attached
+    // directly onto homeMetrics/oppMetrics (rather than threaded through
+    // computeTeamMetrics' own signature) so computeTeamMetrics stays the
+    // pure box-score-totals function its own docblock describes, and so
+    // tagInsights below can read it off the same metrics objects without
+    // a signature change.
+    const game = await db.prepare('SELECT home_team_id, opponent_team_id FROM games WHERE id = ?').get(gameId);
+    const homeStarters = await getStarterJerseys(gameId, game.home_team_id);
+    const oppStarters = await getStarterJerseys(gameId, game.opponent_team_id);
+    homeMetrics.benchPoints = homeStarters ? benchPointsFromRows(homeRows, homeStarters) : null;
+    oppMetrics.benchPoints = oppStarters ? benchPointsFromRows(oppRows, oppStarters) : null;
+
     const insightTags = tagInsights(homeMetrics, oppMetrics, homeRows, oppRows);
     const playerMetrics = playerRows.map(computePlayerMetrics);
 
