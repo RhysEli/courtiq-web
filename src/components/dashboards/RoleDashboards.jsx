@@ -134,8 +134,8 @@ export function AthleteDashboard({ data, summary, matches, userName, season, pho
                     <XAxis dataKey="name" stroke="currentColor" tick={{ fill: 'currentColor', fontSize: 12 }} />
                     <YAxis stroke="currentColor" tick={{ fill: 'currentColor', fontSize: 12 }} />
                     <Tooltip contentStyle={{ background: 'rgba(17,24,39,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }} />
-                    <Line type="monotone" dataKey="points" stroke={teamColors.primary} strokeWidth={3} dot={{ fill: teamColors.primary }} />
-                    <Line type="monotone" dataKey="efficiency" stroke={roleTheme.glow} strokeWidth={3} dot={{ fill: roleTheme.glow }} />
+                    <Line type="monotone" dataKey="points" stroke={teamColors.primary} strokeWidth={3} dot={{ fill: teamColors.primary }} name="Points" />
+                    <Line type="monotone" dataKey="opponentPoints" stroke={roleTheme.glow} strokeWidth={3} dot={{ fill: roleTheme.glow }} name="Opponent" />
                   </LineChart>
                 </ResponsiveContainer>
               </Box>
@@ -189,8 +189,8 @@ export function CoachDashboard({ data, summary, matches, analysisEntries, userNa
                     <XAxis dataKey="name" stroke="currentColor" />
                     <YAxis stroke="currentColor" />
                     <Tooltip contentStyle={{ background: 'rgba(17,24,39,0.9)', borderRadius: 12 }} />
-                    <Line type="monotone" dataKey="points" stroke={roleTheme.glow} strokeWidth={3} />
-                    <Line type="monotone" dataKey="efficiency" stroke={teamColors.primary} strokeWidth={3} />
+                    <Line type="monotone" dataKey="points" stroke={roleTheme.glow} strokeWidth={3} name="Points" />
+                    <Line type="monotone" dataKey="opponentPoints" stroke={teamColors.primary} strokeWidth={3} name="Opponent" />
                   </LineChart>
                 </ResponsiveContainer>
               </Box>
@@ -264,7 +264,7 @@ export function StatisticianDashboard({ data, summary, reports, userName, season
                     <YAxis stroke="currentColor" />
                     <Tooltip contentStyle={{ background: 'rgba(17,24,39,0.9)', borderRadius: 12 }} />
                     <Line type="monotone" dataKey="points" stroke={roleTheme.glow} strokeWidth={3} name="Points" />
-                    <Line type="monotone" dataKey="efficiency" stroke={teamColors.primary} strokeWidth={3} name="Efficiency" />
+                    <Line type="monotone" dataKey="opponentPoints" stroke={teamColors.primary} strokeWidth={3} name="Opponent" />
                   </LineChart>
                 </ResponsiveContainer>
               </Box>
