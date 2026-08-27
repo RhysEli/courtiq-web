@@ -68,8 +68,13 @@ export function buildAnalysisFromRealMetrics({ matchId, metrics, insightTags, na
     // placeholder -- a real, honest "no data" distinct from a real,
     // computed 0.
     benchPoints: home.benchPoints ?? null,
-    fastBreakPoints: null,  // needs Play-by-Play (not yet parsed)
-    paintPoints: null,      // needs Shot Areas (not yet parsed)
+    // Real, computed from game_play_by_play's own literal FIBA "fast
+    // break" wording (Step 26 investigation + implementation) --
+    // analysis.js's compute route attaches this onto home/opponent the
+    // same way as benchPoints above. null means Play-by-Play hasn't been
+    // extracted for this game yet, not a fabricated placeholder.
+    fastBreakPoints: home.fastBreakPoints ?? null,
+    paintPoints: null,      // needs Shot Areas (not yet parsed -- no real extractor exists for this report type at all, unlike Rotation Summary/Play-by-Play above)
     secondChancePoints: null,
     fouls: home.raw.fouls,
     // Real, backend-computed fields not in the old fabricated shape —

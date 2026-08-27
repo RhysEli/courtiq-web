@@ -67,6 +67,79 @@ function benchPointsFromRows(playerRows, starterJerseys) {
   return benchPoints;
 }
 
+// Real fast-break points per side, from game_play_by_play's own literal
+// FIBA wording ("2pt FG fast break...", "3pt FG fast break...", "free
+// throw fast break...") -- not something this app's parser identifies,
+// it's verbatim text already captured by the existing generic play-by-
+// play parser and simply never queried for this before. Point value
+// comes from the action_text's own 2pt FG/3pt FG/free throw prefix;
+// only "made" events count.
+//
+// Each event carries its own jersey_number/surname (the scorer), but not
+// a resolved team id -- only the raw team_code abbreviation off the PDF
+// (e.g. "USIU"/"CNS"), which nothing else in this app resolves to a real
+// team id today. Resolved here via the same jersey+surname composite key
+// as getStarterJerseys' team_name fix, voted across every resolvable
+// event in the game (not just the fast-break ones, for a larger, more
+// robust sample) rather than trusted from a single row -- confirmed
+// against 3 real games to resolve every team_code unanimously (0
+// collisions, 0 unresolved events). jersey_number alone collides across
+// the two teams' independent 0-99 numbering, which is why surname is
+// part of the key.
+//
+// Returns { home: null, opponent: null } only when this game has no
+// play-by-play rows at all (honestly absent, not a guess) -- a real
+// game with play-by-play but genuinely zero fast-break makes reports 0
+// on that side, which is a real, computed answer, not an absence.
+async function computeFastBreakPoints(gameId, homeRows, oppRows) {
+  const allEvents = await db.prepare(
+    'SELECT team_code, jersey_number, surname FROM game_play_by_play WHERE game_id = ?',
+  ).all(gameId);
+  if (allEvents.length === 0) return { home: null, opponent: null };
+
+  const keyToSide = new Map();
+  const indexRows = (rows, side) => {
+    for (const row of rows) {
+      const jersey = JSON.parse(row.raw_extraction).jersey_number;
+      const words = row.player_name.replace('(C)', '').trim().split(/\s+/);
+      const surname = words[words.length - 1].toUpperCase();
+      keyToSide.set(`${jersey}|${surname}`, side);
+    }
+  };
+  indexRows(homeRows, 'home');
+  indexRows(oppRows, 'opponent');
+
+  const codeVotes = new Map();
+  for (const e of allEvents) {
+    if (e.jersey_number == null || !e.surname) continue;
+    const side = keyToSide.get(`${e.jersey_number}|${e.surname}`);
+    if (!side) continue;
+    if (!codeVotes.has(e.team_code)) codeVotes.set(e.team_code, { home: 0, opponent: 0 });
+    codeVotes.get(e.team_code)[side] += 1;
+  }
+  const codeToSide = new Map();
+  for (const [code, votes] of codeVotes) {
+    codeToSide.set(code, votes.home >= votes.opponent ? 'home' : 'opponent');
+  }
+
+  const fastBreakRows = await db.prepare(`
+    SELECT team_code, action_text FROM game_play_by_play
+    WHERE game_id = ? AND action_text LIKE '%fast break%' AND action_text LIKE '%made%'
+  `).all(gameId);
+
+  const totals = { home: 0, opponent: 0 };
+  for (const row of fastBreakRows) {
+    const side = codeToSide.get(row.team_code);
+    if (!side) continue;
+    let points = 0;
+    if (row.action_text.startsWith('3pt FG')) points = 3;
+    else if (row.action_text.startsWith('2pt FG')) points = 2;
+    else if (row.action_text.startsWith('free throw')) points = 1;
+    totals[side] += points;
+  }
+  return totals;
+}
+
 // Trigger metric computation for a game once its Box Score is extracted.
 // (Full pipeline needs all 10 reports per the proposal; this computes what's
 // derivable from Box Score data alone, which covers the core Four Factors.)
@@ -114,6 +187,12 @@ router.post('/games/:gameId/compute', requireRole('Statistician', 'Team Manager'
     const oppStarters = await getStarterJerseys(gameId, game.opponent_team_id);
     homeMetrics.benchPoints = homeStarters ? benchPointsFromRows(homeRows, homeStarters) : null;
     oppMetrics.benchPoints = oppStarters ? benchPointsFromRows(oppRows, oppStarters) : null;
+
+    // Fast-break points: same real-not-fabricated reasoning as bench
+    // points above, computed from already-extracted play-by-play data.
+    const fastBreak = await computeFastBreakPoints(gameId, homeRows, oppRows);
+    homeMetrics.fastBreakPoints = fastBreak.home;
+    oppMetrics.fastBreakPoints = fastBreak.opponent;
 
     const insightTags = tagInsights(homeMetrics, oppMetrics, homeRows, oppRows);
     const playerMetrics = playerRows.map(computePlayerMetrics);
