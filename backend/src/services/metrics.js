@@ -92,11 +92,26 @@ function tagInsights(homeMetrics, oppMetrics, homePlayers, oppPlayers) {
   if (homeMetrics.offensiveReboundPct >= 35) tags.push({ tag: 'Offensive Boards Dominance', team: 'home', detail: `Home offensive rebound rate of ${homeMetrics.offensiveReboundPct}%.` });
   if (oppMetrics.offensiveReboundPct >= 35) tags.push({ tag: 'Offensive Boards Dominance', team: 'opponent', detail: `Opponent offensive rebound rate of ${oppMetrics.offensiveReboundPct}%.` });
 
-  // "Bench Superiority" needs starter/bench split, which requires rotation
-  // data (Rotation Summary report) — not yet wired into extraction. Flagging
-  // rather than guessing.
-  // TODO: once Rotation Summary parsing is implemented, add bench-vs-starter
-  // point differential here.
+  // Bench Superiority: same symmetric-differential shape as Turnover
+  // Destruction above. benchPoints is attached onto homeMetrics/
+  // oppMetrics by analysis.js's compute route (real, computed from
+  // game_rotation_stints + player_game_stats -- see getStarterJerseys/
+  // benchPointsFromRows there), not part of computeTeamMetrics' own pure
+  // box-score-totals calculation. null on either side means that team
+  // has no rotation data for this game -- skip the tag entirely rather
+  // than guessing, same as every other "no data yet" gap in this app.
+  //
+  // Threshold (10 points): no rigorous analytics convention exists for
+  // this the way Four Factors' weightings do -- same "starting point,
+  // calibrate against real game data" spirit as every threshold above
+  // (see this function's own opening comment), anchored to the loose
+  // ~10-point bench differential broadcast commentary commonly treats as
+  // notable. A real, working value, not a placeholder left for later.
+  if (homeMetrics.benchPoints != null && oppMetrics.benchPoints != null) {
+    const benchDiff = homeMetrics.benchPoints - oppMetrics.benchPoints;
+    if (benchDiff >= 10) tags.push({ tag: 'Bench Superiority', team: 'home', detail: `Home bench outscored the opponent's bench ${homeMetrics.benchPoints}-${oppMetrics.benchPoints}.` });
+    if (benchDiff <= -10) tags.push({ tag: 'Bench Superiority', team: 'opponent', detail: `Opponent bench outscored home's bench ${oppMetrics.benchPoints}-${homeMetrics.benchPoints}.` });
+  }
 
   return tags;
 }
