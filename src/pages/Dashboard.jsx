@@ -68,10 +68,24 @@ export default function Dashboard({ role, selectedSeason, logout, currentUser })
   // flagged this: a real team id essentially never matched the mock's 4
   // hardcoded keys, silently falling back to the 'usiu-men' entry for
   // every user regardless of role or actual team).
+  //
+  // performanceEmptyReason: an empty data.performance array is ambiguous
+  // on its own -- it means something different depending on WHY it's
+  // empty, and the chart can't tell those apart just by looking at an
+  // empty array. 'no-team' covers the account authService.js's local
+  // demo-login fallback produces (no `teams` on currentUser at all, e.g.
+  // logging in with the login page's own pre-filled manager@courtiq.com/
+  // demo123, which isn't a real backend account -- see authService.js's
+  // demo fallback path), where activeTeam is null and GET /games is never
+  // even called. 'no-games' covers a real team with no games that have a
+  // resolved Score Sheet outcome yet -- a real, valid, honest state for a
+  // new or still-in-progress season. Both used to render as the exact
+  // same bare, unexplained empty chart.
   const data = useMemo(() => ({
     profile: { name: activeTeam?.name || 'Your Team' },
     performance,
-  }), [activeTeam?.name, performance]);
+    performanceEmptyReason: !activeTeam?.id ? 'no-team' : (performance.length === 0 ? 'no-games' : null),
+  }), [activeTeam?.id, activeTeam?.name, performance]);
 
   const summary = useMemo(() => {
     const upcoming = matches.filter((match) => match.status === 'Scheduled' || match.status === 'Live').length;

@@ -59,6 +59,29 @@ function HeroBanner({ role, userName, teamName, season, photoUrl }) {
   );
 }
 
+// Shared across every dashboard that renders the performance trend chart
+// (Athlete, Coach, Statistician -- Team Manager has no such chart, so it
+// never needs this). An empty data.performance array used to render as a
+// bare, unexplained axis box in all three, indistinguishable from a real
+// bug -- confirmed by direct investigation that this happens for two
+// different, both-legitimate reasons Dashboard.jsx now tells apart via
+// data.performanceEmptyReason: 'no-team' (activeTeam is null, e.g. the
+// login page's own pre-filled manager@courtiq.com/demo123 default, which
+// resolves through authService.js's local demo fallback rather than a
+// real backend account, so there's no real team to fetch games for at
+// all) vs 'no-games' (a real team with no games that have a resolved
+// Score Sheet outcome yet -- an honest, valid state for a new season).
+function PerformanceEmptyState({ reason }) {
+  const message = reason === 'no-team'
+    ? 'No team selected — log in with a real team account to see performance trends here.'
+    : 'No performance data yet — once a game gets a Score Sheet with a resolved result, it will show up here.';
+  return (
+    <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', px: 3 }}>
+      <Typography color="text.secondary">{message}</Typography>
+    </Box>
+  );
+}
+
 function StatTile({ title, value, subtitle, icon: Icon, color, delay = 0 }) {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay }}>
@@ -128,16 +151,20 @@ export function AthleteDashboard({ data, summary, matches, userName, season, pho
             <GlassCardContent>
               <Typography variant="h6" fontWeight={700}>Season Progress</Typography>
               <Box sx={{ height: 260, mt: 2 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={data.performance}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
-                    <XAxis dataKey="name" stroke="currentColor" tick={{ fill: 'currentColor', fontSize: 12 }} />
-                    <YAxis stroke="currentColor" tick={{ fill: 'currentColor', fontSize: 12 }} />
-                    <Tooltip contentStyle={{ background: 'rgba(17,24,39,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }} />
-                    <Line type="monotone" dataKey="points" stroke={teamColors.primary} strokeWidth={3} dot={{ fill: teamColors.primary }} name="Points" />
-                    <Line type="monotone" dataKey="opponentPoints" stroke={roleTheme.glow} strokeWidth={3} dot={{ fill: roleTheme.glow }} name="Opponent" />
-                  </LineChart>
-                </ResponsiveContainer>
+                {data.performance.length === 0 ? (
+                  <PerformanceEmptyState reason={data.performanceEmptyReason} />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.performance}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
+                      <XAxis dataKey="name" stroke="currentColor" tick={{ fill: 'currentColor', fontSize: 12 }} />
+                      <YAxis stroke="currentColor" tick={{ fill: 'currentColor', fontSize: 12 }} />
+                      <Tooltip contentStyle={{ background: 'rgba(17,24,39,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }} />
+                      <Line type="monotone" dataKey="points" stroke={teamColors.primary} strokeWidth={3} dot={{ fill: teamColors.primary }} name="Points" />
+                      <Line type="monotone" dataKey="opponentPoints" stroke={roleTheme.glow} strokeWidth={3} dot={{ fill: roleTheme.glow }} name="Opponent" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </Box>
             </GlassCardContent>
           </GlassCard>
@@ -183,16 +210,20 @@ export function CoachDashboard({ data, summary, matches, analysisEntries, userNa
             <GlassCardContent>
               <Typography variant="h6" fontWeight={700}>Team Performance Trend</Typography>
               <Box sx={{ height: 280, mt: 2 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={data.performance}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
-                    <XAxis dataKey="name" stroke="currentColor" />
-                    <YAxis stroke="currentColor" />
-                    <Tooltip contentStyle={{ background: 'rgba(17,24,39,0.9)', borderRadius: 12 }} />
-                    <Line type="monotone" dataKey="points" stroke={roleTheme.glow} strokeWidth={3} name="Points" />
-                    <Line type="monotone" dataKey="opponentPoints" stroke={teamColors.primary} strokeWidth={3} name="Opponent" />
-                  </LineChart>
-                </ResponsiveContainer>
+                {data.performance.length === 0 ? (
+                  <PerformanceEmptyState reason={data.performanceEmptyReason} />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.performance}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
+                      <XAxis dataKey="name" stroke="currentColor" />
+                      <YAxis stroke="currentColor" />
+                      <Tooltip contentStyle={{ background: 'rgba(17,24,39,0.9)', borderRadius: 12 }} />
+                      <Line type="monotone" dataKey="points" stroke={roleTheme.glow} strokeWidth={3} name="Points" />
+                      <Line type="monotone" dataKey="opponentPoints" stroke={teamColors.primary} strokeWidth={3} name="Opponent" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </Box>
             </GlassCardContent>
           </GlassCard>
@@ -257,16 +288,20 @@ export function StatisticianDashboard({ data, summary, reports, userName, season
             <GlassCardContent>
               <Typography variant="h6" fontWeight={700}>Analytics Overview</Typography>
               <Box sx={{ height: 280, mt: 2 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={data.performance}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
-                    <XAxis dataKey="name" stroke="currentColor" />
-                    <YAxis stroke="currentColor" />
-                    <Tooltip contentStyle={{ background: 'rgba(17,24,39,0.9)', borderRadius: 12 }} />
-                    <Line type="monotone" dataKey="points" stroke={roleTheme.glow} strokeWidth={3} name="Points" />
-                    <Line type="monotone" dataKey="opponentPoints" stroke={teamColors.primary} strokeWidth={3} name="Opponent" />
-                  </LineChart>
-                </ResponsiveContainer>
+                {data.performance.length === 0 ? (
+                  <PerformanceEmptyState reason={data.performanceEmptyReason} />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={data.performance}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
+                      <XAxis dataKey="name" stroke="currentColor" />
+                      <YAxis stroke="currentColor" />
+                      <Tooltip contentStyle={{ background: 'rgba(17,24,39,0.9)', borderRadius: 12 }} />
+                      <Line type="monotone" dataKey="points" stroke={roleTheme.glow} strokeWidth={3} name="Points" />
+                      <Line type="monotone" dataKey="opponentPoints" stroke={teamColors.primary} strokeWidth={3} name="Opponent" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
               </Box>
             </GlassCardContent>
           </GlassCard>
