@@ -118,6 +118,7 @@ async function persistQuarter(gameId, quarterResult, teamIdBySide) {
       team.quarterTotals ? team.quarterTotals.q3 : null,
       team.quarterTotals ? team.quarterTotals.q4 : null,
       team.cumulativeScore ? JSON.stringify(team.cumulativeScore) : null,
+      team.team_side_unconfirmed || false,
     ]);
     for (const p of (team.players || [])) {
       playerRows.push([
@@ -134,7 +135,7 @@ async function persistQuarter(gameId, quarterResult, teamIdBySide) {
 
   await db.batchInsert(
     'game_quarter_team',
-    ['game_id', 'team_side', 'team_name', 'final_score', 'q1', 'q2', 'q3', 'q4', 'cumulative_score_json'],
+    ['game_id', 'team_side', 'team_name', 'final_score', 'q1', 'q2', 'q3', 'q4', 'cumulative_score_json', 'team_side_unconfirmed'],
     teamRows,
   );
   await db.batchInsert(
@@ -159,6 +160,7 @@ async function persistPlusMinus(gameId, plusMinusResult, teamIdBySide) {
         p.points_diff_on, p.points_diff_off, p.points_per_min_on, p.points_per_min_off,
         p.assists_on, p.assists_off, p.rebounds_on, p.rebounds_off,
         p.steals_on, p.steals_off, p.turnovers_on, p.turnovers_off,
+        team.team_side_unconfirmed || false,
       ]);
       if (teamIdBySide && teamIdBySide[team.team_side]) {
         await resolvePlayerName({
@@ -173,7 +175,8 @@ async function persistPlusMinus(gameId, plusMinusResult, teamIdBySide) {
     ['game_id', 'team_side', 'jersey_number', 'player_name', 'minutes_on', 'minutes_off',
       'score_while_on', 'score_while_off', 'points_diff_on', 'points_diff_off',
       'points_per_min_on', 'points_per_min_off', 'assists_on', 'assists_off',
-      'rebounds_on', 'rebounds_off', 'steals_on', 'steals_off', 'turnovers_on', 'turnovers_off'],
+      'rebounds_on', 'rebounds_off', 'steals_on', 'steals_off', 'turnovers_on', 'turnovers_off',
+      'team_side_unconfirmed'],
     rows,
   );
 }
@@ -189,6 +192,7 @@ async function persistLineupAnalysis(gameId, lineupResult) {
         gameId, team.team_side, team.team_name, JSON.stringify(l.players),
         l.time_on_court, l.score, l.score_diff, l.points_per_min,
         l.rebounds, l.steals, l.turnovers, l.assists,
+        team.team_side_unconfirmed || false,
       ]);
     }
   }
@@ -196,7 +200,8 @@ async function persistLineupAnalysis(gameId, lineupResult) {
   return db.batchInsert(
     'game_lineup_analysis',
     ['game_id', 'team_side', 'team_name', 'players_json', 'time_on_court', 'score',
-      'score_diff', 'points_per_min', 'rebounds', 'steals', 'turnovers', 'assists'],
+      'score_diff', 'points_per_min', 'rebounds', 'steals', 'turnovers', 'assists',
+      'team_side_unconfirmed'],
     rows,
   );
 }
@@ -212,6 +217,7 @@ async function persistRotationsSummary(gameId, rotationsResult) {
         gameId, team.team_side, team.team_name, JSON.stringify(s.players),
         s.quarter_on, s.time_on, s.quarter_off, s.time_off, s.time_on_court,
         s.score, s.score_diff, s.rebounds, s.steals, s.turnovers, s.assists,
+        team.team_side_unconfirmed || false,
       ]);
     }
   }
@@ -219,7 +225,8 @@ async function persistRotationsSummary(gameId, rotationsResult) {
   return db.batchInsert(
     'game_rotation_stints',
     ['game_id', 'team_side', 'team_name', 'players_json', 'quarter_on', 'time_on', 'quarter_off',
-      'time_off', 'time_on_court', 'score', 'score_diff', 'rebounds', 'steals', 'turnovers', 'assists'],
+      'time_off', 'time_on_court', 'score', 'score_diff', 'rebounds', 'steals', 'turnovers', 'assists',
+      'team_side_unconfirmed'],
     rows,
   );
 }
