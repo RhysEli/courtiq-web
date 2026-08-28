@@ -1,24 +1,16 @@
 import {
-  Box, Grid, Card, CardContent, Typography, Chip, Stack, Divider, Alert,
+  Box, Grid, Card, CardContent, Typography, Stack, Alert,
   TextField, MenuItem, Button, CircularProgress,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useEffect, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import Layout from '../components/layout';
-import { getAnalysisEntries } from '../services/analysisService';
 import { backendApi } from '../api/client';
 
 function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
-  const [analysisEntry, setAnalysisEntry] = useState(null);
-
-  useEffect(() => {
-    setAnalysisEntry(getAnalysisEntries().slice(-1)[0] || null);
-  }, []);
-
-  // FR-09: real Coach annotations on a real game record, independent of
-  // the mock analysisEntry data above -- uses the actual backend `games`
-  // and `annotations` tables.
+  // FR-09: real Coach annotations on a real game record -- uses the actual
+  // backend `games` and `annotations` tables.
   const [games, setGames] = useState([]);
   const [gamesLoading, setGamesLoading] = useState(true);
   const [gamesError, setGamesError] = useState('');
@@ -30,12 +22,9 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
   const [noteError, setNoteError] = useState('');
 
   // FR-13: real, selectedGameId-scoped match stats + AI narrative
-  // (game_metrics/game_narratives via GET /analysis/games/:gameId) --
-  // independent of the legacy analysisEntry data below (which is a
-  // localStorage-backed mock, not tied to a real gameId at all). Built
+  // (game_metrics/game_narratives via GET /analysis/games/:gameId). Built
   // specifically so the PDF export (and the cards it mirrors) reflect
-  // real numbers for the actual selected game, not whatever the last
-  // locally-stored mock entry happened to contain.
+  // real numbers for the actual selected game.
   const [realAnalysis, setRealAnalysis] = useState(null);
   const [realAnalysisLoading, setRealAnalysisLoading] = useState(false);
   const [realAnalysisError, setRealAnalysisError] = useState('');
@@ -192,9 +181,6 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
     }
   };
 
-  const summary = analysisEntry?.teamSummary || {};
-  const players = analysisEntry?.playerAnalysis || [];
-
   return (
     <Layout mode={mode} toggleTheme={toggleTheme} selectedTeam={selectedTeam} onTeamChange={onTeamChange} role={role} selectedSeason={selectedSeason} logout={logout}>
       <Card sx={{ mb: 3 }}>
@@ -305,118 +291,6 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
                     (see AI Analysis) and may not have been run, or may have failed.
                   </Alert>
                 )}
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      )}
-
-      {!analysisEntry ? (
-        <Alert severity="info">Upload a report and run analysis to populate this view.</Alert>
-      ) : (
-        <Grid container spacing={3}>
-          {analysisEntry.isRealExtraction && (
-            <Grid item xs={12}>
-              <Chip label="Real extraction — computed from an uploaded FIBA Box Score PDF" color="success" />
-            </Grid>
-          )}
-          {analysisEntry.narrative && (
-            <Grid item xs={12}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" fontWeight={700}>AI-generated narrative</Typography>
-                  <Typography sx={{ mt: 2, whiteSpace: 'pre-line' }}>{analysisEntry.narrative}</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
-          {analysisEntry.additionalReports?.quarter && analysisEntry.additionalReports.quarter.status !== 'failed' && (
-            <Grid item xs={12}>
-              <Alert severity="info">
-                Quarter-by-quarter data was extracted and stored for this game
-                ({analysisEntry.additionalReports.quarter.rows?.playerRows ?? '—'} player rows).
-                A detailed breakdown view isn't wired up on this page yet -- the
-                real data lives in the database and can be pulled via the
-                game's report-data endpoint.
-              </Alert>
-            </Grid>
-          )}
-          {(analysisEntry.additionalReports?.plusMinus || analysisEntry.additionalReports?.lineupAnalysis || analysisEntry.additionalReports?.rotationsSummary) && (
-            <Grid item xs={12}>
-              <Alert severity="info">
-                Additional real data extracted from this upload:
-                <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }} useFlexGap>
-                  {analysisEntry.additionalReports?.plusMinus?.status !== 'failed' && analysisEntry.additionalReports?.plusMinus?.rows != null && (
-                    <Chip size="small" label={`Plus/Minus — ${analysisEntry.additionalReports.plusMinus.rows} players`} />
-                  )}
-                  {analysisEntry.additionalReports?.lineupAnalysis?.status !== 'failed' && analysisEntry.additionalReports?.lineupAnalysis?.rows != null && (
-                    <Chip size="small" label={`Lineup Analysis — ${analysisEntry.additionalReports.lineupAnalysis.rows} lineups`} />
-                  )}
-                  {analysisEntry.additionalReports?.rotationsSummary?.status !== 'failed' && analysisEntry.additionalReports?.rotationsSummary?.rows != null && (
-                    <Chip size="small" label={`Rotations Summary — ${analysisEntry.additionalReports.rotationsSummary.rows} stints`} />
-                  )}
-                </Stack>
-                {' '}Dedicated views for these are coming — the raw data is already stored with this analysis.
-              </Alert>
-            </Grid>
-          )}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" fontWeight={700}>Match summary</Typography>
-                <Typography color="text.secondary" sx={{ mt: 2 }}>Auto-generated from the latest imported report set for this match.</Typography>
-                <Stack spacing={1.5} sx={{ mt: 3 }}>
-                  <Typography><strong>Points:</strong> {summary.points}</Typography>
-                  <Typography><strong>FG%:</strong> {summary.fgPct}</Typography>
-                  <Typography><strong>3PT%:</strong> {summary.threePtPct}</Typography>
-                  <Typography><strong>FT%:</strong> {summary.ftPct}</Typography>
-                  <Typography><strong>Rebounds:</strong> {summary.rebounds}</Typography>
-                  <Typography><strong>Assists:</strong> {summary.assists}</Typography>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" fontWeight={700}>Strengths & Weaknesses</Typography>
-                <Divider sx={{ my: 2 }} />
-                <Typography fontWeight={600}>Strengths</Typography>
-                <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
-                  {(analysisEntry.strengths || []).map((item) => <Chip key={item} label={item} color="primary" variant="outlined" />)}
-                </Stack>
-                <Typography fontWeight={600} sx={{ mt: 2 }}>Weaknesses</Typography>
-                <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
-                  {(analysisEntry.weaknesses || []).map((item) => <Chip key={item} label={item} color="secondary" variant="outlined" />)}
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" fontWeight={700}>Recommendations</Typography>
-                <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: 'wrap' }}>
-                  {(analysisEntry.recommendations || []).map((item) => <Chip key={item} label={item} color="primary" />)}
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" fontWeight={700}>Player development</Typography>
-                <Stack spacing={2} sx={{ mt: 2 }}>
-                  {players.map((player) => (
-                    <Box key={player.id} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2 }}>
-                      <Typography fontWeight={700}>{player.fullName}</Typography>
-                      <Typography color="text.secondary">PPG {player.ppg} • RPG {player.rpg} • APG {player.apg}</Typography>
-                      <Typography color="text.secondary">Trend: {player.trend} • Consistency: {player.consistencyRating}/100</Typography>
-                      <Typography color="text.secondary">Strengths: {player.strengths.join(', ')}</Typography>
-                      <Typography color="text.secondary">Areas to improve: {player.areasToImprove.join(', ')}</Typography>
-                    </Box>
-                  ))}
-                </Stack>
               </CardContent>
             </Card>
           </Grid>
