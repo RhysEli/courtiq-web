@@ -190,6 +190,11 @@ export const backendApi = {
     return request(`/teams/${encodeURIComponent(teamId)}/logo`, { method: 'PATCH', body: form, isForm: true });
   },
   getTeamSeasonStats: (teamId) => request(`/teams/${teamId}/season-stats`),
+  // Step 38 Phase 2: StatisticianDashboard's "Data Points"/"Recent Reports"
+  // tiles -- real team-scoped aggregates that didn't exist behind any
+  // existing route (backend/src/routes/teams.js).
+  getTeamPlayerStatsCount: (teamId) => request(`/teams/${encodeURIComponent(teamId)}/player-stats-count`),
+  getTeamReports: (teamId) => request(`/teams/${encodeURIComponent(teamId)}/reports`),
   // FR-07 Phase 1/2: real head-to-head history between two teams (resolved
   // through Step 14's identity-grouping layer server-side), distinct from
   // getTeamSeasonStats above -- that averages a team's games against

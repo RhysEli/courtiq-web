@@ -284,7 +284,7 @@ export function CoachDashboard({ data, summary, roster, nextGame, insightTags, w
   );
 }
 
-export function StatisticianDashboard({ data, summary, reports, reportsSummary, userName, season, photoUrl }) {
+export function StatisticianDashboard({ data, summary, reports, reportsSummary, dataPointsCount, userName, season, photoUrl }) {
   const { teamColors } = useThemePreferences();
   const roleTheme = getRoleTheme('Statistician');
 
@@ -295,7 +295,7 @@ export function StatisticianDashboard({ data, summary, reports, reportsSummary, 
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Total Matches" value={summary.total} subtitle="In database" icon={SportsBasketballRoundedIcon} color={roleTheme.glow} delay={0.1} /></Grid>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Reports" value={reportsSummary.count} subtitle="Imported PDFs" icon={TrendingUpRoundedIcon} color={teamColors.primary} delay={0.15} /></Grid>
-        <Grid item xs={12} sm={6} md={3}><StatTile title="Data Points" value="2.4k" subtitle="Tracked this season" icon={FitnessCenterRoundedIcon} color="#a78bfa" delay={0.2} /></Grid>
+        <Grid item xs={12} sm={6} md={3}><StatTile title="Data Points" value={dataPointsCount == null ? '—' : dataPointsCount} subtitle="Player-game stat rows tracked" icon={FitnessCenterRoundedIcon} color="#a78bfa" delay={0.2} /></Grid>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Accuracy" value={reportsSummary.accuracyPct == null ? '—' : `${reportsSummary.accuracyPct}%`} subtitle="Extraction rate" icon={EmojiEventsRoundedIcon} color={teamColors.secondary} delay={0.25} /></Grid>
       </Grid>
 
@@ -330,8 +330,10 @@ export function StatisticianDashboard({ data, summary, reports, reportsSummary, 
               <Stack spacing={1.5} sx={{ mt: 2 }}>
                 {reports.slice(0, 4).map((report) => (
                   <Box key={report.id} sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)' }}>
-                    <Typography fontWeight={600} variant="body2">{report.name}</Typography>
-                    <Typography color="text.secondary" variant="caption">{report.type} • {report.uploadedAt}</Typography>
+                    <Typography fontWeight={600} variant="body2">{report.original_filename}</Typography>
+                    <Typography color="text.secondary" variant="caption">
+                      {report.report_type} • {new Date(report.uploaded_at).toLocaleString()}
+                    </Typography>
                   </Box>
                 ))}
                 {!reports.length && <Typography color="text.secondary">No reports imported yet.</Typography>}

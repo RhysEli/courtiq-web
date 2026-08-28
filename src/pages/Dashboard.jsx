@@ -181,11 +181,36 @@ export default function Dashboard({ role, selectedSeason, logout, currentUser })
     return () => { cancelled = true; };
   }, [latestGame?.id]);
 
+  // Step 38 Phase 2: real "Data Points" (player_game_stats row count) and
+  // "Recent Reports" (flat, team-scoped report list) -- the two tiles that
+  // needed a small new backend endpoint rather than already-fetched data.
+  // Statistician-only, since that's the only dashboard that shows either.
+  const [dataPointsCount, setDataPointsCount] = useState(null);
+  useEffect(() => {
+    if (role !== 'Statistician' || !activeTeam?.id) { setDataPointsCount(null); return undefined; }
+    let cancelled = false;
+    backendApi.getTeamPlayerStatsCount(activeTeam.id)
+      .then((data) => { if (!cancelled) setDataPointsCount(data.count); })
+      .catch(() => { if (!cancelled) setDataPointsCount(null); });
+    return () => { cancelled = true; };
+  }, [role, activeTeam?.id]);
+
+  const [teamReports, setTeamReports] = useState([]);
+  useEffect(() => {
+    if (role !== 'Statistician' || !activeTeam?.id) { setTeamReports([]); return undefined; }
+    let cancelled = false;
+    backendApi.getTeamReports(activeTeam.id)
+      .then((data) => { if (!cancelled) setTeamReports(data); })
+      .catch(() => { if (!cancelled) setTeamReports([]); });
+    return () => { cancelled = true; };
+  }, [role, activeTeam?.id]);
+
   // Real reports count + extraction accuracy (Statistician's "Reports"/
   // "Accuracy" tiles), derived from the SAME reportChecklist every real
   // game in `teamGames` already carries (backend/src/routes/games.js's
-  // getGameWithReportStatus) -- no new endpoint needed for the count/rate,
-  // only for the actual per-report list (Phase 2's "Recent Reports").
+  // getGameWithReportStatus) -- these two didn't need Phase 2's new
+  // endpoint, only the actual per-report list (teamReports) and the raw
+  // count (dataPointsCount) did.
   const reportsSummary = useMemo(() => {
     let uploaded = 0;
     let extracted = 0;
@@ -245,11 +270,7 @@ export default function Dashboard({ role, selectedSeason, logout, currentUser })
     roster, staffCount, insightTags, teamNotes, reportsSummary, winRate,
     nextGame, latestGame, upcomingGames,
     myTeams: user?.teams || [], gamesByTeam,
-    // Phase 2 (Step 38) will replace this with a real team-scoped reports
-    // list; an empty array here is an honest "nothing loaded yet" state,
-    // not a fabricated one -- StatisticianDashboard's existing "No reports
-    // imported yet" fallback renders correctly against it either way.
-    reports: [],
+    reports: teamReports, dataPointsCount,
     // Staff-curated (backend PATCH /users/:userId/photo) -- read-only
     // here, HeroBanner just displays it. Falls back to the initial-letter
     // avatar automatically when unset.

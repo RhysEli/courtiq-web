@@ -363,6 +363,55 @@ router.get('/:teamId/season-stats', async (req, res) => {
   }
 });
 
+// Step 38 Phase 2: real count of this team's own tracked player_game_stats
+// rows, for StatisticianDashboard's "Data Points" tile. Team-scoped via
+// requireTeamAccess (unlike season-stats above, which is deliberately open
+// for Opponent Analysis) -- this is the caller's own team's internal data,
+// not a cross-team comparison. team_side-aware, same reasoning as
+// season-stats' own per-game side lookup just above: a game's
+// player_game_stats rows cover BOTH sides, so counting by game_id alone
+// would double the real number by including the opponent's rows too.
+router.get('/:teamId/player-stats-count', requireTeamAccess('teamId'), async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const row = await db.prepare(`
+      SELECT COUNT(*) AS n
+      FROM player_game_stats pgs
+      JOIN games g ON g.id = pgs.game_id
+      WHERE (g.home_team_id = ? AND pgs.team_side = 'home')
+         OR (g.opponent_team_id = ? AND pgs.team_side = 'opponent')
+    `).get(teamId, teamId);
+    res.json({ teamId, count: Number(row.n) });
+  } catch (err) {
+    console.error('team player-stats-count failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Step 38 Phase 2: a flat, team-scoped list of every real report uploaded
+// for any of this team's real games -- StatisticianDashboard's "Recent
+// Reports" tile. The existing GET /games/:gameId/reports (reports.js) is
+// per-game only; nothing aggregates across a team's whole game history
+// into one list. Same requireTeamAccess scoping as player-stats-count
+// above, and the same real columns (original_filename/report_type/
+// uploaded_at) reports.js's own per-game route already returns.
+router.get('/:teamId/reports', requireTeamAccess('teamId'), async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const rows = await db.prepare(`
+      SELECT r.id, r.game_id, r.report_type, r.original_filename, r.extraction_status, r.uploaded_at
+      FROM reports r
+      JOIN games g ON g.id = r.game_id
+      WHERE g.home_team_id = ? OR g.opponent_team_id = ?
+      ORDER BY r.uploaded_at DESC
+    `).all(teamId, teamId);
+    res.json(rows);
+  } catch (err) {
+    console.error('team reports list failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // FR-07 (Opponent Intelligence Module): "generating an opponent
 // intelligence profile by aggregating all historical data from games
 // played against a named opponent, computing cross-encounter averages
