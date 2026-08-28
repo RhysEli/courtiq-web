@@ -593,6 +593,26 @@ CREATE TABLE IF NOT EXISTS game_rotation_stints (
   rebounds INTEGER, steals INTEGER, turnovers INTEGER, assists INTEGER
 );
 
+-- assignTeamSides (services/teamSide.js) already computes
+-- team_side_unconfirmed on every team object whenever its name-match
+-- against the Box Score header's real home-team name fails and it falls
+-- back to positional assignment -- but persistExtractedReports.js was
+-- dropping the flag on the floor for all four of these report types
+-- (extractQuarterReport, extractPlusMinusSummary, extractLineupAnalysis,
+-- extractRotationsSummary), the only consumers of assignTeamSides
+-- outside Box Score. Confirmed directly (Step 30 investigation) that
+-- this silence is exactly what turned a real, detectable low-confidence
+-- fallback into an undetected team_side inversion for two real games
+-- (Lineup Analysis and Rotation Summary both inverted for games 6/10,
+-- discoverable only by cross-referencing three other tables after the
+-- fact) -- persisting this makes the next occurrence a direct query
+-- instead of that same multi-step forensic reconstruction. Same
+-- ALTER TABLE ... ADD COLUMN IF NOT EXISTS pattern as games.venue above.
+ALTER TABLE game_quarter_team ADD COLUMN IF NOT EXISTS team_side_unconfirmed BOOLEAN DEFAULT FALSE;
+ALTER TABLE game_plus_minus ADD COLUMN IF NOT EXISTS team_side_unconfirmed BOOLEAN DEFAULT FALSE;
+ALTER TABLE game_lineup_analysis ADD COLUMN IF NOT EXISTS team_side_unconfirmed BOOLEAN DEFAULT FALSE;
+ALTER TABLE game_rotation_stints ADD COLUMN IF NOT EXISTS team_side_unconfirmed BOOLEAN DEFAULT FALSE;
+
 -- Every possession/event, in order, from Play-by-Play.
 CREATE TABLE IF NOT EXISTS game_play_by_play (
   id SERIAL PRIMARY KEY,
