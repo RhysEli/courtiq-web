@@ -103,7 +103,7 @@ function StatTile({ title, value, subtitle, icon: Icon, color, delay = 0 }) {
   );
 }
 
-export function AthleteDashboard({ data, summary, matches, userName, season, photoUrl }) {
+export function AthleteDashboard({ data, summary, teamNotes, userName, season, photoUrl }) {
   const { teamColors } = useThemePreferences();
   const roleTheme = getRoleTheme('Athlete');
 
@@ -119,10 +119,10 @@ export function AthleteDashboard({ data, summary, matches, userName, season, pho
       <HeroBanner role="Athlete" userName={userName} teamName={data.profile.name} season={season} photoUrl={photoUrl} />
 
       <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} md={3}><StatTile title="My Games" value={summary.completed} subtitle="Completed this season" icon={SportsBasketballRoundedIcon} color={teamColors.primary} delay={0.1} /></Grid>
+        <Grid item xs={12} sm={6} md={3}><StatTile title="Team's Recent Games" value={summary.completed} subtitle="Completed this season" icon={SportsBasketballRoundedIcon} color={teamColors.primary} delay={0.1} /></Grid>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Avg Points" value="14.2" subtitle="Per game average" icon={TrendingUpRoundedIcon} color={roleTheme.glow} delay={0.15} /></Grid>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Training Load" value="87%" subtitle="Weekly target" icon={FitnessCenterRoundedIcon} color="#ff9500" delay={0.2} /></Grid>
-        <Grid item xs={12} sm={6} md={3}><StatTile title="Next Game" value={summary.upcoming} subtitle="Upcoming matches" icon={EmojiEventsRoundedIcon} color={teamColors.secondary} delay={0.25} /></Grid>
+        <Grid item xs={12} sm={6} md={3}><StatTile title="Team's Next Game" value={summary.upcoming} subtitle="Upcoming matches" icon={EmojiEventsRoundedIcon} color={teamColors.secondary} delay={0.25} /></Grid>
       </Grid>
 
       <Grid container spacing={3}>
@@ -173,25 +173,34 @@ export function AthleteDashboard({ data, summary, matches, userName, season, pho
 
       <GlassCard glowColor={roleTheme.glow}>
         <GlassCardContent>
-          <Typography variant="h6" fontWeight={700}>Coach Notes for You</Typography>
-          <Stack spacing={2} sx={{ mt: 2 }}>
-            {['Focus on catch-and-shoot opportunities in transition', 'Improve off-ball movement — keep cutting hard', 'Box out aggressively on defensive rebounds'].map((note, i) => (
-              <Box key={note} sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)', borderLeft: `3px solid ${roleTheme.glow}` }}>
-                <Typography fontWeight={600}>Note {i + 1}</Typography>
-                <Typography color="text.secondary" variant="body2">{note}</Typography>
-              </Box>
-            ))}
-          </Stack>
+          <Typography variant="h6" fontWeight={700}>Team Notes</Typography>
+          <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
+            Real Coach notes on the team's most recently played game -- not personally targeted at
+            you specifically, since there's no per-player note assignment in this app.
+          </Typography>
+          {teamNotes.length === 0 ? (
+            <Typography color="text.secondary">No notes on the team's most recent game yet.</Typography>
+          ) : (
+            <Stack spacing={2}>
+              {teamNotes.slice(0, 3).map((note) => (
+                <Box key={note.id} sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)', borderLeft: `3px solid ${roleTheme.glow}` }}>
+                  <Typography color="text.secondary" variant="body2">{note.body}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {note.author_name || 'Coach'} • {new Date(note.created_at).toLocaleString()}
+                  </Typography>
+                </Box>
+              ))}
+            </Stack>
+          )}
         </GlassCardContent>
       </GlassCard>
     </Box>
   );
 }
 
-export function CoachDashboard({ data, summary, matches, analysisEntries, userName, season, photoUrl }) {
+export function CoachDashboard({ data, summary, roster, nextGame, insightTags, winRate, userName, season, photoUrl }) {
   const { teamColors } = useThemePreferences();
   const roleTheme = getRoleTheme('Coach');
-  const nextMatch = matches.find((m) => m.status === 'Scheduled');
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -200,8 +209,8 @@ export function CoachDashboard({ data, summary, matches, analysisEntries, userNa
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Upcoming" value={summary.upcoming} subtitle="Scheduled matches" icon={SportsBasketballRoundedIcon} color={roleTheme.glow} delay={0.1} /></Grid>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Live Now" value={summary.live} subtitle="Active games" icon={TrendingUpRoundedIcon} color="#ef4444" delay={0.15} /></Grid>
-        <Grid item xs={12} sm={6} md={3}><StatTile title="Win Rate" value="68%" subtitle="This season" icon={EmojiEventsRoundedIcon} color={teamColors.primary} delay={0.2} /></Grid>
-        <Grid item xs={12} sm={6} md={3}><StatTile title="Roster" value="12" subtitle="Active players" icon={FitnessCenterRoundedIcon} color={teamColors.secondary} delay={0.25} /></Grid>
+        <Grid item xs={12} sm={6} md={3}><StatTile title="Win Rate" value={winRate == null ? '—' : `${winRate}%`} subtitle="This season" icon={EmojiEventsRoundedIcon} color={teamColors.primary} delay={0.2} /></Grid>
+        <Grid item xs={12} sm={6} md={3}><StatTile title="Roster" value={roster.length} subtitle="Active players" icon={FitnessCenterRoundedIcon} color={teamColors.secondary} delay={0.25} /></Grid>
       </Grid>
 
       <Grid container spacing={3}>
@@ -232,10 +241,10 @@ export function CoachDashboard({ data, summary, matches, analysisEntries, userNa
           <GlassCard glowColor={teamColors.primary}>
             <GlassCardContent>
               <Typography variant="h6" fontWeight={700}>Next Match Briefing</Typography>
-              {nextMatch ? (
+              {nextGame ? (
                 <Box sx={{ mt: 2 }}>
-                  <Typography variant="h5" fontWeight={800} color="primary.main">{nextMatch.homeTeam} vs {nextMatch.awayTeam}</Typography>
-                  <Typography color="text.secondary" sx={{ mt: 1 }}>{nextMatch.matchDate} • {nextMatch.venue}</Typography>
+                  <Typography variant="h5" fontWeight={800} color="primary.main">{nextGame.home_team_id} vs {nextGame.opponent_team_id}</Typography>
+                  <Typography color="text.secondary" sx={{ mt: 1 }}>{nextGame.game_date}{nextGame.venue ? ` • ${nextGame.venue}` : ''}</Typography>
                   <Box sx={{ mt: 3, p: 2, borderRadius: 2, bgcolor: `${roleTheme.glow}15`, border: `1px solid ${roleTheme.glow}33` }}>
                     <Typography fontWeight={700} sx={{ color: roleTheme.glow }}>Scouting Focus</Typography>
                     <Typography color="text.secondary" variant="body2" sx={{ mt: 0.5 }}>Transition defense and rim protection in the first half. Limit opponent second-chance points.</Typography>
@@ -251,23 +260,31 @@ export function CoachDashboard({ data, summary, matches, analysisEntries, userNa
 
       <GlassCard glowColor={roleTheme.glow}>
         <GlassCardContent>
-          <Typography variant="h6" fontWeight={700}>AI Coaching Recommendations</Typography>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            {(analysisEntries[0]?.recommendations || ['Increase pick-and-roll frequency with your primary ball handler', 'Deploy full-court press in Q3 when trailing by 5+', 'Rest starters earlier — fatigue index is elevated']).map((rec) => (
-              <Grid item xs={12} md={4} key={rec}>
-                <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)', height: '100%' }}>
-                  <Typography fontWeight={600}>{rec}</Typography>
-                </Box>
-              </Grid>
-            ))}
-          </Grid>
+          <Typography variant="h6" fontWeight={700}>AI Coaching Insights</Typography>
+          <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
+            Real, computed insight tags from the team's most recently played game.
+          </Typography>
+          {insightTags.length === 0 ? (
+            <Typography color="text.secondary">No insights computed yet for the team's most recent game.</Typography>
+          ) : (
+            <Grid container spacing={2}>
+              {insightTags.map((insight, i) => (
+                <Grid item xs={12} md={4} key={`${insight.tag}-${insight.team}-${i}`}>
+                  <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)', height: '100%' }}>
+                    <Typography fontWeight={700}>{insight.tag}</Typography>
+                    <Typography color="text.secondary" variant="body2" sx={{ mt: 0.5 }}>{insight.detail}</Typography>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          )}
         </GlassCardContent>
       </GlassCard>
     </Box>
   );
 }
 
-export function StatisticianDashboard({ data, summary, reports, userName, season, photoUrl }) {
+export function StatisticianDashboard({ data, summary, reports, reportsSummary, userName, season, photoUrl }) {
   const { teamColors } = useThemePreferences();
   const roleTheme = getRoleTheme('Statistician');
 
@@ -277,9 +294,9 @@ export function StatisticianDashboard({ data, summary, reports, userName, season
 
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Total Matches" value={summary.total} subtitle="In database" icon={SportsBasketballRoundedIcon} color={roleTheme.glow} delay={0.1} /></Grid>
-        <Grid item xs={12} sm={6} md={3}><StatTile title="Reports" value={reports.length} subtitle="Imported PDFs" icon={TrendingUpRoundedIcon} color={teamColors.primary} delay={0.15} /></Grid>
+        <Grid item xs={12} sm={6} md={3}><StatTile title="Reports" value={reportsSummary.count} subtitle="Imported PDFs" icon={TrendingUpRoundedIcon} color={teamColors.primary} delay={0.15} /></Grid>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Data Points" value="2.4k" subtitle="Tracked this season" icon={FitnessCenterRoundedIcon} color="#a78bfa" delay={0.2} /></Grid>
-        <Grid item xs={12} sm={6} md={3}><StatTile title="Accuracy" value="96%" subtitle="Extraction rate" icon={EmojiEventsRoundedIcon} color={teamColors.secondary} delay={0.25} /></Grid>
+        <Grid item xs={12} sm={6} md={3}><StatTile title="Accuracy" value={reportsSummary.accuracyPct == null ? '—' : `${reportsSummary.accuracyPct}%`} subtitle="Extraction rate" icon={EmojiEventsRoundedIcon} color={teamColors.secondary} delay={0.25} /></Grid>
       </Grid>
 
       <Grid container spacing={3}>
@@ -349,7 +366,7 @@ export function StatisticianDashboard({ data, summary, reports, userName, season
   );
 }
 
-export function TeamManagerDashboard({ data, summary, matches, userName, season, photoUrl }) {
+export function TeamManagerDashboard({ data, summary, myTeams, gamesByTeam, staffCount, upcomingGames, userName, season, photoUrl }) {
   const { teamColors } = useThemePreferences();
   const roleTheme = getRoleTheme('Team Manager');
 
@@ -358,9 +375,9 @@ export function TeamManagerDashboard({ data, summary, matches, userName, season,
       <HeroBanner role="Team Manager" userName={userName} teamName={data.profile.name} season={season} photoUrl={photoUrl} />
 
       <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} md={3}><StatTile title="Active Teams" value="2" subtitle="Under management" icon={SportsBasketballRoundedIcon} color={roleTheme.glow} delay={0.1} /></Grid>
+        <Grid item xs={12} sm={6} md={3}><StatTile title="Active Teams" value={myTeams.length} subtitle="Under management" icon={SportsBasketballRoundedIcon} color={roleTheme.glow} delay={0.1} /></Grid>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Season Games" value={summary.total} subtitle="Total scheduled" icon={TrendingUpRoundedIcon} color={teamColors.primary} delay={0.15} /></Grid>
-        <Grid item xs={12} sm={6} md={3}><StatTile title="Staff Members" value="8" subtitle="Coaches & stats" icon={FitnessCenterRoundedIcon} color={teamColors.secondary} delay={0.2} /></Grid>
+        <Grid item xs={12} sm={6} md={3}><StatTile title="Staff Members" value={staffCount} subtitle="Coaches & stats" icon={FitnessCenterRoundedIcon} color={teamColors.secondary} delay={0.2} /></Grid>
         <Grid item xs={12} sm={6} md={3}><StatTile title="Budget Used" value="74%" subtitle="Season allocation" icon={EmojiEventsRoundedIcon} color="#fbbf24" delay={0.25} /></Grid>
       </Grid>
 
@@ -370,16 +387,14 @@ export function TeamManagerDashboard({ data, summary, matches, userName, season,
             <GlassCardContent>
               <Typography variant="h6" fontWeight={700}>Organization Overview</Typography>
               <Stack spacing={2} sx={{ mt: 2 }}>
-                {[
-                  { label: 'USIU Tigers (Men)', status: 'Active', games: summary.total },
-                  { label: 'USIU Flames (Women)', status: 'Active', games: 6 },
-                ].map((team) => (
-                  <Box key={team.label} sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {myTeams.length === 0 && <Typography color="text.secondary">No teams under management yet.</Typography>}
+                {myTeams.map((team) => (
+                  <Box key={team.id} sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Box>
-                      <Typography fontWeight={700}>{team.label}</Typography>
-                      <Chip label={team.status} size="small" sx={{ mt: 0.5, bgcolor: `${roleTheme.glow}22`, color: roleTheme.glow }} />
+                      <Typography fontWeight={700}>{team.name}</Typography>
+                      <Chip label="Active" size="small" sx={{ mt: 0.5, bgcolor: `${roleTheme.glow}22`, color: roleTheme.glow }} />
                     </Box>
-                    <Typography variant="h5" fontWeight={800} sx={{ color: teamColors.primary }}>{team.games}</Typography>
+                    <Typography variant="h5" fontWeight={800} sx={{ color: teamColors.primary }}>{gamesByTeam[team.id] ?? 0}</Typography>
                   </Box>
                 ))}
               </Stack>
@@ -391,13 +406,13 @@ export function TeamManagerDashboard({ data, summary, matches, userName, season,
             <GlassCardContent>
               <Typography variant="h6" fontWeight={700}>Upcoming Schedule</Typography>
               <Stack spacing={1.5} sx={{ mt: 2 }}>
-                {matches.filter((m) => m.status === 'Scheduled').slice(0, 4).map((match) => (
-                  <Box key={match.id || match.matchDate} sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)' }}>
-                    <Typography fontWeight={600}>{match.homeTeam} vs {match.awayTeam}</Typography>
-                    <Typography color="text.secondary" variant="caption">{match.matchDate} • {match.venue}</Typography>
+                {upcomingGames.map((game) => (
+                  <Box key={game.id} sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.04)' }}>
+                    <Typography fontWeight={600}>{game.home_team_id} vs {game.opponent_team_id}</Typography>
+                    <Typography color="text.secondary" variant="caption">{game.game_date}{game.venue ? ` • ${game.venue}` : ''}</Typography>
                   </Box>
                 ))}
-                {!matches.filter((m) => m.status === 'Scheduled').length && (
+                {upcomingGames.length === 0 && (
                   <Typography color="text.secondary">No upcoming matches scheduled.</Typography>
                 )}
               </Stack>
