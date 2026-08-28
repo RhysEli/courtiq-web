@@ -65,11 +65,28 @@ function fuzzyMatchReason(a, b) {
 // team, else the closest fuzzy candidate, else none. Team-scoped -- the
 // same raw string on a different team is never compared against this
 // team's aliases (see schema.sql's UNIQUE (team_id, alias_text)).
-async function findCandidate(teamId, rawName) {
+//
+// cache is an optional object, keyed by team_id, that resolvePlayerName
+// callers can share across many calls in the same request/loop (see its
+// caller for the write-through side of this). When present, the alias
+// list for a team is fetched at most once and reused; when absent,
+// behavior is unchanged from before caching existed -- fetch every call.
+async function findCandidate(teamId, rawName, cache) {
   const normalized = normalizeName(rawName);
-  const aliases = await db.prepare(
-    'SELECT player_id, alias_text FROM player_name_aliases WHERE team_id = ?',
-  ).all(teamId);
+  let aliases;
+  if (cache) {
+    if (!cache[teamId]) {
+      const fetched = await db.prepare(
+        'SELECT player_id, alias_text FROM player_name_aliases WHERE team_id = ?',
+      ).all(teamId);
+      cache[teamId] = { aliases: fetched, aliasTexts: new Set(fetched.map((a) => a.alias_text)) };
+    }
+    aliases = cache[teamId].aliases;
+  } else {
+    aliases = await db.prepare(
+      'SELECT player_id, alias_text FROM player_name_aliases WHERE team_id = ?',
+    ).all(teamId);
+  }
 
   for (const alias of aliases) {
     if (normalizeName(alias.alias_text) === normalized) {
@@ -99,12 +116,24 @@ async function findCandidate(teamId, rawName) {
 // They're stored on the review row itself so a fuzzy match doesn't lose
 // them while it's pending; see rejectReview below for where they're
 // actually applied.
-async function resolvePlayerName({ teamId, name, gameId = null, reportType = null, jerseyNumber = null, position = null }) {
+//
+// cache (optional) is the same per-team object findCandidate accepts.
+// When a caller shares one cache object across many resolvePlayerName
+// calls (e.g. all players in one bulk-import request), every alias
+// insert this function performs is mirrored into the cache in the same
+// call, so the very next call sees it -- matching the real sequential
+// dependency (an earlier name in a loop can create an alias a later name
+// in the same loop then needs to match against). The fuzzy/pending-review
+// path never touches player_name_aliases, so it never touches the cache
+// either -- a pending fuzzy match must never be treated as already-known.
+async function resolvePlayerName({
+  teamId, name, gameId = null, reportType = null, jerseyNumber = null, position = null, cache = null,
+}) {
   if (!name || !name.trim()) {
     return { status: 'skipped' };
   }
 
-  const candidate = await findCandidate(teamId, name);
+  const candidate = await findCandidate(teamId, name, cache);
 
   if (candidate.type === 'exact') {
     // Records this exact raw string as its own alias row too, if it isn't
@@ -112,11 +141,25 @@ async function resolvePlayerName({ teamId, name, gameId = null, reportType = nul
     // that normalizes the same as an existing alias but isn't byte-
     // identical to it, so future exact-string lookups stay fast without
     // re-normalizing every alias every time.
-    await db.prepare(`
-      INSERT INTO player_name_aliases (player_id, team_id, alias_text, first_seen_game_id, first_seen_report_type)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT (team_id, alias_text) DO NOTHING
-    `).run(candidate.playerId, teamId, name, gameId, reportType);
+    //
+    // When cache is present, cache[teamId] is guaranteed to already exist
+    // here (findCandidate above always populates it before returning).
+    // The insert is skipped only when this exact raw string is already in
+    // the cached set -- byte-identical, matching ON CONFLICT (team_id,
+    // alias_text) DO NOTHING's real uniqueness semantics exactly, not an
+    // approximation of them.
+    const alreadyKnownVerbatim = cache && cache[teamId].aliasTexts.has(name);
+    if (!alreadyKnownVerbatim) {
+      await db.prepare(`
+        INSERT INTO player_name_aliases (player_id, team_id, alias_text, first_seen_game_id, first_seen_report_type)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT (team_id, alias_text) DO NOTHING
+      `).run(candidate.playerId, teamId, name, gameId, reportType);
+      if (cache) {
+        cache[teamId].aliases.push({ player_id: candidate.playerId, alias_text: name });
+        cache[teamId].aliasTexts.add(name);
+      }
+    }
     return { status: 'linked', playerId: candidate.playerId };
   }
 
@@ -157,6 +200,10 @@ async function resolvePlayerName({ teamId, name, gameId = null, reportType = nul
     INSERT INTO player_name_aliases (player_id, team_id, alias_text, first_seen_game_id, first_seen_report_type)
     VALUES (?, ?, ?, ?, ?)
   `).run(newPlayer.id, teamId, name, gameId, reportType);
+  if (cache) {
+    cache[teamId].aliases.push({ player_id: newPlayer.id, alias_text: name });
+    cache[teamId].aliasTexts.add(name);
+  }
   return { status: 'created', playerId: newPlayer.id };
 }
 
