@@ -101,11 +101,20 @@ router.post(
     if (reportType === 'Box Score') {
       try {
         const { players, unparsedLineCount } = await extractBoxScore(req.file.path);
-        // NOTE: team_side (home/opponent) assignment currently needs to be
-        // confirmed by the Statistician — Box Score PDFs list both rosters
-        // but don't always make home/away unambiguous from text alone.
-        // Simplification for this pass: first half of parsed rows = home.
-        const midpoint = Math.ceil(players.length / 2);
+        // team_side comes straight from extractBoxScore's own p.team_side
+        // (services/teamSide.js's assignTeamSides, matched against the Box
+        // Score header's real home-team name) -- this branch used to
+        // discard that and recompute its own positional midpoint guess
+        // instead, silently mislabeling home/opponent whenever the away
+        // team happened to print first. Confirmed (Step 30 investigation)
+        // that guess was never actually exercised against any real,
+        // currently-stored data -- this route had never been used for a
+        // real Box Score upload at all -- but it was a live, latent bug in
+        // the running code regardless. Same p.team_side usage
+        // bulkImport.js's own Box Score loop already has (routes/
+        // bulkImport.js) -- not reimplemented here, just no longer
+        // discarded.
+        //
         // Player identity resolution (playerIdentity.js) -- previously
         // missing entirely on this ingestion path (unlike bulkImport.js's
         // primary Box Score route), so a name uploaded through this single-
@@ -118,10 +127,10 @@ router.post(
         // actual row insert is collected and batched afterward, the same
         // fix bulkImport.js's own Box Score loop got.
         const statRows = [];
+        let anyTeamSideUnconfirmed = false;
         for (const p of players) {
-          const idx = players.indexOf(p);
-          const teamSide = idx < midpoint ? 'home' : 'opponent';
-          const playerTeamId = teamSide === 'home' ? game.home_team_id : game.opponent_team_id;
+          if (p.team_side_unconfirmed) anyTeamSideUnconfirmed = true;
+          const playerTeamId = p.team_side === 'home' ? game.home_team_id : game.opponent_team_id;
           let playerId = null;
           if (playerTeamId) {
             const resolution = await resolvePlayerName({
@@ -135,7 +144,7 @@ router.post(
             // once a human resolves the review, same as bulkImport.js.
           }
           statRows.push([
-            gameId, p.player_name, teamSide, p.minutes, p.points, p.fgm, p.fga,
+            gameId, p.player_name, p.team_side, p.minutes, p.points, p.fgm, p.fga,
             p.three_pm, p.three_pa, p.ftm, p.fta, p.oreb, p.dreb, p.reb,
             p.assists, p.steals, p.blocks, p.turnovers, p.fouls, p.plus_minus,
             JSON.stringify(p), playerId,
@@ -150,12 +159,17 @@ router.post(
         );
         await db.prepare('UPDATE reports SET extraction_status = ? WHERE id = ?').run('extracted', reportId);
         await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (${players.length} players extracted)`, true);
+        const noteParts = [];
+        if (unparsedLineCount > 0) {
+          noteParts.push(`${unparsedLineCount} line(s) looked like stat rows but did not match the parser — check extraction_error-free but review raw text if numbers look off.`);
+        }
+        if (anyTeamSideUnconfirmed) {
+          noteParts.push('Could not confidently match one or both team names to home/opponent from this PDF\'s own header — team side fell back to print order for at least one player and should be double-checked.');
+        }
         return res.status(201).json({
           reportId,
           extraction: { playersExtracted: players.length, unparsedLineCount },
-          note: unparsedLineCount > 0
-            ? `${unparsedLineCount} line(s) looked like stat rows but did not match the parser — check extraction_error-free but review raw text if numbers look off.`
-            : undefined,
+          note: noteParts.length > 0 ? noteParts.join(' ') : undefined,
         });
       } catch (err) {
         await db.prepare('UPDATE reports SET extraction_status = ?, extraction_error = ? WHERE id = ?')
