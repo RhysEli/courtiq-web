@@ -22,6 +22,35 @@ const { parseFileToLines } = require('./pdfText');
 // export on 22 Jul 2026 -- extraction matched the standalone Box Score
 // exactly, player-for-player).
 
+const MONTH_ABBREVIATIONS = {
+  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+};
+
+// Parses a "<day> <Mon> <year>" date string (e.g. "26 Jul 2026", the real
+// format this report's own venue/date line uses once the weekday prefix
+// is stripped) into a real, timezone-independent ISO date string, built
+// directly from its own day/month/year components -- never through
+// new Date(nonIsoString).toISOString(), which Node parses as LOCAL
+// midnight for this exact non-ISO format, then converts to UTC. That
+// made the same real date compute to a different ISO string depending on
+// the server's timezone offset at parse time: confirmed directly on
+// this project's own dev environment (Africa/Nairobi, UTC+3) that "26
+// Jul 2026" computed as "2026-07-25" -- one day early -- while the
+// identical input under TZ=UTC computed the correct "2026-07-26" (Step
+// 27 investigation). That's what split real game data across duplicate
+// `games` rows in production. Returns null on anything that doesn't
+// match, same as the caller's own null-on-no-match convention.
+function parseDayMonthYear(dateOnly) {
+  const match = dateOnly.match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/);
+  if (!match) return null;
+  const monthIndex = MONTH_ABBREVIATIONS[match[2].toLowerCase()];
+  if (monthIndex === undefined) return null;
+  const day = Number(match[1]);
+  const year = Number(match[3]);
+  return `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 // Groups: star, jersey, name, min, fgm, fga, fgpct, twopm, twopa, twopct,
 // threepm, threepa, threepct, ftm, fta, ftpct, oreb, dreb, tot, as, to, st,
 // bs, pf, fd, plusminus, ef, pts
@@ -65,12 +94,11 @@ function parseGameHeader(lines) {
 
   let isoDate = null;
   if (venueDateMatch) {
-    // e.g. "Sun 19 Jul 2026" -> strip weekday, parse the rest
+    // e.g. "Sun 19 Jul 2026" -> strip weekday, parse "19 Jul 2026" via
+    // parseDayMonthYear above (timezone-independent -- see its own
+    // comment for why that matters here specifically).
     const dateOnly = venueDateMatch[2].replace(/^\w+\s+/, '');
-    const parsed = new Date(dateOnly);
-    if (!Number.isNaN(parsed.getTime())) {
-      isoDate = parsed.toISOString().slice(0, 10);
-    }
+    isoDate = parseDayMonthYear(dateOnly);
   }
 
   return {
