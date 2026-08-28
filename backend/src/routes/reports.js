@@ -91,6 +91,14 @@ router.post(
     const game = await db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
     if (!game) return res.status(404).json({ error: 'Game not found' });
 
+    // One cache for this request (this route only ever extracts/persists
+    // one report type per upload -- see REPORT_TYPE_EXTRACTORS's comment
+    // above -- but the Box Score branch and persistQuarter/persistPlusMinus
+    // both still loop over many players across up to 2 team_ids). Created
+    // fresh per request, never module-level, so it can't leak between two
+    // different report-upload requests.
+    const identityCache = {};
+
     const insert = await db.prepare(`
       INSERT INTO reports (game_id, report_type, original_filename, storage_path, uploaded_by)
       VALUES (?, ?, ?, ?, ?)
@@ -134,7 +142,7 @@ router.post(
           let playerId = null;
           if (playerTeamId) {
             const resolution = await resolvePlayerName({
-              teamId: playerTeamId, name: p.player_name, gameId, reportType: 'Box Score',
+              teamId: playerTeamId, name: p.player_name, gameId, reportType: 'Box Score', cache: identityCache,
             });
             if (resolution.status === 'linked' || resolution.status === 'created') {
               playerId = resolution.playerId;
@@ -213,7 +221,7 @@ router.post(
         // to the other 4 persist* functions too; none of them accept a
         // third argument, so it's simply unused there.
         const teamIdBySide = { home: game.home_team_id, opponent: game.opponent_team_id };
-        const rows = await mapped.persist(gameId, result, teamIdBySide);
+        const rows = await mapped.persist(gameId, result, teamIdBySide, identityCache);
 
         await db.prepare('UPDATE reports SET extraction_status = ? WHERE id = ?').run('extracted', reportId);
         await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (extracted)`, true);

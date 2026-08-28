@@ -103,7 +103,7 @@ const insert = {
 // before). Only the actual game_quarter_team/game_quarter_player row
 // inserts are collected and batched, after identity resolution for every
 // player has already run.
-async function persistQuarter(gameId, quarterResult, teamIdBySide) {
+async function persistQuarter(gameId, quarterResult, teamIdBySide, cache) {
   await del.quarterPlayers.run(gameId);
   await del.quarterTeams.run(gameId);
   if (!quarterResult || !quarterResult.teams) return { teamRows: 0, playerRows: 0 };
@@ -127,7 +127,7 @@ async function persistQuarter(gameId, quarterResult, teamIdBySide) {
       ]);
       if (teamIdBySide && teamIdBySide[team.team_side]) {
         await resolvePlayerName({
-          teamId: teamIdBySide[team.team_side], name: p.player_name, gameId, reportType: 'Quarter Scoring',
+          teamId: teamIdBySide[team.team_side], name: p.player_name, gameId, reportType: 'Quarter Scoring', cache,
         });
       }
     }
@@ -147,7 +147,7 @@ async function persistQuarter(gameId, quarterResult, teamIdBySide) {
   return { teamRows: teamRows.length, playerRows: playerRows.length };
 }
 
-async function persistPlusMinus(gameId, plusMinusResult, teamIdBySide) {
+async function persistPlusMinus(gameId, plusMinusResult, teamIdBySide, cache) {
   await del.plusMinus.run(gameId);
   if (!plusMinusResult || !plusMinusResult.teams) return 0;
 
@@ -164,7 +164,7 @@ async function persistPlusMinus(gameId, plusMinusResult, teamIdBySide) {
       ]);
       if (teamIdBySide && teamIdBySide[team.team_side]) {
         await resolvePlayerName({
-          teamId: teamIdBySide[team.team_side], name: p.player_name, gameId, reportType: 'Plus Minus Summary',
+          teamId: teamIdBySide[team.team_side], name: p.player_name, gameId, reportType: 'Plus Minus Summary', cache,
         });
       }
     }
@@ -283,7 +283,18 @@ async function persistScoreSheet(gameId, scoreSheetResult) {
 // producing (it was passing the raw extractor output straight through
 // instead), which is why every report chip rendered without a row count.
 // ---------------------------------------------------------------------
-async function persistAdditionalReports(gameId, additionalReports) {
+// cache (optional): the same per-team object playerIdentity.js's
+// findCandidate/resolvePlayerName accept -- passed straight through to
+// persistQuarter/persistPlusMinus below (the only two of the six that
+// resolve player identity). Harmless to pass to the other four; none of
+// them accept a cache argument, so it's simply unused there, same as
+// teamIdBySide already is. bulkImport.js creates one cache per upload
+// request and passes it in here; callers that don't pass one (there are
+// none left after this change, but the parameter stays optional) get
+// today's uncached behavior automatically, since findCandidate/
+// resolvePlayerName both already treat an absent cache as "fetch every
+// call."
+async function persistAdditionalReports(gameId, additionalReports, cache) {
   if (!additionalReports) return {};
 
   const summary = {};
@@ -301,7 +312,7 @@ async function persistAdditionalReports(gameId, additionalReports) {
       return;
     }
     try {
-      const rows = await persistFn(gameId, result, teamIdBySide);
+      const rows = await persistFn(gameId, result, teamIdBySide, cache);
       summary[key] = { status: 'stored', rows };
     } catch (err) {
       summary[key] = { status: 'failed', error: err.message, code: err.code };

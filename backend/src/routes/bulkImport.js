@@ -72,6 +72,13 @@ router.post(
     const { seasonId, competitionId, stageId } = req.body;
 
     const results = [];
+    // One cache for the whole upload (every file in this batch), not per
+    // file -- a batch can contain several files for the same team (e.g.
+    // multiple games in one upload), and reusing the alias list across
+    // them is correct and further eliminates redundant fetches. Created
+    // fresh per request, never module-level, so it can't leak between two
+    // different upload requests.
+    const identityCache = {};
 
     for (const file of req.files) {
       const entry = { filename: file.originalname };
@@ -267,7 +274,7 @@ router.post(
         for (const p of players) {
           const playerTeamId = p.team_side === 'home' ? homeTeamId : awayTeamId;
           const resolution = await resolvePlayerName({
-            teamId: playerTeamId, name: p.player_name, gameId: game.id, reportType: 'Box Score',
+            teamId: playerTeamId, name: p.player_name, gameId: game.id, reportType: 'Box Score', cache: identityCache,
           });
           let playerId = null;
           if (resolution.status === 'linked') { identitySummary.linked += 1; playerId = resolution.playerId; } else if (resolution.status === 'created') { identitySummary.created += 1; playerId = resolution.playerId; } else if (resolution.status === 'pending_review') {
@@ -294,7 +301,7 @@ router.post(
         // Replaces entry.additionalReports (previously the raw per-extractor
         // output) with the persistence summary -- {status, rows} per report
         // type -- which is the shape the frontend has always expected.
-        entry.additionalReports = await persistAdditionalReports(game.id, entry.additionalReports);
+        entry.additionalReports = await persistAdditionalReports(game.id, entry.additionalReports, identityCache);
 
         entry.status = created ? 'game_created' : 'game_matched';
         entry.gameId = game.id;
