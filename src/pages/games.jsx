@@ -50,6 +50,15 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
   const [newGame, setNewGame] = useState({ homeTeamId: '', opponentTeamName: '', gameDate: '', venue: '', seasonId: '', competitionId: '', stageId: '' });
   const [creatingGame, setCreatingGame] = useState(false);
   const [createGameError, setCreateGameError] = useState('');
+  // Step 27: backend/src/routes/games.js's POST / now warns (409,
+  // status: 'possible_duplicate') instead of silently creating a new
+  // row when this exact team pairing already has a game within +/-1 day
+  // of the entered date -- the real, confirmed source of a duplicate
+  // real game already found in production. Warn-and-confirm, not a hard
+  // block: the near-match is surfaced here so the caller can look at it
+  // and either fix their input or explicitly resubmit with
+  // confirmDuplicate: true if it's genuinely a different game.
+  const [duplicateCandidate, setDuplicateCandidate] = useState(null);
   const [removingGameId, setRemovingGameId] = useState(null);
   const [removeGameError, setRemoveGameError] = useState('');
 
@@ -120,21 +129,28 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
 
   const teamName = (id) => realTeams.find((t) => t.id === id)?.name || id;
 
-  const handleCreateRealGame = async () => {
+  const handleCreateRealGame = async (confirmDuplicate = false) => {
     if (!newGame.homeTeamId || !newGame.opponentTeamName.trim() || !newGame.gameDate) return;
     setCreatingGame(true);
     setCreateGameError('');
+    if (!confirmDuplicate) setDuplicateCandidate(null);
     try {
       await backendApi.createGame({
         ...newGame,
         seasonId: newGame.seasonId || undefined,
         competitionId: newGame.competitionId || undefined,
         stageId: newGame.stageId || undefined,
+        confirmDuplicate: confirmDuplicate || undefined,
       });
       setNewGame({ homeTeamId: '', opponentTeamName: '', gameDate: '', venue: '', seasonId: '', competitionId: '', stageId: '' });
+      setDuplicateCandidate(null);
       loadRealGames();
     } catch (err) {
-      setCreateGameError(err.message || 'Could not create game.');
+      if (err.data?.status === 'possible_duplicate') {
+        setDuplicateCandidate(err.data.game);
+      } else {
+        setCreateGameError(err.message || 'Could not create game.');
+      }
     } finally {
       setCreatingGame(false);
     }
@@ -357,11 +373,26 @@ function Games({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSe
                 </TextField>
               </Grid>
               <Grid item xs={12} sm={2}>
-                <Button fullWidth variant="contained" sx={{ height: '100%' }} disabled={creatingGame} onClick={handleCreateRealGame}>
+                <Button fullWidth variant="contained" sx={{ height: '100%' }} disabled={creatingGame} onClick={() => handleCreateRealGame(false)}>
                   {creatingGame ? 'Creating…' : 'Create game'}
                 </Button>
               </Grid>
               {createGameError && <Grid item xs={12}><Alert severity="error">{createGameError}</Alert></Grid>}
+              {duplicateCandidate && (
+                <Grid item xs={12}>
+                  <Alert
+                    severity="warning"
+                    action={
+                      <Button color="inherit" size="small" disabled={creatingGame} onClick={() => handleCreateRealGame(true)}>
+                        Create anyway
+                      </Button>
+                    }
+                  >
+                    This looks like a possible duplicate of an existing game: <strong>{duplicateCandidate.homeTeamName} vs {duplicateCandidate.opponentTeamName}</strong> on {duplicateCandidate.gameDate}
+                    {duplicateCandidate.venue ? ` at ${duplicateCandidate.venue}` : ''} (status: {duplicateCandidate.status}). If this is genuinely a different game, click "Create anyway".
+                  </Alert>
+                </Grid>
+              )}
             </Grid>
           )}
 

@@ -4,6 +4,7 @@ const { requireAuth, requireRole, requireGameAccess } = require('../middleware/a
 const { resolveGameStageId } = require('../services/resolveGameStage');
 const { resolveTeamName } = require('../services/teamIdentity');
 const { normalizeTeamName } = require('../services/teamSide');
+const { logAction } = require('../services/auditLog');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -57,6 +58,55 @@ router.post('/', requireRole('Statistician', 'Team Manager'), async (req, res) =
     });
   }
   const opponentTeamId = opponentResolution.teamId;
+
+  // Step 27: this route was the confirmed, real source of at least one
+  // (very likely both) of a pair of duplicate `games` rows discovered in
+  // production for the same real match -- unlike bulkImport.js, which
+  // has its own +/-1-day tolerance (below, same convention) to avoid
+  // re-creating a game it's already seen, this manual route had no
+  // equivalent check at all and would happily insert a new row for a
+  // team pairing/date that already exists. Checked BOTH team-order
+  // pairings (home/opponent either way round), not just the caller's own
+  // order -- bulkImport.js's own query only checks one order, a real gap
+  // the investigation flagged but didn't need to close for the known
+  // pair; costs nothing extra to close here since this is a fresh query.
+  //
+  // Warn-and-confirm, not a hard block or a queued review (unlike the
+  // opponent-identity check just above): a wrong duplicate game is
+  // lower-stakes and fully reversible by the same caller, right there,
+  // unlike a wrong team merge corrupting shared roster data -- so this
+  // surfaces the near-match for the caller to look at and resubmit with
+  // confirmDuplicate: true, rather than blocking outright or routing
+  // through a separate human review queue.
+  if (!req.body.confirmDuplicate) {
+    const duplicateCandidate = await db.prepare(`
+      SELECT * FROM games
+      WHERE (
+        (home_team_id = ? AND opponent_team_id = ?) OR
+        (home_team_id = ? AND opponent_team_id = ?)
+      )
+      AND ABS(game_date::date - ?::date) <= 1
+    `).get(homeTeamId, opponentTeamId, opponentTeamId, homeTeamId, gameDate);
+
+    if (duplicateCandidate) {
+      const candidateTeams = await db.prepare('SELECT id, name FROM teams WHERE id IN (?, ?)')
+        .all(duplicateCandidate.home_team_id, duplicateCandidate.opponent_team_id);
+      const teamName = (teamId) => candidateTeams.find((t) => t.id === teamId)?.name || teamId;
+      return res.status(409).json({
+        status: 'possible_duplicate',
+        game: {
+          id: duplicateCandidate.id,
+          homeTeamName: teamName(duplicateCandidate.home_team_id),
+          opponentTeamName: teamName(duplicateCandidate.opponent_team_id),
+          gameDate: duplicateCandidate.game_date,
+          venue: duplicateCandidate.venue,
+          status: duplicateCandidate.status,
+        },
+      });
+    }
+  } else {
+    await logAction(req.user.id, 'create_game', `Created game for ${homeTeamId} vs ${opponentTeamId} on ${gameDate} despite a possible duplicate (confirmed by caller)`, true);
+  }
 
   // See services/resolveGameStage.js for why this needs more than a
   // straight "does this id exist" check -- a stage belongs to one of the
