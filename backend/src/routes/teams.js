@@ -4,6 +4,7 @@ const { requireAuth, requireRole, requireTeamAccess } = require('../middleware/a
 const { imageUpload, uploadImage } = require('../services/imageUpload');
 const { findCandidate, queuePendingReview } = require('../services/teamIdentity');
 const { getGroupedTeamIds } = require('../services/teamIdentityGroups');
+const { summarizeByPlayer, pct } = require('../services/shotZoneStats');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -654,4 +655,65 @@ router.get('/:teamId/players/:playerId/development', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Step 45 Phase 3: real "shot selection zones" breakdown (paint/mid_range/
+// three -- attempts, makes, make%), per player on this roster, aggregated
+// across every one of this team's real games -- not a single-game view
+// (see routes/reports.js's /games/:gameId/shot-zones for that) and NOT a
+// shot chart -- no x/y, no court diagram, a stat breakdown only.
+router.get('/:teamId/shot-zones', requireTeamAccess('teamId'), async (req, res) => {
+  try {
+    const { teamId } = req.params;
+
+    const rows = await db.prepare(`
+      SELECT gpp.player_id, p.full_name, gpp.shot_zone,
+        COUNT(*) as attempts,
+        COUNT(*) FILTER (WHERE gpp.action_text ILIKE '%made%') as makes
+      FROM game_play_by_play gpp
+      JOIN players p ON p.id = gpp.player_id
+      WHERE p.team_id = ? AND gpp.shot_zone IS NOT NULL
+      GROUP BY gpp.player_id, p.full_name, gpp.shot_zone
+    `).all(teamId);
+
+    const players = summarizeByPlayer(rows);
+    const team = players.reduce((acc, p) => {
+      for (const zone of ['paint', 'mid_range', 'three']) {
+        acc.zones[zone].attempts += p.zones[zone].attempts;
+        acc.zones[zone].makes += p.zones[zone].makes;
+      }
+      acc.totalAttempts += p.totalAttempts;
+      acc.totalMakes += p.totalMakes;
+      return acc;
+    }, {
+      zones: {
+        paint: { attempts: 0, makes: 0 }, mid_range: { attempts: 0, makes: 0 }, three: { attempts: 0, makes: 0 },
+      },
+      totalAttempts: 0,
+      totalMakes: 0,
+    });
+    for (const zone of ['paint', 'mid_range', 'three']) {
+      team.zones[zone].pct = pct(team.zones[zone].makes, team.zones[zone].attempts);
+    }
+    team.totalPct = pct(team.totalMakes, team.totalAttempts);
+
+    // Real events across this team's games that carried a real shot_zone
+    // but couldn't be tied to a specific player_id on EITHER side of those
+    // games (this query can't isolate which side without re-deriving the
+    // per-game team_code mapping) -- disclosed as a rough signal, not
+    // folded into the per-player numbers above.
+    const unresolved = await db.prepare(`
+      SELECT COUNT(*) as n FROM game_play_by_play gpp
+      JOIN games g ON g.id = gpp.game_id
+      WHERE (g.home_team_id = ? OR g.opponent_team_id = ?) AND gpp.shot_zone IS NOT NULL AND gpp.player_id IS NULL
+    `).get(teamId, teamId);
+
+    res.json({
+      teamId, players, team, unresolvedAttemptsAcrossTheseGames: Number(unresolved.n),
+    });
+  } catch (err) {
+    console.error('team shot-zones failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

@@ -23,6 +23,7 @@ const {
   persistPlayByPlay,
   persistScoreSheet,
 } = require('../services/persistExtractedReports');
+const { summarizeByPlayer, summarizeByTeamSide } = require('../services/shotZoneStats');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -284,6 +285,44 @@ router.get('/games/:gameId/report-data', requireGameAccess('gameId'), async (req
     rotationStints,
     playByPlay,
     scoreSheet,
+  });
+});
+
+// Step 45 Phase 3: real "shot selection zones" breakdown (paint/mid_range/
+// three -- attempts, makes, make%) for one game, per player and per team
+// side. NOT a shot chart -- no x/y, no court diagram, a stat breakdown
+// only, built from shot_zone/player_id (Phase 1 backfill + Phase 2
+// ingestion-time population) on game_play_by_play.
+router.get('/games/:gameId/shot-zones', requireGameAccess('gameId'), async (req, res) => {
+  const { gameId } = req.params;
+  const game = await db.prepare('SELECT id, home_team_id, opponent_team_id FROM games WHERE id = ?').get(gameId);
+  if (!game) return res.status(404).json({ error: 'Game not found' });
+
+  const rows = await db.prepare(`
+    SELECT gpp.player_id, p.full_name,
+      CASE WHEN p.team_id = ? THEN 'home' ELSE 'opponent' END as team_side,
+      gpp.shot_zone,
+      COUNT(*) as attempts,
+      COUNT(*) FILTER (WHERE gpp.action_text ILIKE '%made%') as makes
+    FROM game_play_by_play gpp
+    JOIN players p ON p.id = gpp.player_id
+    WHERE gpp.game_id = ? AND gpp.shot_zone IS NOT NULL
+    GROUP BY gpp.player_id, p.full_name, team_side, gpp.shot_zone
+  `).all(game.home_team_id, gameId);
+
+  const players = summarizeByPlayer(rows);
+  const teams = summarizeByTeamSide(players);
+
+  // Real events that DID carry a real shot_zone but couldn't be tied to a
+  // specific player_id -- disclosed, not hidden, same as every other real
+  // identity-resolution gap in this system (typically a name still sitting
+  // in the pending player_identity_review queue).
+  const unresolved = await db.prepare(
+    'SELECT COUNT(*) as n FROM game_play_by_play WHERE game_id = ? AND shot_zone IS NOT NULL AND player_id IS NULL',
+  ).get(gameId);
+
+  res.json({
+    gameId: Number(gameId), players, teams, unresolvedAttempts: Number(unresolved.n),
   });
 });
 

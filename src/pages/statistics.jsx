@@ -43,6 +43,15 @@ function Statistics({ mode, toggleTheme, role, selectedSeason, logout }) {
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState('');
 
+  // Step 45 Phase 3: real "shot selection zones" (paint/mid_range/three),
+  // per player on this roster, aggregated across every one of this team's
+  // real games -- built from game_play_by_play's shot_zone/player_id
+  // (Phase 1 backfill + Phase 2 ingestion-time population). A coarse stat
+  // breakdown, NOT a shot chart -- no court diagram, no x/y.
+  const [shotZones, setShotZones] = useState(null);
+  const [shotZonesLoading, setShotZonesLoading] = useState(false);
+  const [shotZonesError, setShotZonesError] = useState('');
+
   // FR-06 win/loss progression: a separate real data source from
   // season-stats above -- GET /games already resolves each game's real
   // outcome (games.js's getGameWithReportStatus, backed by
@@ -109,6 +118,18 @@ function Statistics({ mode, toggleTheme, role, selectedSeason, logout }) {
       .then((data) => { if (!cancelled) setStats(data); })
       .catch((err) => { if (!cancelled) setStatsError(err.message || 'Could not load season stats.'); })
       .finally(() => { if (!cancelled) setStatsLoading(false); });
+    return () => { cancelled = true; };
+  }, [teamId]);
+
+  useEffect(() => {
+    if (!teamId) { setShotZones(null); return undefined; }
+    let cancelled = false;
+    setShotZonesLoading(true);
+    setShotZonesError('');
+    backendApi.getTeamShotZones(teamId)
+      .then((data) => { if (!cancelled) setShotZones(data); })
+      .catch((err) => { if (!cancelled) setShotZonesError(err.message || 'Could not load shot selection zones.'); })
+      .finally(() => { if (!cancelled) setShotZonesLoading(false); });
     return () => { cancelled = true; };
   }, [teamId]);
 
@@ -529,6 +550,64 @@ function Statistics({ mode, toggleTheme, role, selectedSeason, logout }) {
                     )}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={700}>Shot selection zones</Typography>
+                <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>
+                  A stat breakdown of where each player's attempts came from -- paint, mid-range, or three-point --
+                  aggregated across every one of this team's real games with play-by-play data. Not a shot chart:
+                  no court diagram, no exact shot location.
+                </Typography>
+                {shotZonesLoading ? (
+                  <CircularProgress size={24} />
+                ) : shotZonesError ? (
+                  <Alert severity="error">{shotZonesError}</Alert>
+                ) : !shotZones || shotZones.players.length === 0 ? (
+                  <Alert severity="info">No play-by-play shot data recorded for this team's games yet.</Alert>
+                ) : (
+                  <>
+                    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 1.5, mb: 2, display: 'inline-block' }}>
+                      <Typography fontWeight={700}>Team total</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Paint {shotZones.team.zones.paint.makes}/{shotZones.team.zones.paint.attempts} ({shotZones.team.zones.paint.pct}%) •
+                        {' '}Mid-range {shotZones.team.zones.mid_range.makes}/{shotZones.team.zones.mid_range.attempts} ({shotZones.team.zones.mid_range.pct}%) •
+                        {' '}Three {shotZones.team.zones.three.makes}/{shotZones.team.zones.three.attempts} ({shotZones.team.zones.three.pct}%)
+                      </Typography>
+                    </Box>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Player</TableCell>
+                          <TableCell>Paint (M/A, %)</TableCell>
+                          <TableCell>Mid-range (M/A, %)</TableCell>
+                          <TableCell>Three (M/A, %)</TableCell>
+                          <TableCell>Total (M/A, %)</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {shotZones.players.map((p) => (
+                          <TableRow key={p.playerId}>
+                            <TableCell>{p.fullName}</TableCell>
+                            <TableCell>{p.zones.paint.makes}/{p.zones.paint.attempts} ({p.zones.paint.pct}%)</TableCell>
+                            <TableCell>{p.zones.mid_range.makes}/{p.zones.mid_range.attempts} ({p.zones.mid_range.pct}%)</TableCell>
+                            <TableCell>{p.zones.three.makes}/{p.zones.three.attempts} ({p.zones.three.pct}%)</TableCell>
+                            <TableCell>{p.totalMakes}/{p.totalAttempts} ({p.totalPct}%)</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {shotZones.unresolvedAttemptsAcrossTheseGames > 0 && (
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1.5 }}>
+                        {shotZones.unresolvedAttemptsAcrossTheseGames} shot attempt{shotZones.unresolvedAttemptsAcrossTheseGames === 1 ? '' : 's'} across
+                        this team's games (either side) couldn't be tied to a specific player (usually a name still
+                        pending player-identity review) and aren't included above.
+                      </Typography>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
           </>

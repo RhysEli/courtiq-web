@@ -1,6 +1,6 @@
 import {
   Box, Grid, Card, CardContent, Typography, Stack, Alert,
-  TextField, MenuItem, Button, CircularProgress,
+  TextField, MenuItem, Button, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useEffect, useState } from 'react';
@@ -28,6 +28,14 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
   const [realAnalysis, setRealAnalysis] = useState(null);
   const [realAnalysisLoading, setRealAnalysisLoading] = useState(false);
   const [realAnalysisError, setRealAnalysisError] = useState('');
+
+  // Step 45 Phase 3: real "shot selection zones" (paint/mid_range/three)
+  // for the selected game -- built from game_play_by_play's shot_zone/
+  // player_id (Phase 1 backfill + Phase 2 ingestion-time population).
+  // A coarse stat breakdown, NOT a shot chart -- no court diagram, no x/y.
+  const [shotZones, setShotZones] = useState(null);
+  const [shotZonesLoading, setShotZonesLoading] = useState(false);
+  const [shotZonesError, setShotZonesError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -64,6 +72,18 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
       .then((data) => { if (!cancelled) setRealAnalysis(data); })
       .catch((err) => { if (!cancelled) setRealAnalysisError(err.message || 'Could not load match analysis.'); })
       .finally(() => { if (!cancelled) setRealAnalysisLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedGameId]);
+
+  useEffect(() => {
+    if (!selectedGameId) { setShotZones(null); return undefined; }
+    let cancelled = false;
+    setShotZonesLoading(true);
+    setShotZonesError('');
+    backendApi.getGameShotZones(selectedGameId)
+      .then((data) => { if (!cancelled) setShotZones(data); })
+      .catch((err) => { if (!cancelled) setShotZonesError(err.message || 'Could not load shot selection zones.'); })
+      .finally(() => { if (!cancelled) setShotZonesLoading(false); });
     return () => { cancelled = true; };
   }, [selectedGameId]);
 
@@ -295,6 +315,72 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
             </Card>
           </Grid>
         </Grid>
+      )}
+
+      {selectedGameId && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" fontWeight={700}>Shot selection zones</Typography>
+            <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>
+              A stat breakdown of where each attempt came from -- paint, mid-range, or three-point -- read
+              directly from this game's real play-by-play text. Not a shot chart: there's no court diagram or
+              exact shot location, just attempts/makes/make% per zone.
+            </Typography>
+            {shotZonesLoading ? (
+              <CircularProgress size={24} />
+            ) : shotZonesError ? (
+              <Alert severity="error">{shotZonesError}</Alert>
+            ) : !shotZones || shotZones.players.length === 0 ? (
+              <Alert severity="info">No play-by-play shot data recorded for this game yet.</Alert>
+            ) : (
+              <>
+                <Stack direction="row" spacing={2} sx={{ mb: 2, flexWrap: 'wrap' }} useFlexGap>
+                  {shotZones.teams.map((t) => (
+                    <Box key={t.teamSide} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 1.5, minWidth: 220 }}>
+                      <Typography fontWeight={700} sx={{ textTransform: 'capitalize' }}>{t.teamSide} team</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Paint {t.zones.paint.makes}/{t.zones.paint.attempts} ({t.zones.paint.pct}%) •
+                        {' '}Mid-range {t.zones.mid_range.makes}/{t.zones.mid_range.attempts} ({t.zones.mid_range.pct}%) •
+                        {' '}Three {t.zones.three.makes}/{t.zones.three.attempts} ({t.zones.three.pct}%)
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Player</TableCell>
+                      <TableCell>Team</TableCell>
+                      <TableCell>Paint (M/A, %)</TableCell>
+                      <TableCell>Mid-range (M/A, %)</TableCell>
+                      <TableCell>Three (M/A, %)</TableCell>
+                      <TableCell>Total (M/A, %)</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {shotZones.players.map((p) => (
+                      <TableRow key={p.playerId}>
+                        <TableCell>{p.fullName}</TableCell>
+                        <TableCell sx={{ textTransform: 'capitalize' }}>{p.teamSide}</TableCell>
+                        <TableCell>{p.zones.paint.makes}/{p.zones.paint.attempts} ({p.zones.paint.pct}%)</TableCell>
+                        <TableCell>{p.zones.mid_range.makes}/{p.zones.mid_range.attempts} ({p.zones.mid_range.pct}%)</TableCell>
+                        <TableCell>{p.zones.three.makes}/{p.zones.three.attempts} ({p.zones.three.pct}%)</TableCell>
+                        <TableCell>{p.totalMakes}/{p.totalAttempts} ({p.totalPct}%)</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {shotZones.unresolvedAttempts > 0 && (
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1.5 }}>
+                    {shotZones.unresolvedAttempts} shot attempt{shotZones.unresolvedAttempts === 1 ? '' : 's'} in this game
+                    couldn't be tied to a specific player (usually a name still pending player-identity review) and
+                    aren't included in the table above.
+                  </Typography>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
       )}
     </Layout>
   );

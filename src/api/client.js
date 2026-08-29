@@ -145,6 +145,13 @@ export const backendApi = {
   // which is a real, best-effort state (see routes/analysis.js's own
   // narrative route), not an error.
   getGameAnalysis: (gameId) => request(`/analysis/games/${gameId}`),
+  // Step 45 Phase 3: real "shot selection zones" (paint/mid_range/three --
+  // attempts, makes, make%) -- a coarse stat breakdown from action_text,
+  // NOT a shot chart (no x/y, no court diagram). Single-game (per player +
+  // per team side) vs cross-game (per player on a roster, aggregated
+  // across every one of that team's real games).
+  getGameShotZones: (gameId) => request(`/games/${gameId}/shot-zones`),
+  getTeamShotZones: (teamId) => request(`/teams/${encodeURIComponent(teamId)}/shot-zones`),
   sendInviteEmail: (payload) => request('/invites/send', { method: 'POST', body: payload }),
   listInvites: () => request('/invites'),
   revokeInvite: (token) => request(`/invites/${token}/revoke`, { method: 'POST' }),
