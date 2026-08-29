@@ -629,6 +629,23 @@ CREATE TABLE IF NOT EXISTS game_play_by_play (
   raw_text TEXT
 );
 
+-- "Shot selection zones" (Step 45): a real, already-100%-covered signal
+-- confirmed directly against stored data (Step 44) -- every real 2pt FG
+-- action_text contains exactly one of "in the paint" / "outside the
+-- paint", and every 3pt FG is its own implicit zone (a three is beyond
+-- the arc by definition, so the source PDF never tags it). NOT a shot
+-- chart -- no x/y, no fine-grained zones, just paint / mid_range / three
+-- per attempt. NULL (not guessed) for any row that doesn't match one of
+-- those three real patterns, e.g. non-shot events (rebounds, fouls,
+-- substitutions) which have no zone at all.
+ALTER TABLE game_play_by_play ADD COLUMN IF NOT EXISTS shot_zone TEXT CHECK (shot_zone IN ('paint', 'mid_range', 'three'));
+-- player_id: this table only ever stored raw team_code/surname/initial/
+-- jersey_number -- no identity resolution has ever run on it, unlike
+-- player_game_stats.player_id (resolvePlayerName at ingestion time). NULL
+-- until backfilled/resolved -- see backend/scripts/backfill-play-by-play-shot-zones.js
+-- for the one-time real backfill and its real match-rate results.
+ALTER TABLE game_play_by_play ADD COLUMN IF NOT EXISTS player_id INTEGER REFERENCES players(id);
+
 -- The one genuinely new fact from the Score Sheet report that isn't a
 -- duplicate of Box Score/Quarter data: what time the game ended. Everything
 -- else on that page (fouls grid, running-score grid, timeouts) is a
