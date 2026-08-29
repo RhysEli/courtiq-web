@@ -1,5 +1,57 @@
 const db = require('../db');
-const { resolvePlayerName } = require('./playerIdentity');
+const { resolvePlayerName, findCandidate } = require('./playerIdentity');
+const { normalizeTeamName } = require('./teamSide');
+
+// Step 45: real, coarse "shot selection zone" classification from
+// action_text -- confirmed against real data (Step 44/45): every real
+// 2pt FG event carries exactly one of "in the paint"/"outside the paint",
+// every real 3pt FG event is its own implicit zone (a three is beyond the
+// arc by definition, so the source PDF never tags a location for it).
+// Deliberately NOT a shot chart -- no x/y, no fine-grained zones, just
+// paint / mid_range / three per attempt. Anything else (rebounds, fouls,
+// substitutions, turnovers, etc.) has no zone at all -- returns null, not
+// guessed. Exported so the one-time historical backfill
+// (scripts/backfill-play-by-play-shot-zones.js) uses this exact same
+// logic rather than its own copy.
+function classifyShotZone(actionText) {
+  if (!actionText) return null;
+  if (/^3pt FG/i.test(actionText)) return 'three';
+  if (/in the paint/i.test(actionText)) return 'paint';
+  if (/outside the paint/i.test(actionText)) return 'mid_range';
+  return null;
+}
+
+// Step 45: resolve one play-by-play event's real player_id. Primary: an
+// already-resolved player_game_stats row for the same game+side whose
+// player_name starts with this event's initial and contains its surname
+// (same "first-name-initial + surname" shape reportExtractors.js's own
+// rosterMap already uses) -- confirmed necessary, not just tidy: game 7
+// has 3 real different players surnamed OCHIENG on one team, only
+// distinguishable by initial. Falls back to the real, read-only
+// findCandidate, but only ever acts on an 'exact' result, never 'fuzzy'
+// -- a fuzzy candidate here would silently auto-confirm a review a human
+// hasn't seen yet, bypassing this project's own never-auto-confirm rule.
+// Returns null (not guessed) when ambiguous or unresolved either way.
+async function resolvePlayByPlayPlayerId(gameId, teamId, side, surname, initial, cache) {
+  if (!surname) return null;
+  const matchRows = initial
+    ? await db.prepare(`
+        SELECT DISTINCT player_id FROM player_game_stats
+        WHERE game_id = ? AND team_side = ? AND player_id IS NOT NULL
+        AND UPPER(player_name) LIKE UPPER(?) || '%' AND UPPER(player_name) LIKE '%' || UPPER(?) || '%'
+      `).all(gameId, side, initial, surname)
+    : await db.prepare(`
+        SELECT DISTINCT player_id FROM player_game_stats
+        WHERE game_id = ? AND team_side = ? AND player_id IS NOT NULL
+        AND UPPER(player_name) LIKE '%' || UPPER(?) || '%'
+      `).all(gameId, side, surname);
+
+  if (matchRows.length === 1) return matchRows[0].player_id;
+  if (matchRows.length > 1) return null;
+
+  const candidate = await findCandidate(teamId, surname, cache);
+  return candidate.type === 'exact' ? candidate.playerId : null;
+}
 
 // ---------------------------------------------------------------------
 // Prepared statements. Grouped by report type, each with its own
@@ -239,20 +291,79 @@ async function persistRotationsSummary(gameId, rotationsResult) {
 // rows per game (531-747 measured across real production games) versus
 // 20-40 for every other report type here. Batched first, in isolation,
 // specifically for the clearest before/after signal.
-async function persistPlayByPlay(gameId, playByPlayResult) {
+async function persistPlayByPlay(gameId, playByPlayResult, teamIdBySide, cache) {
   await del.playByPlay.run(gameId);
   if (!playByPlayResult || !playByPlayResult.events) return 0;
 
-  const rows = playByPlayResult.events.map((e, idx) => [
-    gameId, idx, e.quarter, e.time, e.team, e.jersey_number,
-    e.player_surname, e.player_initial, e.action_text,
-    e.score ? JSON.stringify(e.score) : null,
-    null, // raw_text: not returned by extractPlayByPlay today
-  ]);
+  // Step 45 Phase 2: resolve each real team_code (from the PDF's own
+  // header, via reportExtractors.js's teamCodeMap) to a real home/opponent
+  // side, the same normalized-substring approach assignTeamSides
+  // (services/teamSide.js) already uses for every other report type --
+  // team_code is NOT assumed to relate predictably to the real team name
+  // (confirmed real, Step 45: game 7 uses "UTS" for USIU TIGERS while
+  // every other real game checked uses "USIU"). Only attempted when both
+  // real team ids and a real 2-entry teamCodeMap are available, and only
+  // used when both codes resolve to two DIFFERENT sides -- anything else
+  // leaves player_id unresolved for this import rather than guessing,
+  // same "never guess" standard the historical backfill script's own
+  // ambiguity guard already applies.
+  let teamCodeSideMap = null;
+  if (teamIdBySide && teamIdBySide.home && teamIdBySide.opponent && playByPlayResult.teamCodeMap && playByPlayResult.teamCodeMap.length === 2) {
+    const homeTeam = await db.prepare('SELECT name FROM teams WHERE id = ?').get(teamIdBySide.home);
+    const opponentTeam = await db.prepare('SELECT name FROM teams WHERE id = ?').get(teamIdBySide.opponent);
+    const homeName = normalizeTeamName(homeTeam && homeTeam.name);
+    const opponentName = normalizeTeamName(opponentTeam && opponentTeam.name);
+    const map = {};
+    for (const { teamCode, teamFullName } of playByPlayResult.teamCodeMap) {
+      const n = normalizeTeamName(teamFullName);
+      if (n && homeName && (n.includes(homeName) || homeName.includes(n))) map[teamCode] = 'home';
+      else if (n && opponentName && (n.includes(opponentName) || opponentName.includes(n))) map[teamCode] = 'opponent';
+    }
+    const sides = Object.values(map);
+    if (Object.keys(map).length === 2 && sides[0] !== sides[1]) {
+      teamCodeSideMap = map;
+    }
+  }
+
+  // Per-(team_code, surname, initial) cache for this one import: the
+  // dominant redundancy here is the SAME player appearing in many events
+  // (a game routinely has 500-750+ play-by-play rows across ~20-25
+  // distinct players), not distinct players -- avoids re-querying
+  // player_game_stats for every event, only once per distinct combo. The
+  // read-only findCandidate fallback inside resolvePlayByPlayPlayerId
+  // still reuses the shared per-import `cache` (Step 32a) for its own
+  // alias lookups.
+  const resolvedByCombo = {};
+  const rows = [];
+  for (let idx = 0; idx < playByPlayResult.events.length; idx += 1) {
+    const e = playByPlayResult.events[idx];
+    const shotZone = classifyShotZone(e.action_text);
+
+    let playerId = null;
+    if (teamCodeSideMap && e.team && teamCodeSideMap[e.team] && e.player_surname) {
+      const side = teamCodeSideMap[e.team];
+      const teamId = teamIdBySide[side];
+      const comboKey = `${e.team}|${e.player_surname}|${e.player_initial || ''}`;
+      if (comboKey in resolvedByCombo) {
+        playerId = resolvedByCombo[comboKey];
+      } else {
+        playerId = await resolvePlayByPlayPlayerId(gameId, teamId, side, e.player_surname, e.player_initial, cache);
+        resolvedByCombo[comboKey] = playerId;
+      }
+    }
+
+    rows.push([
+      gameId, idx, e.quarter, e.time, e.team, e.jersey_number,
+      e.player_surname, e.player_initial, e.action_text,
+      e.score ? JSON.stringify(e.score) : null,
+      null, // raw_text: not returned by extractPlayByPlay today
+      shotZone, playerId,
+    ]);
+  }
 
   return db.batchInsert(
     'game_play_by_play',
-    ['game_id', 'sequence_index', 'quarter', 'event_time', 'team_code', 'jersey_number', 'surname', 'initial', 'action_text', 'score', 'raw_text'],
+    ['game_id', 'sequence_index', 'quarter', 'event_time', 'team_code', 'jersey_number', 'surname', 'initial', 'action_text', 'score', 'raw_text', 'shot_zone', 'player_id'],
     rows,
   );
 }

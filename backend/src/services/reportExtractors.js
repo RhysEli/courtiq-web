@@ -521,7 +521,19 @@ function extractBoxScoreRoster(lines) {
     }
   });
 
-  return { rosterMap, teamCodes: teams.slice(0, 2).map((t) => t.teamCode) };
+  return {
+    rosterMap,
+    teamCodes: teams.slice(0, 2).map((t) => t.teamCode),
+    // Step 45 Phase 2: the real team_code<->team_name correspondence, straight
+    // from the same "TEAM NAME (CODE) Assistant Coach(es):" header line the
+    // roster scan above already parsed -- lets a real caller (persistPlayByPlay)
+    // resolve a play-by-play event's team_code to the real home/opponent side
+    // via normalizeTeamName, the same way teamSide.js's assignTeamSides
+    // already resolves team identity everywhere else. Not assumed to be a
+    // fixed/predictable code (confirmed real: one real game uses "UTS" for
+    // USIU TIGERS while every other real game checked uses "USIU").
+    teamCodeMap: teams.slice(0, 2).map((t) => ({ teamCode: t.teamCode, teamFullName: t.teamFullName })),
+  };
 }
 
 const PAGE_MARKER_REGEX = /^-- \d+ of \d+ --$/;
@@ -576,7 +588,7 @@ function parseEventText(rawText) {
 async function extractPlayByPlay(filePath, _homeTeamName = null, preParsedLines = null) {
   const lines = preParsedLines || await parseFileToLines(filePath);
 
-  const { rosterMap, teamCodes } = extractBoxScoreRoster(lines);
+  const { rosterMap, teamCodes, teamCodeMap } = extractBoxScoreRoster(lines);
 
   // Anchored on "Quarter N" rather than "Quarter Starters:" -- the latter
   // is always the line immediately after "Quarter N", and the loop below
@@ -678,7 +690,7 @@ async function extractPlayByPlay(filePath, _homeTeamName = null, preParsedLines 
   }
   flushPending();
 
-  return { teamCodes, events };
+  return { teamCodes, teamCodeMap, events };
 }
 
 module.exports.extractPlayByPlay = extractPlayByPlay;
