@@ -55,10 +55,72 @@ function computeTeamMetrics(t, opp) {
   };
 }
 
+// Minimum real minutes played before a per-40-minute projection is shown
+// at all -- below this, scaling up a real but tiny sample (e.g. 1 rebound
+// in 2 real minutes -> a "20 rebounds/40min" projection) produces a
+// number that's technically arithmetic but not a real, trustworthy
+// estimate of anything. No rigorous statistical convention fixes this
+// value the way Four Factors' weightings are fixed -- this is a judgment
+// call, same "starting point, calibrate against real game data" spirit
+// as tagInsights' own thresholds. 10 real minutes is the cutoff used
+// here: confirmed against real per-game data (Step 49) that this
+// correctly excludes real garbage-time/foul-trouble cameos (a real 1.6-
+// or 4.2-minute stint) while still covering every real rotation player.
+const MIN_MINUTES_FOR_PER40 = 10;
+
 function computePlayerMetrics(p) {
   const trueShootingAttempts = p.fga + 0.44 * p.fta;
   const tsPct = safeDiv(p.points, 2 * trueShootingAttempts) * 100;
   const efgPct = safeDiv(p.fgm + 0.5 * p.three_pm, p.fga) * 100;
+
+  // FIBA Efficiency Index: (PTS+REB+AST+STL+BLK) - (missed FG + missed FT
+  // + TO). Real field names confirmed against player_game_stats (Step
+  // 47/49): missed FG = fga - fgm, missed FT = fta - ftm, both already
+  // real integer columns, no derivation needed beyond the subtraction.
+  const missedFg = p.fga - p.fgm;
+  const missedFt = p.fta - p.ftm;
+  const fibaEfficiency = (p.points + p.reb + p.assists + p.steals + p.blocks)
+    - (missedFg + missedFt + p.turnovers);
+
+  // AST/TO ratio: no existing real precedent for this exact stat
+  // anywhere in this codebase (confirmed by grep, Step 49) to stay
+  // consistent with -- but plusMinus just below already establishes this
+  // file's own real convention for "not a real number to report": null,
+  // not a misleading 0. turnovers = 0 with real assists on the board is
+  // a real, observed case (e.g. game 5's Austin Muriuki: 1 AST, 0 TO) --
+  // dividing would either throw or (via safeDiv) silently print 0, which
+  // reads as "terrible ball security" for a player who committed zero
+  // turnovers. null here, for the UI to render as "—" later, same as
+  // this file's existing null-for-plusMinus precedent.
+  const astToRatio = p.turnovers > 0 ? round2(p.assists / p.turnovers) : null;
+
+  // 3-point attempt rate and FT rate, both relative to FGA (the standard
+  // definitions). FT rate is deliberately FTA/FGA here, NOT the FTM/FGA
+  // formula this file's own computeTeamMetrics uses for freeThrowRatePct
+  // -- Step 47 flagged that team-level formula as non-standard (uses
+  // makes, not attempts); not copying the same mistake into new
+  // player-level code. FTA can exceed FGA for a player who draws a lot of
+  // contact relative to how often he actually shoots (a real, correct,
+  // not-capped-at-100% result -- confirmed real, Step 49: Austin Muriuki,
+  // game 5, 6 FTA on just 1 FGA -> a real 600% FT rate, not a bug).
+  const threePointAttemptRatePct = safeDiv(p.three_pa, p.fga) * 100;
+  const ftRatePct = safeDiv(p.fta, p.fga) * 100;
+
+  // Per-40-minute projections: real per-game counting stats scaled to a
+  // 40-minute basis, using the real `minutes` column already stored on
+  // every player_game_stats row. null (the whole object, not a guessed
+  // number) below MIN_MINUTES_FOR_PER40 or when minutes itself is real
+  // but missing (older rows / a report type that didn't carry it) --
+  // same "don't show a real-looking number that isn't a real estimate"
+  // reasoning as the threshold comment above.
+  const per40 = (p.minutes && p.minutes >= MIN_MINUTES_FOR_PER40) ? {
+    points: round1((p.points / p.minutes) * 40),
+    rebounds: round1((p.reb / p.minutes) * 40),
+    assists: round1((p.assists / p.minutes) * 40),
+    steals: round1((p.steals / p.minutes) * 40),
+    blocks: round1((p.blocks / p.minutes) * 40),
+    turnovers: round1((p.turnovers / p.minutes) * 40),
+  } : null;
 
   return {
     playerName: p.player_name,
@@ -69,6 +131,11 @@ function computePlayerMetrics(p) {
     assists: p.assists,
     turnovers: p.turnovers,
     plusMinus: p.plus_minus ?? null,
+    fibaEfficiency,
+    astToRatio,
+    threePointAttemptRatePct: round1(threePointAttemptRatePct),
+    ftRatePct: round1(ftRatePct),
+    per40,
   };
 }
 
