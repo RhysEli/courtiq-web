@@ -36,7 +36,7 @@ const navItems = [
   { label: 'Games', path: '/games', icon: SportsBasketballRoundedIcon },
   { label: 'Statistics', path: '/statistics', icon: BarChartRoundedIcon },
   { label: 'Player Development', path: '/player-development', icon: TrendingUpRoundedIcon },
-  { label: 'AI Analysis', path: '/analysis', icon: AutoAwesomeRoundedIcon },
+  { label: 'Analysis', path: '/analysis', icon: AutoAwesomeRoundedIcon },
   // 'Analysis Import' intentionally removed from nav ahead of the
   // presentation -- most report types on that page are simulated
   // placeholder data (only Box Score has a real backend pipeline, via

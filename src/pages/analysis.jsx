@@ -7,14 +7,23 @@ import { useEffect, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import Layout from '../components/layout';
 import { backendApi } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 
 function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
+  const { activeTeam } = useAuth();
+
   // FR-09: real Coach annotations on a real game record -- uses the actual
   // backend `games` and `annotations` tables.
   const [games, setGames] = useState([]);
   const [gamesLoading, setGamesLoading] = useState(true);
   const [gamesError, setGamesError] = useState('');
   const [selectedGameId, setSelectedGameId] = useState('');
+
+  // Step 48: real team names, so the game picker can show "vs Coastal
+  // Kings" instead of a raw internal game id -- same real data
+  // (GET /teams) statistics.jsx's own Win/Loss Progression list already
+  // resolves opponent names from.
+  const [teams, setTeams] = useState([]);
   const [notes, setNotes] = useState([]);
   const [notesLoading, setNotesLoading] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -49,6 +58,29 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
       .finally(() => { if (!cancelled) setGamesLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    backendApi.getTeams().then(setTeams).catch(() => {});
+  }, []);
+
+  // Step 48: same real "vs {opponent} — {date} — W/L {scoreA}-{scoreB}"
+  // shape as statistics.jsx's Win/Loss Progression list -- deliberately
+  // not inventing a new format. opponentId only resolves correctly once
+  // activeTeam has loaded; before that (or if a user has no active team)
+  // this falls back to the game's real id/date rather than guessing which
+  // side is "ours" and risking a wrong label that looks plausible.
+  function gameLabel(g) {
+    if (!activeTeam) return `Game #${g.id} — ${g.game_date || 'no date'}`;
+    const opponentId = g.home_team_id === activeTeam.id ? g.opponent_team_id : g.home_team_id;
+    const opponentName = teams.find((t) => t.id === opponentId)?.name || opponentId;
+    let resultLabel = 'Outcome pending';
+    if (g.outcome) {
+      if (g.outcome.winningTeamId === activeTeam.id) resultLabel = `W ${g.outcome.scoreA}-${g.outcome.scoreB}`;
+      else if (g.outcome.winningTeamId) resultLabel = `L ${g.outcome.scoreA}-${g.outcome.scoreB}`;
+      else resultLabel = 'Outcome unclear';
+    }
+    return `vs ${opponentName} — ${g.game_date || 'no date'} — ${resultLabel}`;
+  }
 
   const loadNotes = (gameId) => {
     if (!gameId) return;
@@ -229,7 +261,7 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
           >
             {games.map((g) => (
               <MenuItem key={g.id} value={g.id}>
-                Game #{g.id} — {g.game_date || 'no date'}
+                {gameLabel(g)}
               </MenuItem>
             ))}
           </TextField>
@@ -308,7 +340,7 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
                 ) : (
                   <Alert severity="info" sx={{ mt: 2 }}>
                     No AI narrative has been generated for this game yet -- this is a best-effort step
-                    (see AI Analysis) and may not have been run, or may have failed.
+                    (see Analysis) and may not have been run, or may have failed.
                   </Alert>
                 )}
               </CardContent>
