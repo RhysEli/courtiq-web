@@ -12,6 +12,15 @@ function safeDiv(numerator, denominator) {
  *                      oreb, dreb, reb, assists, steals, blocks, turnovers, fouls }
  * @param {object} opp - opponent totals, same shape (needed for possession estimate + Four Factors)
  */
+// Same possessions estimate computeTeamMetrics has always used for `t`,
+// pulled out so it can also be applied to `opp` -- Steal% and Defensive
+// Rating (Step 49) both need the OPPONENT's own possessions estimate,
+// not the team's, and re-deriving that formula a second time inline
+// would risk the two copies drifting apart.
+function computePossessions(totals) {
+  return totals.fga - totals.oreb + totals.turnovers + 0.44 * totals.fta;
+}
+
 function computeTeamMetrics(t, opp) {
   const trueShootingAttempts = t.fga + 0.44 * t.fta;
   const tsPct = safeDiv(t.points, 2 * trueShootingAttempts) * 100;
@@ -19,15 +28,20 @@ function computeTeamMetrics(t, opp) {
   const efgPct = safeDiv(t.fgm + 0.5 * t.three_pm, t.fga) * 100;
 
   // Possessions estimate (standard formula used across public analytics).
-  const possessions =
-    t.fga - t.oreb + t.turnovers + 0.44 * t.fta;
+  const possessions = computePossessions(t);
   const pointsPerPossession = safeDiv(t.points, possessions);
 
   const turnoverRate = safeDiv(t.turnovers, possessions) * 100;
 
   const orebPct = safeDiv(t.oreb, t.oreb + (opp ? opp.dreb : 0)) * 100;
 
-  const ftRate = safeDiv(t.ftm, t.fga) * 100;
+  // Step 49: fixed to FTA/FGA (the standard definition), matching the
+  // player-level ftRatePct Step 48 already added correctly. This was
+  // FTM/FGA (makes) before -- confirmed wrong against the standard
+  // definition, and confirmed (Step 49) to already be feeding the live
+  // AI narrative via fourFactors.freeThrowRatePct below. Not silently
+  // patched: see this round's real before/after narrative check.
+  const ftRate = safeDiv(t.fta, t.fga) * 100;
 
   // Dean Oliver's Four Factors, in his standard weighting.
   const fourFactors = {
@@ -36,6 +50,39 @@ function computeTeamMetrics(t, opp) {
     rebounding: orebPct,       // 20%
     freeThrows: ftRate,        // 15%
   };
+
+  // Step 49 additions -- all confirmed cheap derivations from fields
+  // already in `t`/`opp` (Step 47's data-readiness finding), no new
+  // extraction.
+  const dreb = opp
+    ? safeDiv(t.dreb, t.dreb + opp.oreb) * 100
+    : null;
+
+  const totalRebPct = opp
+    ? safeDiv(t.oreb + t.dreb, (t.oreb + t.dreb) + (opp.oreb + opp.dreb)) * 100
+    : null;
+
+  // Steal %: "STL per 100 opp possessions" -- the exact real formula
+  // confirmed (Step 49) from reference-analysis-format's own file 2
+  // (the only one of the three reference files that defines this metric
+  // explicitly), not guessed. Uses the OPPONENT's own possessions
+  // estimate (computePossessions(opp)), not the team's own -- a steal
+  // ends one of the opponent's possessions, not one of the team's.
+  const oppPossessions = opp ? computePossessions(opp) : null;
+  const stealPct = opp ? safeDiv(t.steals, oppPossessions) * 100 : null;
+
+  const threePointAttemptRatePct = safeDiv(t.three_pa, t.fga) * 100;
+
+  // Offensive/Defensive Rating: points scored/allowed per 100 real
+  // possessions. ORtg is just pointsPerPossession*100 restated on the
+  // conventional per-100 basis; DRtg is the opponent's own points scored
+  // per 100 of THEIR possessions (i.e. how efficiently they scored
+  // against this team) -- confirmed against reference file 3's real
+  // numbers, where team A's DRtg exactly equals team B's ORtg for the
+  // same real game (61.6 / 53.9 mirrored on both sides).
+  const offensiveRating = pointsPerPossession * 100;
+  const defensiveRating = opp ? safeDiv(opp.points, oppPossessions) * 100 : null;
+  const netRating = opp ? offensiveRating - defensiveRating : null;
 
   return {
     points: t.points,
@@ -46,6 +93,13 @@ function computeTeamMetrics(t, opp) {
     turnoverRatePct: round1(turnoverRate),
     offensiveReboundPct: round1(orebPct),
     freeThrowRatePct: round1(ftRate),
+    defensiveReboundPct: dreb === null ? null : round1(dreb),
+    totalReboundPct: totalRebPct === null ? null : round1(totalRebPct),
+    stealPct: stealPct === null ? null : round1(stealPct),
+    threePointAttemptRatePct: round1(threePointAttemptRatePct),
+    offensiveRating: round1(offensiveRating),
+    defensiveRating: defensiveRating === null ? null : round1(defensiveRating),
+    netRating: netRating === null ? null : round1(netRating),
     fourFactors: {
       shootingEfgPct: round1(fourFactors.shooting),
       turnoverRatePct: round1(fourFactors.turnovers),

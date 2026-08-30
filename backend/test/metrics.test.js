@@ -15,7 +15,19 @@ test('computeTeamMetrics: normal box score computes expected Four Factors and sh
   //   PPP   = points / poss                         = 84 / 77.8     = 1.07969... -> 1.08
   //   TOV%  = turnovers / poss                      = 11 / 77.8     = 14.1388...% -> 14.1
   //   OREB% = oreb / (oreb + opp.dreb)               = 12 / (12+30)  = 28.5714...% -> 28.6
-  //   FTRate = ftm / fga                            = 16 / 70       = 22.8571...% -> 22.9
+  //   FTRate = fta / fga (Step 49 fix -- was ftm/fga) = 20 / 70      = 28.5714...% -> 28.6
+  //
+  //   Step 49 additions:
+  //   oppPoss = opp.fga - opp.oreb + opp.turnovers + 0.44*opp.fta
+  //           = 68 - 10 + 14 + 0.44*16              = 79.04
+  //   DREB%   = dreb / (dreb + opp.oreb)             = 28 / (28+10)  = 73.6842...% -> 73.7
+  //   TReb%   = (oreb+dreb) / ((oreb+dreb)+(opp.oreb+opp.dreb))
+  //           = 40 / (40+40)                         = 50.0%
+  //   Steal%  = steals / oppPoss                     = 7 / 79.04     = 8.8563...% -> 8.9
+  //   3PAr    = three_pa / fga                       = 20 / 70       = 28.5714...% -> 28.6
+  //   ORtg    = points/poss * 100                    = 84/77.8*100   = 107.9691...  -> 108.0
+  //   DRtg    = opp.points/oppPoss * 100              = 78/79.04*100  = 98.6842...   -> 98.7
+  //   NetRtg  = ORtg - DRtg (unrounded)                                              -> 9.3
   const t = { points: 84, fgm: 30, fga: 70, three_pm: 8, three_pa: 20, ftm: 16, fta: 20, oreb: 12, dreb: 28, reb: 40, assists: 18, steals: 7, blocks: 4, turnovers: 11, fouls: 17 };
   const opp = { points: 78, fgm: 28, fga: 68, three_pm: 6, three_pa: 18, ftm: 12, fta: 16, oreb: 10, dreb: 30, reb: 40, assists: 15, steals: 5, blocks: 2, turnovers: 14, fouls: 19 };
 
@@ -28,24 +40,31 @@ test('computeTeamMetrics: normal box score computes expected Four Factors and sh
   assert.equal(metrics.pointsPerPossession, 1.08);
   assert.equal(metrics.turnoverRatePct, 14.1);
   assert.equal(metrics.offensiveReboundPct, 28.6);
-  assert.equal(metrics.freeThrowRatePct, 22.9);
+  assert.equal(metrics.freeThrowRatePct, 28.6);
+  assert.equal(metrics.defensiveReboundPct, 73.7);
+  assert.equal(metrics.totalReboundPct, 50);
+  assert.equal(metrics.stealPct, 8.9);
+  assert.equal(metrics.threePointAttemptRatePct, 28.6);
+  assert.equal(metrics.offensiveRating, 108);
+  assert.equal(metrics.defensiveRating, 98.7);
+  assert.equal(metrics.netRating, 9.3);
 
   // Four Factors mirrors the same shooting/turnover/rebounding/free-throw figures.
   assert.deepEqual(metrics.fourFactors, {
     shootingEfgPct: 48.6,
     turnoverRatePct: 14.1,
     offensiveReboundPct: 28.6,
-    freeThrowRatePct: 22.9,
+    freeThrowRatePct: 28.6,
   });
 });
 
 test('computeTeamMetrics: zero field-goal attempts does not produce NaN/Infinity (safeDiv guard)', () => {
-  // fga: 0 means the raw formulas for eFG% (fgm/fga) and FT Rate (ftm/fga)
-  // would divide by zero -- safeDiv must guard both back to 0 instead of
-  // NaN/Infinity. Points still come entirely from free throws (5 points on
-  // 5-for-6 FT shooting), so TS%, possessions, turnover rate and OREB% stay
-  // meaningful (driven by fta/oreb/turnovers, not fga) while eFG% and FT
-  // Rate specifically must be the guarded zero:
+  // fga: 0 means the raw formulas for eFG% (fgm/fga), FT Rate (fta/fga)
+  // and 3PAr (three_pa/fga) would divide by zero -- safeDiv must guard
+  // all three back to 0 instead of NaN/Infinity. Points still come
+  // entirely from free throws (5 points on 5-for-6 FT shooting), so TS%,
+  // possessions, turnover rate and OREB% stay meaningful (driven by
+  // fta/oreb/turnovers, not fga):
   //   trueShootingAttempts = 0 + 0.44*6            = 2.64
   //   TS%   = 5 / (2*2.64)                          = 94.6969...% -> 94.7
   //   eFG%  = (0 + 0.5*0) / 0                       -> guarded to 0 (would be 0/0)
@@ -53,9 +72,24 @@ test('computeTeamMetrics: zero field-goal attempts does not produce NaN/Infinity
   //   PPP   = 5 / 3.64                              = 1.3736... -> 1.37
   //   TOV%  = 3 / 3.64                               = 82.4175...% -> 82.4
   //   OREB% = 2 / (2+4)                              = 33.3333...% -> 33.3
-  //   FTRate = 5 / 0                                 -> guarded to 0 (would be Infinity)
+  //   FTRate = 6 / 0                                 -> guarded to 0 (would be Infinity)
+  //   3PAr  = 0 / 0                                  -> guarded to 0
+  //
+  //   Real, complete opponent totals this time (Step 49) -- the original
+  //   minimal `{ dreb: 4 }` only worked because the old code touched
+  //   exactly one opp field; the new opp-dependent fields need a real,
+  //   full totals shape to test honestly rather than exercising
+  //   safeDiv's NaN-is-falsy quirk on missing fields (opp.dreb kept at 4
+  //   so the existing OREB% assertion is untouched):
+  //   oppPoss = 40 - 6 + 5 + 0.44*8                  = 42.52
+  //   DREB%   = 0 / (0+6)                             = 0.0%
+  //   TReb%   = (2+0) / ((2+0)+(6+4))                 = 16.6666...% -> 16.7
+  //   Steal%  = 0 / 42.52                             = 0.0%
+  //   ORtg    = 1.373626... * 100                     = 137.3626... -> 137.4
+  //   DRtg    = 40 / 42.52 * 100                       = 94.0733...  -> 94.1
+  //   NetRtg  = 137.3626... - 94.0733... (unrounded)                 -> 43.3
   const t = { points: 5, fgm: 0, fga: 0, three_pm: 0, three_pa: 0, ftm: 5, fta: 6, oreb: 2, dreb: 0, reb: 2, assists: 0, steals: 0, blocks: 0, turnovers: 3, fouls: 2 };
-  const opp = { dreb: 4 };
+  const opp = { points: 40, fgm: 15, fga: 40, three_pm: 3, three_pa: 10, ftm: 5, fta: 8, oreb: 6, dreb: 4, reb: 10, assists: 8, steals: 3, blocks: 1, turnovers: 5, fouls: 12 };
 
   const metrics = computeTeamMetrics(t, opp);
 
@@ -66,12 +100,48 @@ test('computeTeamMetrics: zero field-goal attempts does not produce NaN/Infinity
   assert.equal(metrics.pointsPerPossession, 1.37);
   assert.equal(metrics.turnoverRatePct, 82.4);
   assert.equal(metrics.offensiveReboundPct, 33.3);
+  assert.equal(metrics.defensiveReboundPct, 0);
+  assert.equal(metrics.totalReboundPct, 16.7);
+  assert.equal(metrics.stealPct, 0);
+  assert.equal(metrics.threePointAttemptRatePct, 0);
+  assert.equal(metrics.offensiveRating, 137.4);
+  assert.equal(metrics.defensiveRating, 94.1);
+  assert.equal(metrics.netRating, 43.3);
 
   // No field anywhere in the result should be NaN or Infinity.
-  const flat = [metrics.trueShootingPct, metrics.effectiveFgPct, metrics.possessionsEstimate, metrics.pointsPerPossession, metrics.turnoverRatePct, metrics.offensiveReboundPct, metrics.freeThrowRatePct, ...Object.values(metrics.fourFactors)];
+  const flat = [
+    metrics.trueShootingPct, metrics.effectiveFgPct, metrics.possessionsEstimate, metrics.pointsPerPossession,
+    metrics.turnoverRatePct, metrics.offensiveReboundPct, metrics.freeThrowRatePct, metrics.defensiveReboundPct,
+    metrics.totalReboundPct, metrics.stealPct, metrics.threePointAttemptRatePct, metrics.offensiveRating,
+    metrics.defensiveRating, metrics.netRating, ...Object.values(metrics.fourFactors),
+  ];
   for (const value of flat) {
     assert.ok(Number.isFinite(value), `expected finite number, got ${value}`);
   }
+});
+
+test('computeTeamMetrics: with no opponent totals, all opponent-dependent new fields are null, not NaN', () => {
+  // Not a real call shape today -- both real call sites (analysis.js's
+  // compute route) always pass a full, real opponent totals object.
+  // orebPct's own opp-optional guard already existed before Step 49
+  // though, so this defends the same real function against ever being
+  // called this way in the future: the new opponent-dependent fields
+  // (DREB%, TReb%, Steal%, DRtg, NetRtg) must follow the same
+  // "null, not a guess" convention orebPct already established, not
+  // silently compute against undefined opponent fields.
+  const t = { points: 50, fgm: 20, fga: 45, three_pm: 4, three_pa: 12, ftm: 6, fta: 8, oreb: 8, dreb: 20, reb: 28, assists: 10, steals: 5, blocks: 2, turnovers: 8, fouls: 10 };
+
+  const metrics = computeTeamMetrics(t);
+
+  assert.equal(metrics.defensiveReboundPct, null);
+  assert.equal(metrics.totalReboundPct, null);
+  assert.equal(metrics.stealPct, null);
+  assert.equal(metrics.defensiveRating, null);
+  assert.equal(metrics.netRating, null);
+  // Fields that only ever depended on t (or already guarded opp being
+  // absent before this round) still compute normally.
+  assert.ok(Number.isFinite(metrics.offensiveRating));
+  assert.ok(Number.isFinite(metrics.threePointAttemptRatePct));
 });
 
 test('computePlayerMetrics: normal case computes expected shooting stats and passes through raw totals', () => {
