@@ -33,25 +33,22 @@ import { backendApi } from "../api/client";
 // team or player with zero real games shows "No games recorded yet",
 // never a fabricated number.
 
-const emptyStats = {
-  gamesPlayed: 0, ppg: 0, rpg: 0, apg: 0, spg: 0, bpg: 0, topg: 0,
-  fgPct: 0, threePct: 0, ftPct: 0,
-};
-
 export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTeamChange, selectedSeason, role, logout }) {
-  const [tab, setTab] = useState(0); // 0 = Team vs Team, 1 = Player vs Player, 2 = Head-to-Head History
+  // Step 47 Phase 1: the old "Team vs Team" tab (independent season
+  // averages for any two teams) is removed -- confirmed via Step 46 to
+  // silently compare our full season against whatever sliver of data
+  // exists for the other team, which for every real opponent in this
+  // system today is just their head-to-head game(s) against us, since
+  // nobody else's independent season is tracked. Head-to-Head (below) is
+  // the correctly-scoped replacement -- both sides' stats are filtered to
+  // real shared games only, before aggregating either side -- and is now
+  // the sole way to compare our team against a specific opponent, and the
+  // default tab.
+  const [tab, setTab] = useState(0); // 0 = Head-to-Head History, 1 = Player vs Player
 
   const [teams, setTeams] = useState([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [teamsError, setTeamsError] = useState("");
-
-  // Team vs Team state
-  const [teamAId, setTeamAId] = useState("");
-  const [teamBId, setTeamBId] = useState("");
-  const [statsA, setStatsA] = useState(null);
-  const [statsB, setStatsB] = useState(null);
-  const [comparing, setComparing] = useState(false);
-  const [compareError, setCompareError] = useState("");
 
   // Player vs Player state -- players are drawn from whichever team(s)
   // are selected above, since player_game_stats rows are only real for
@@ -66,11 +63,9 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
   const [playerStatsB, setPlayerStatsB] = useState(null);
   const [playerLoadError, setPlayerLoadError] = useState("");
 
-  // Head-to-Head History state (FR-07 Phase 1/2) -- distinct from Team vs
-  // Team above. That tab compares two teams' independent season averages
-  // (every game each has played, against everyone). This tab shows the
-  // real shared history: only games the two selected teams actually played
-  // against each other, resolved through Step 14's identity-grouping layer
+  // Head-to-Head History state (FR-07 Phase 1/2) -- the real shared
+  // history: only games the two selected teams actually played against
+  // each other, resolved through Step 14's identity-grouping layer
   // server-side so a grouped duplicate opponent id is counted once, not
   // treated as a separate opponent.
   const [h2hTeamId, setH2hTeamId] = useState("");
@@ -90,24 +85,6 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
   }, []);
 
   const teamName = (id) => teams.find((t) => t.id === id)?.name || id;
-
-  async function compareTeams() {
-    if (!teamAId || !teamBId) return;
-    setComparing(true);
-    setCompareError("");
-    try {
-      const [a, b] = await Promise.all([
-        backendApi.getTeamSeasonStats(teamAId),
-        backendApi.getTeamSeasonStats(teamBId),
-      ]);
-      setStatsA(a.team || emptyStats);
-      setStatsB(b.team || emptyStats);
-    } catch (err) {
-      setCompareError(err.message || "Could not load season stats for one or both teams.");
-    } finally {
-      setComparing(false);
-    }
-  }
 
   async function loadPlayersForTeam(teamId, setPlayers) {
     if (!teamId) { setPlayers([]); return; }
@@ -266,7 +243,8 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
       <Box p={3}>
         <Typography variant="h4" fontWeight="bold" gutterBottom>Opponent Analysis</Typography>
         <Typography color="text.secondary" mb={3}>
-          Compare any two teams' or players' season averages, or look up real head-to-head history between two teams that have actually played each other.
+          Look up real head-to-head history between your team and a specific opponent -- scoped to only the real
+          games actually played between them -- or compare two individual players' season averages.
         </Typography>
 
         {teamsError && <Alert severity="error" sx={{ mb: 2 }}>{teamsError}</Alert>}
@@ -277,54 +255,9 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
         )}
 
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
-          <Tab label="Team vs Team" />
-          <Tab label="Player vs Player" />
           <Tab label="Head-to-Head History" />
+          <Tab label="Player vs Player" />
         </Tabs>
-
-        {tab === 0 && (
-          <>
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={5}>
-                  <FormControl fullWidth disabled={teamsLoading}>
-                    <InputLabel>Team A</InputLabel>
-                    <Select value={teamAId} label="Team A" onChange={(e) => setTeamAId(e.target.value)}>
-                      {teams.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={2} textAlign="center">
-                  <CompareArrowsIcon sx={{ mt: 1, fontSize: 40 }} />
-                </Grid>
-                <Grid item xs={12} md={5}>
-                  <FormControl fullWidth disabled={teamsLoading}>
-                    <InputLabel>Team B</InputLabel>
-                    <Select value={teamBId} label="Team B" onChange={(e) => setTeamBId(e.target.value)}>
-                      {teams.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12}>
-                  <Button
-                    startIcon={comparing ? <CircularProgress size={18} /> : <SportsBasketballIcon />}
-                    variant="contained"
-                    onClick={compareTeams}
-                    disabled={!teamAId || !teamBId || comparing}
-                  >
-                    Compare Teams
-                  </Button>
-                </Grid>
-              </Grid>
-              {compareError && <Alert severity="error" sx={{ mt: 2 }}>{compareError}</Alert>}
-            </Paper>
-
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>{renderTeamCard(teamAId ? teamName(teamAId) : "Select Team", statsA)}</Grid>
-              <Grid item xs={12} md={6}>{renderTeamCard(teamBId ? teamName(teamBId) : "Select Team", statsB)}</Grid>
-            </Grid>
-          </>
-        )}
 
         {tab === 1 && (
           <>
@@ -386,13 +319,12 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
           </>
         )}
 
-        {tab === 2 && (
+        {tab === 0 && (
           <>
             <Paper sx={{ p: 3, mb: 3 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Unlike Team vs Team above (each team's independent season average, against everyone it has played),
-                this shows the real games actually played between the two selected teams, aggregated across every
-                recorded meeting.
+                Shows the real games actually played between the two selected teams, both sides' stats scoped to
+                only those shared games, aggregated across every recorded meeting.
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={5}>
