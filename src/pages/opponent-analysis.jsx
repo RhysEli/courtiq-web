@@ -74,6 +74,15 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
   const [h2hLoading, setH2hLoading] = useState(false);
   const [h2hError, setH2hError] = useState("");
 
+  // Step 47 Phase 2: real AI-generated scouting report (strengths/
+  // weaknesses/areas to improve), replacing the old fixed-threshold label
+  // chips. Not auto-fetched alongside h2hData -- this is a real Claude
+  // call generated fresh every time, so it's opt-in (an explicit button)
+  // rather than firing automatically on every head-to-head lookup.
+  const [aiReport, setAiReport] = useState(null);
+  const [aiReportLoading, setAiReportLoading] = useState(false);
+  const [aiReportError, setAiReportError] = useState("");
+
   useEffect(() => {
     let cancelled = false;
     setTeamsLoading(true);
@@ -110,6 +119,8 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
     setH2hLoading(true);
     setH2hError("");
     setH2hData(null);
+    setAiReport(null);
+    setAiReportError("");
     try {
       const data = await backendApi.getOpponentHistory(h2hTeamId, h2hOpponentId);
       setH2hData(data);
@@ -117,6 +128,20 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
       setH2hError(err.message || "Could not load head-to-head history.");
     } finally {
       setH2hLoading(false);
+    }
+  }
+
+  async function generateAiReport() {
+    if (!h2hTeamId || !h2hOpponentId) return;
+    setAiReportLoading(true);
+    setAiReportError("");
+    try {
+      const data = await backendApi.getOpponentAnalysisNarrative(h2hTeamId, h2hOpponentId);
+      setAiReport(data.text);
+    } catch (err) {
+      setAiReportError(err.message || "Could not generate the scouting report.");
+    } finally {
+      setAiReportLoading(false);
     }
   }
 
@@ -140,32 +165,6 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
       byName.get(key).encounters.push(e);
     }
     return groups;
-  }
-
-  function strengths(s) {
-    const out = [];
-    if (s.ppg > 80) out.push("High Scoring");
-    if (s.threePct > 36) out.push("Excellent 3PT Shooting");
-    if (s.apg > 18) out.push("Strong Ball Movement");
-    if (s.rpg > 38) out.push("Dominant Rebounding");
-    if (s.spg > 8) out.push("Disruptive Defense");
-    return out.length ? out : (s.gamesPlayed ? ["Balanced Team"] : []);
-  }
-  function weaknesses(s) {
-    const out = [];
-    if (s.topg > 14) out.push("High Turnovers");
-    if (s.apg < 12) out.push("Poor Ball Movement");
-    if (s.rpg < 30) out.push("Weak Rebounding");
-    if (s.ftPct < 65) out.push("Inconsistent Free Throw Shooting");
-    return out.length ? out : (s.gamesPlayed ? ["No obvious weakness"] : []);
-  }
-  function improvements(s) {
-    const out = [];
-    if (s.topg > 12) out.push("Reduce turnovers.");
-    if (s.rpg < 35) out.push("Improve rebounding.");
-    if (s.threePct < 33) out.push("Improve perimeter shooting.");
-    if (s.ftPct < 70) out.push("Improve free throw consistency.");
-    return out.length ? out : (s.gamesPlayed ? ["Maintain current performance."] : []);
   }
 
   function renderTeamCard(label, s) {
@@ -196,15 +195,6 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
           <Typography>FG%: {s.fgPct}%</Typography>
           <Typography>3PT%: {s.threePct}%</Typography>
           <Typography>FT%: {s.ftPct}%</Typography>
-          <Divider sx={{ my: 2 }} />
-          <Typography fontWeight="bold">Strengths</Typography>
-          {strengths(s).map((x) => <Chip key={x} label={x} color="success" sx={{ mr: 1, mt: 1 }} />)}
-          <Divider sx={{ my: 2 }} />
-          <Typography fontWeight="bold">Weaknesses</Typography>
-          {weaknesses(s).map((x) => <Chip key={x} label={x} color="warning" sx={{ mr: 1, mt: 1 }} />)}
-          <Divider sx={{ my: 2 }} />
-          <Typography fontWeight="bold">Areas to Improve</Typography>
-          {improvements(s).map((x) => <Typography key={x} sx={{ mt: 1 }}>• {x}</Typography>)}
         </CardContent>
       </Card>
     );
@@ -388,6 +378,28 @@ export default function OpponentAnalysis({ mode, toggleTheme, selectedTeam, onTe
                     )}
                   </Grid>
                 </Grid>
+
+                <Paper sx={{ p: 3, mb: 3 }}>
+                  <Typography variant="h6" gutterBottom>AI Scouting Report</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Real strengths, weaknesses, and areas to improve for this specific matchup, generated fresh
+                    from the real head-to-head stats and insight tags above -- grounded in real player names and
+                    numbers, not a fixed set of generic labels.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={aiReportLoading ? <CircularProgress size={18} /> : <SportsBasketballIcon />}
+                    onClick={generateAiReport}
+                    disabled={aiReportLoading}
+                    sx={{ mb: 2 }}
+                  >
+                    {aiReportLoading ? "Generating…" : aiReport ? "Regenerate Report" : "Generate Report"}
+                  </Button>
+                  {aiReportError && <Alert severity="error">{aiReportError}</Alert>}
+                  {aiReport && (
+                    <Typography sx={{ whiteSpace: "pre-line" }}>{aiReport}</Typography>
+                  )}
+                </Paper>
 
                 {h2hData.tagFrequency.length > 0 && (
                   <Paper sx={{ p: 3, mb: 3 }}>

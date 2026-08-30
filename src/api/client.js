@@ -207,6 +207,12 @@ export const backendApi = {
   // getTeamSeasonStats above -- that averages a team's games against
   // everyone, this filters to games actually played against one opponent.
   getOpponentHistory: (teamId, opponentTeamId) => request(`/teams/${encodeURIComponent(teamId)}/opponents/${encodeURIComponent(opponentTeamId)}/history`),
+  // Step 47 Phase 2: real AI-generated strengths/weaknesses/areas-to-
+  // improve for this specific opponent matchup, scoped to real
+  // head-to-head games only (same scope as getOpponentHistory above).
+  // Generated fresh on every call -- no cached/stored record, deliberately
+  // (see backend/src/routes/teams.js's comment on the route).
+  getOpponentAnalysisNarrative: (teamId, opponentTeamId) => request(`/teams/${encodeURIComponent(teamId)}/opponents/${encodeURIComponent(opponentTeamId)}/analysis`, { method: 'POST' }),
   // playerId, not playerName -- the route now filters by the stable
   // player_id resolved at ingestion time (see backend/src/db/schema.sql's
   // comment on player_game_stats.player_id), not the raw extracted name

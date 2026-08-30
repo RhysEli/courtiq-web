@@ -5,6 +5,7 @@ const { imageUpload, uploadImage } = require('../services/imageUpload');
 const { findCandidate, queuePendingReview } = require('../services/teamIdentity');
 const { getGroupedTeamIds } = require('../services/teamIdentityGroups');
 const { summarizeByPlayer, pct } = require('../services/shotZoneStats');
+const { generateOpponentAnalysis } = require('../services/narrative');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -444,114 +445,222 @@ router.get('/:teamId/reports', requireTeamAccess('teamId'), async (req, res) => 
 // team membership -- Opponent Analysis already works this way for any
 // two teams' independent season averages, and this is the same category
 // of read, just filtered to shared games instead of all of them.
+const h2hPct = (made, att) => (att > 0 ? Number(((made / att) * 100).toFixed(1)) : 0);
+
+// Same shape as season-stats' own `team` object, reused for both a
+// single encounter (gamesPlayed = 1) and the full aggregate
+// (gamesPlayed = every shared game) -- one shape, one frontend
+// rendering path for either.
+function summarizeStatRows(rows, gamesPlayed) {
+  const sum = (key) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+  const totals = {
+    points: sum('points'), fgm: sum('fgm'), fga: sum('fga'),
+    three_pm: sum('three_pm'), three_pa: sum('three_pa'),
+    ftm: sum('ftm'), fta: sum('fta'),
+    reb: sum('reb'), assists: sum('assists'), steals: sum('steals'),
+    blocks: sum('blocks'), turnovers: sum('turnovers'),
+  };
+  const perGame = (key) => (gamesPlayed > 0 ? Number((totals[key] / gamesPlayed).toFixed(1)) : 0);
+  return {
+    gamesPlayed,
+    ppg: perGame('points'), rpg: perGame('reb'), apg: perGame('assists'),
+    spg: perGame('steals'), bpg: perGame('blocks'), topg: perGame('turnovers'),
+    fgPct: h2hPct(totals.fgm, totals.fga),
+    threePct: h2hPct(totals.three_pm, totals.three_pa),
+    ftPct: h2hPct(totals.ftm, totals.fta),
+  };
+}
+
+// Step 47 Phase 2: extracted out of the GET route below so the new
+// POST .../analysis route (real AI-generated strengths/weaknesses/areas
+// to improve) can reuse the exact same real head-to-head scoping --
+// same games, same per-side row split -- rather than re-deriving it
+// independently and risking the two routes ever disagreeing on which
+// games count as "head-to-head". Also returns the raw per-side player
+// rows (allMyRows/allOppRows), which the GET route's own response never
+// needed, but the new POST route does, for real per-player grounding.
+async function getHeadToHeadData(teamId, opponentTeamId) {
+  const myTeamIds = await getGroupedTeamIds(teamId);
+  const opponentIds = await getGroupedTeamIds(opponentTeamId);
+
+  const games = await db.prepare(`
+    SELECT * FROM games
+    WHERE (home_team_id = ANY(?) AND opponent_team_id = ANY(?))
+       OR (home_team_id = ANY(?) AND opponent_team_id = ANY(?))
+    ORDER BY game_date ASC, id ASC
+  `).all(myTeamIds, opponentIds, opponentIds, myTeamIds);
+
+  if (games.length === 0) {
+    return {
+      teamId, opponentTeamId, myTeamIds, opponentIds,
+      encounters: [], aggregate: null, tagFrequency: [], allMyRows: [], allOppRows: [],
+    };
+  }
+
+  const encounters = [];
+  let allMyRows = [];
+  let allOppRows = [];
+  const tagCounts = {};
+
+  for (const game of games) {
+    const iAmHome = myTeamIds.includes(game.home_team_id);
+    const mySide = iAmHome ? 'home' : 'opponent';
+    const theirSide = iAmHome ? 'opponent' : 'home';
+
+    const myRows = await db.prepare('SELECT * FROM player_game_stats WHERE game_id = ? AND team_side = ?').all(game.id, mySide);
+    const oppRows = await db.prepare('SELECT * FROM player_game_stats WHERE game_id = ? AND team_side = ?').all(game.id, theirSide);
+    allMyRows = allMyRows.concat(myRows);
+    allOppRows = allOppRows.concat(oppRows);
+
+    const stage = game.stage_id
+      ? await db.prepare('SELECT id, name FROM stages WHERE id = ?').get(game.stage_id)
+      : null;
+
+    const metricsRow = await db.prepare('SELECT insight_tags_json FROM game_metrics WHERE game_id = ?').get(game.id);
+    const rawTags = metricsRow ? JSON.parse(metricsRow.insight_tags_json || '[]') : [];
+    const tags = rawTags.map((t) => {
+      const mine = (t.team === 'home') === iAmHome;
+      const relabeled = mine ? 'mine' : 'opponent';
+      const key = `${t.tag}::${relabeled}`;
+      tagCounts[key] = (tagCounts[key] || 0) + 1;
+      return { tag: t.tag, team: relabeled, detail: t.detail };
+    });
+
+    encounters.push({
+      gameId: game.id,
+      gameDate: game.game_date,
+      seasonId: game.season_id,
+      competitionId: game.competition_id,
+      stageId: game.stage_id,
+      stageName: stage ? stage.name : null,
+      myTeamId: game[`${mySide}_team_id`],
+      opponentTeamId: game[`${theirSide}_team_id`],
+      myStats: summarizeStatRows(myRows, 1),
+      opponentStats: summarizeStatRows(oppRows, 1),
+      tags,
+    });
+  }
+
+  const aggregate = {
+    encounters: games.length,
+    mine: summarizeStatRows(allMyRows, games.length),
+    opponent: summarizeStatRows(allOppRows, games.length),
+  };
+
+  const tagFrequency = Object.entries(tagCounts)
+    .map(([key, count]) => {
+      const [tag, team] = key.split('::');
+      return { tag, team, count };
+    })
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    teamId, opponentTeamId, myTeamIds, opponentIds, encounters, aggregate, tagFrequency, allMyRows, allOppRows,
+  };
+}
+
+// No role gate, same precedent as season-stats just above: read-only
+// aggregate stats, viewable by any authenticated user regardless of
+// team membership -- Opponent Analysis already works this way for any
+// two teams' independent season averages, and this is the same category
+// of read, just filtered to shared games instead of all of them.
 router.get('/:teamId/opponents/:opponentTeamId/history', async (req, res) => {
   try {
     const { teamId, opponentTeamId } = req.params;
-
-    const myTeamIds = await getGroupedTeamIds(teamId);
-    const opponentIds = await getGroupedTeamIds(opponentTeamId);
-
-    const games = await db.prepare(`
-      SELECT * FROM games
-      WHERE (home_team_id = ANY(?) AND opponent_team_id = ANY(?))
-         OR (home_team_id = ANY(?) AND opponent_team_id = ANY(?))
-      ORDER BY game_date ASC, id ASC
-    `).all(myTeamIds, opponentIds, opponentIds, myTeamIds);
-
-    if (games.length === 0) {
-      return res.json({
-        teamId, opponentTeamId, myTeamIds, opponentIds,
-        encounters: [], aggregate: null, tagFrequency: [],
-      });
-    }
-
-    const pct = (made, att) => (att > 0 ? Number(((made / att) * 100).toFixed(1)) : 0);
-
-    // Same shape as season-stats' own `team` object, reused for both a
-    // single encounter (gamesPlayed = 1) and the full aggregate
-    // (gamesPlayed = every shared game) -- one shape, one frontend
-    // rendering path for either.
-    function summarizeStatRows(rows, gamesPlayed) {
-      const sum = (key) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
-      const totals = {
-        points: sum('points'), fgm: sum('fgm'), fga: sum('fga'),
-        three_pm: sum('three_pm'), three_pa: sum('three_pa'),
-        ftm: sum('ftm'), fta: sum('fta'),
-        reb: sum('reb'), assists: sum('assists'), steals: sum('steals'),
-        blocks: sum('blocks'), turnovers: sum('turnovers'),
-      };
-      const perGame = (key) => (gamesPlayed > 0 ? Number((totals[key] / gamesPlayed).toFixed(1)) : 0);
-      return {
-        gamesPlayed,
-        ppg: perGame('points'), rpg: perGame('reb'), apg: perGame('assists'),
-        spg: perGame('steals'), bpg: perGame('blocks'), topg: perGame('turnovers'),
-        fgPct: pct(totals.fgm, totals.fga),
-        threePct: pct(totals.three_pm, totals.three_pa),
-        ftPct: pct(totals.ftm, totals.fta),
-      };
-    }
-
-    const encounters = [];
-    let allMyRows = [];
-    let allOppRows = [];
-    const tagCounts = {};
-
-    for (const game of games) {
-      const iAmHome = myTeamIds.includes(game.home_team_id);
-      const mySide = iAmHome ? 'home' : 'opponent';
-      const theirSide = iAmHome ? 'opponent' : 'home';
-
-      const myRows = await db.prepare('SELECT * FROM player_game_stats WHERE game_id = ? AND team_side = ?').all(game.id, mySide);
-      const oppRows = await db.prepare('SELECT * FROM player_game_stats WHERE game_id = ? AND team_side = ?').all(game.id, theirSide);
-      allMyRows = allMyRows.concat(myRows);
-      allOppRows = allOppRows.concat(oppRows);
-
-      const stage = game.stage_id
-        ? await db.prepare('SELECT id, name FROM stages WHERE id = ?').get(game.stage_id)
-        : null;
-
-      const metricsRow = await db.prepare('SELECT insight_tags_json FROM game_metrics WHERE game_id = ?').get(game.id);
-      const rawTags = metricsRow ? JSON.parse(metricsRow.insight_tags_json || '[]') : [];
-      const tags = rawTags.map((t) => {
-        const mine = (t.team === 'home') === iAmHome;
-        const relabeled = mine ? 'mine' : 'opponent';
-        const key = `${t.tag}::${relabeled}`;
-        tagCounts[key] = (tagCounts[key] || 0) + 1;
-        return { tag: t.tag, team: relabeled, detail: t.detail };
-      });
-
-      encounters.push({
-        gameId: game.id,
-        gameDate: game.game_date,
-        seasonId: game.season_id,
-        competitionId: game.competition_id,
-        stageId: game.stage_id,
-        stageName: stage ? stage.name : null,
-        myTeamId: game[`${mySide}_team_id`],
-        opponentTeamId: game[`${theirSide}_team_id`],
-        myStats: summarizeStatRows(myRows, 1),
-        opponentStats: summarizeStatRows(oppRows, 1),
-        tags,
-      });
-    }
-
-    const aggregate = {
-      encounters: games.length,
-      mine: summarizeStatRows(allMyRows, games.length),
-      opponent: summarizeStatRows(allOppRows, games.length),
-    };
-
-    const tagFrequency = Object.entries(tagCounts)
-      .map(([key, count]) => {
-        const [tag, team] = key.split('::');
-        return { tag, team, count };
-      })
-      .sort((a, b) => b.count - a.count);
-
-    res.json({ teamId, opponentTeamId, myTeamIds, opponentIds, encounters, aggregate, tagFrequency });
+    const {
+      teamId: t, opponentTeamId: o, myTeamIds, opponentIds, encounters, aggregate, tagFrequency,
+    } = await getHeadToHeadData(teamId, opponentTeamId);
+    res.json({
+      teamId: t, opponentTeamId: o, myTeamIds, opponentIds, encounters, aggregate, tagFrequency,
+    });
   } catch (err) {
     console.error('team opponent history failed:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Step 47 Phase 2: real AI-generated strengths/weaknesses/areas-to-improve
+// for a specific opponent matchup -- replaces the old fixed-threshold
+// label generator (opponent-analysis.jsx's old strengths()/weaknesses()/
+// improvements(), confirmed shallow by Step 46: same handful of canned
+// labels regardless of who's being analyzed, no real numbers or player
+// names in the text itself). Scoped to real head-to-head games only, same
+// as the GET route above and same as Phase 1's comparison fix -- never
+// season-wide data, so the two features can't disagree on scope again.
+// No persistence: generated fresh from real stats/tags on every call,
+// deliberately unlike game_narratives (Step 46 found narrative generation
+// isn't run for every game -- a stored opponent-analysis record would
+// have the exact same real coverage gap for no benefit, since this is
+// cheap to regenerate and there's no per-game upload event to hang a
+// "generate once" step off of).
+router.post('/:teamId/opponents/:opponentTeamId/analysis', async (req, res) => {
+  const { teamId, opponentTeamId } = req.params;
+  try {
+    const h2h = await getHeadToHeadData(teamId, opponentTeamId);
+    if (h2h.encounters.length === 0) {
+      return res.status(422).json({ error: 'No real games recorded between these two teams yet.' });
+    }
+
+    const [myTeam, opponentTeam] = await Promise.all([
+      db.prepare('SELECT name FROM teams WHERE id = ?').get(teamId),
+      db.prepare('SELECT name FROM teams WHERE id = ?').get(opponentTeamId),
+    ]);
+
+    // Real per-player breakdown across ONLY these head-to-head games --
+    // same grouping shape as GET /:teamId/season-stats' own player
+    // summary, but scoped to h2h.allMyRows/allOppRows (already filtered
+    // to shared games only) instead of every game that team has played.
+    // This is what lets the prompt reference real player names/numbers
+    // specific to this matchup, not just team totals.
+    function summarizePlayers(rows) {
+      const byPlayer = {};
+      for (const r of rows) {
+        if (r.player_id === null) continue;
+        if (!byPlayer[r.player_id]) byPlayer[r.player_id] = [];
+        byPlayer[r.player_id].push(r);
+      }
+      const playerIds = Object.keys(byPlayer).map(Number);
+      return playerIds.map((playerId) => {
+        const playerRows = byPlayer[playerId];
+        const gp = playerRows.length;
+        const s = (key) => playerRows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+        return {
+          playerId,
+          playerName: playerRows[0].player_name,
+          gamesPlayed: gp,
+          ppg: Number((s('points') / gp).toFixed(1)),
+          rpg: Number((s('reb') / gp).toFixed(1)),
+          apg: Number((s('assists') / gp).toFixed(1)),
+          fgPct: h2hPct(s('fgm'), s('fga')),
+          threePct: h2hPct(s('three_pm'), s('three_pa')),
+        };
+      }).sort((a, b) => b.ppg - a.ppg);
+    }
+
+    const myPlayers = summarizePlayers(h2h.allMyRows);
+    const opponentPlayers = summarizePlayers(h2h.allOppRows);
+
+    const { text, model } = await generateOpponentAnalysis({
+      teamName: myTeam ? myTeam.name : teamId,
+      opponentTeamName: opponentTeam ? opponentTeam.name : opponentTeamId,
+      encounters: h2h.aggregate.encounters,
+      mine: h2h.aggregate.mine,
+      opponent: h2h.aggregate.opponent,
+      myPlayers,
+      opponentPlayers,
+      tagFrequency: h2h.tagFrequency,
+      meetings: h2h.encounters.map((e) => ({
+        gameDate: e.gameDate, myScore: e.myStats.ppg, opponentScore: e.opponentStats.ppg,
+      })),
+    });
+
+    res.json({ text, model });
+  } catch (err) {
+    if (err.code === 'MISSING_API_KEY') {
+      return res.status(503).json({ error: err.message });
+    }
+    console.error('opponent analysis generation failed:', err);
+    res.status(502).json({ error: `Opponent analysis generation failed: ${err.message}` });
   }
 });
 
