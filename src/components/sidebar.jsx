@@ -12,8 +12,6 @@ import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
 import SportsBasketballRoundedIcon from '@mui/icons-material/SportsBasketballRounded';
 import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
-import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
-import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import BusinessRoundedIcon from '@mui/icons-material/BusinessRounded';
 import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
@@ -34,9 +32,11 @@ const navItems = [
   { label: 'Players', path: '/players', icon: PersonRoundedIcon },
   { label: 'Player Management', path: '/players-management', icon: PersonAddRoundedIcon },
   { label: 'Games', path: '/games', icon: SportsBasketballRoundedIcon },
-  { label: 'Statistics', path: '/statistics', icon: BarChartRoundedIcon },
-  { label: 'Player Development', path: '/player-development', icon: TrendingUpRoundedIcon },
-  { label: 'Analysis', path: '/analysis', icon: AutoAwesomeRoundedIcon },
+  // Step 55: replaces the previous 3 separate entries (Statistics/
+  // Analysis/Player Development) -- those 3 routes were merged into one
+  // continuous page (team-insights.jsx), so one nav entry now covers all
+  // three, at the same /statistics URL those bookmarks already used.
+  { label: 'Team Insights', path: '/statistics', icon: BarChartRoundedIcon },
   // 'Analysis Import' intentionally removed from nav ahead of the
   // presentation -- most report types on that page are simulated
   // placeholder data (only Box Score has a real backend pipeline, via

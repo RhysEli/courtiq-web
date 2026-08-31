@@ -11,9 +11,7 @@ import Dashboard from './pages/Dashboard';
 import Teams from './pages/teams';
 import Players from './pages/players';
 import Games from './pages/games';
-import Statistics from './pages/statistics';
-import PlayerDevelopment from './pages/player-development';
-import Analysis from './pages/analysis';
+import TeamInsights from './pages/team-insights';
 import AnalysisImport from './pages/analysis-import';
 import BulkImport from './pages/bulk-import';
 import OpponentAnalysis from './pages/opponent-analysis';
@@ -72,7 +70,6 @@ function AppRoutes() {
   const [selectedInstitution, setSelectedInstitution] = useState('usiu');
   const [selectedLeague, setSelectedLeague] = useState('Nairobi Basketball League');
   const [selectedSeason, setSelectedSeason] = useState('2026/27');
-  const [selectedGame, setSelectedGame] = useState('all');
   const [seasons, setSeasons] = useState(initialSeasons);
   const [reports, setReports] = useState(initialReports);
   const { role, currentUser, logout } = useAuth();
@@ -125,9 +122,18 @@ function AppRoutes() {
         <Route path="/teams" element={<ProtectedRoute allowedPath="/teams"><Teams {...sharedProps} /></ProtectedRoute>} />
         <Route path="/players" element={<ProtectedRoute allowedPath="/players"><Players {...sharedProps} /></ProtectedRoute>} />
         <Route path="/games" element={<ProtectedRoute allowedPath="/games"><Games {...sharedProps} reports={reports} /></ProtectedRoute>} />
-        <Route path="/statistics" element={<ProtectedRoute allowedPath="/statistics"><Statistics {...sharedProps} selectedGame={selectedGame} onGameChange={setSelectedGame} /></ProtectedRoute>} />
-        <Route path="/player-development" element={<ProtectedRoute allowedPath="/player-development"><PlayerDevelopment {...sharedProps} /></ProtectedRoute>} />
-        <Route path="/analysis" element={<ProtectedRoute allowedPath="/analysis"><Analysis {...sharedProps} /></ProtectedRoute>} />
+        {/* Step 55: statistics.jsx, analysis.jsx, and player-development.jsx
+            were merged into one continuous page (team-insights.jsx) --
+            one flow (team+season -> season stats -> game picker -> that
+            game's Analysis -> Player Development), not three separate
+            routes to navigate between. /statistics is kept as the real
+            canonical URL (most likely to be an existing bookmark);
+            /analysis and /player-development redirect below rather than
+            404ing for anyone with an old link saved, same precedent as
+            /account's own redirect further down. */}
+        <Route path="/statistics" element={<ProtectedRoute allowedPath="/statistics"><TeamInsights {...sharedProps} /></ProtectedRoute>} />
+        <Route path="/player-development" element={<Navigate to="/statistics" replace />} />
+        <Route path="/analysis" element={<Navigate to="/statistics" replace />} />
         <Route path="/analysis-import" element={<ProtectedRoute allowedPath="/analysis-import"><AnalysisImport {...sharedProps} /></ProtectedRoute>} />
         <Route path="/bulk-import" element={<ProtectedRoute allowedPath="/bulk-import"><BulkImport {...sharedProps} /></ProtectedRoute>} />
         <Route path="/opponent-analysis" element={<ProtectedRoute allowedPath="/opponent-analysis"><OpponentAnalysis {...sharedProps} /></ProtectedRoute>} />
