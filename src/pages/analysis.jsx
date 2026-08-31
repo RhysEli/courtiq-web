@@ -3,6 +3,7 @@ import {
   TextField, MenuItem, Button, CircularProgress, Table, TableBody, TableCell, TableHead, TableRow,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
+import SportsBasketballIcon from '@mui/icons-material/SportsBasketball';
 import { useEffect, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import Layout from '../components/layout';
@@ -55,6 +56,21 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
   const [reportData, setReportData] = useState(null);
   const [reportDataLoading, setReportDataLoading] = useState(false);
   const [reportDataError, setReportDataError] = useState('');
+
+  // Step 54: real, on-demand game-flow narrative (POST /analysis/games/
+  // :gameId/game-flow) and coaching verdict (POST .../coaching-verdict) --
+  // both real, live, backend-verified (Step 53) but with no frontend
+  // consumer until now. Neither is persisted (narrative.js's own comment
+  // on why), so both are opt-in "Generate" buttons, same on-demand
+  // pattern as opponent-analysis.jsx's "AI Scouting Report" card -- not an
+  // auto-fetch like the AI-generated narrative below, which reads an
+  // already-stored game_narratives row.
+  const [gameFlow, setGameFlow] = useState(null);
+  const [gameFlowLoading, setGameFlowLoading] = useState(false);
+  const [gameFlowError, setGameFlowError] = useState('');
+  const [coachingVerdict, setCoachingVerdict] = useState(null);
+  const [coachingVerdictLoading, setCoachingVerdictLoading] = useState(false);
+  const [coachingVerdictError, setCoachingVerdictError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -141,6 +157,17 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
     return () => { cancelled = true; };
   }, [selectedGameId]);
 
+  // Step 54: neither of these is fetched automatically (they're real,
+  // opt-in Claude calls) -- but a stale game-flow narrative or coaching
+  // verdict from the PREVIOUS selected game must not linger on screen
+  // once the game picker changes, so both reset here the same way
+  // opponent-analysis.jsx's own aiReport resets on every new head-to-head
+  // lookup.
+  useEffect(() => {
+    setGameFlow(null); setGameFlowError('');
+    setCoachingVerdict(null); setCoachingVerdictError('');
+  }, [selectedGameId]);
+
   // "SURNAME I." per player, joined -- the real shape lineup_analysis/
   // rotation_stints store (players_json is already parsed to an array by
   // the backend route), same "surname + initial" convention this app's
@@ -158,6 +185,34 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
     if (!mmss) return 0;
     const [m, s] = mmss.split(':').map(Number);
     return (m || 0) * 60 + (s || 0);
+  }
+
+  // Step 54: the coaching-verdict route's real plain-text output uses
+  // exactly these six headers, each on its own line, per its own prompt
+  // (narrative.js's generateCoachingVerdict) -- matched here verbatim
+  // (case-insensitively) rather than splitting on blank lines, since
+  // that's the one guarantee the prompt actually makes about the real
+  // output's shape. Returns [] if none of the six headers are found at
+  // all (a real, if rare, off-spec generation), so the caller can fall
+  // back to showing the raw text rather than silently rendering nothing.
+  const COACHING_VERDICT_SECTIONS = [
+    'What went well', 'What must improve', 'Offense', 'Defense', 'Rotation and lineup', 'Player development',
+  ];
+  function parseCoachingVerdict(text) {
+    if (!text) return [];
+    const sections = [];
+    let current = null;
+    for (const rawLine of text.split('\n')) {
+      const line = rawLine.trim();
+      const header = COACHING_VERDICT_SECTIONS.find((h) => h.toLowerCase() === line.toLowerCase());
+      if (header) {
+        current = { title: header, body: [] };
+        sections.push(current);
+      } else if (current && line) {
+        current.body.push(line);
+      }
+    }
+    return sections;
   }
 
   function groupByTeamSide(rows) {
@@ -187,6 +242,7 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
     assists: homeRaw.assists,
   } : null;
   const realNarrative = realAnalysis?.narrative || null;
+  const verdictSections = coachingVerdict ? parseCoachingVerdict(coachingVerdict) : [];
 
   const selectedGame = games.find((g) => g.id === selectedGameId);
 
@@ -266,6 +322,39 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
     }
 
     doc.save(`courtiq-game-summary-${selectedGameId}.pdf`);
+  };
+
+  // Step 54: real, on-demand Claude calls -- same try/catch/finally shape
+  // as opponent-analysis.jsx's generateAiReport, and the same real error
+  // message pass-through (backendApi's request() already extracts the
+  // backend's real {error: "..."} body for a 503 missing-API-key or 502
+  // generation-failure response into err.message).
+  const generateGameFlow = async () => {
+    if (!selectedGameId) return;
+    setGameFlowLoading(true);
+    setGameFlowError('');
+    try {
+      const data = await backendApi.getGameFlowNarrative(selectedGameId);
+      setGameFlow(data.text);
+    } catch (err) {
+      setGameFlowError(err.message || 'Could not generate the game-flow narrative.');
+    } finally {
+      setGameFlowLoading(false);
+    }
+  };
+
+  const generateCoachingVerdict = async () => {
+    if (!selectedGameId) return;
+    setCoachingVerdictLoading(true);
+    setCoachingVerdictError('');
+    try {
+      const data = await backendApi.getCoachingVerdict(selectedGameId);
+      setCoachingVerdict(data.text);
+    } catch (err) {
+      setCoachingVerdictError(err.message || 'Could not generate the coaching verdict.');
+    } finally {
+      setCoachingVerdictLoading(false);
+    }
   };
 
   const handleAddNote = async () => {
@@ -397,6 +486,79 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
             </Card>
           </Grid>
         </Grid>
+      )}
+
+      {selectedGameId && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" fontWeight={700}>Game-flow narrative</Typography>
+            <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>
+              A real, chronological account of how this game unfolded -- specific scoring runs, momentum swings,
+              and the substitutions behind them -- generated fresh from this game's real quarter scores, rotation
+              stints, and play-by-play. Not stored: generated on demand, same as the opponent scouting report on
+              the Opponent Analysis page.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={gameFlowLoading ? <CircularProgress size={18} /> : <SportsBasketballIcon />}
+              onClick={generateGameFlow}
+              disabled={gameFlowLoading}
+              sx={{ mb: 2 }}
+            >
+              {gameFlowLoading ? 'Generating…' : gameFlow ? 'Regenerate' : 'Generate game-flow narrative'}
+            </Button>
+            {gameFlowError && <Alert severity="error">{gameFlowError}</Alert>}
+            {gameFlow && <Typography sx={{ whiteSpace: 'pre-line' }}>{gameFlow}</Typography>}
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedGameId && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" fontWeight={700}>Coaching verdict</Typography>
+            <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>
+              Real, categorized coaching recommendations -- what went well, what must improve, and specific
+              offense/defense/rotation/player-development guidance -- generated fresh from this game's real
+              metrics. Not stored: generated on demand.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={coachingVerdictLoading ? <CircularProgress size={18} /> : <SportsBasketballIcon />}
+              onClick={generateCoachingVerdict}
+              disabled={coachingVerdictLoading}
+              sx={{ mb: 2 }}
+            >
+              {coachingVerdictLoading ? 'Generating…' : coachingVerdict ? 'Regenerate' : 'Generate coaching verdict'}
+            </Button>
+            {coachingVerdictError && <Alert severity="error">{coachingVerdictError}</Alert>}
+            {coachingVerdict && (
+              verdictSections.length > 0 ? (
+                <Grid container spacing={2}>
+                  {verdictSections.map((section) => (
+                    <Grid item xs={12} md={6} key={section.title}>
+                      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 1.5, height: '100%' }}>
+                        <Typography fontWeight={700} sx={{ mb: 1 }}>{section.title}</Typography>
+                        <Stack spacing={0.5}>
+                          {section.body.map((line, i) => (
+                            <Typography key={`${section.title}-${i}`} variant="body2">{line}</Typography>
+                          ))}
+                        </Stack>
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <>
+                  <Alert severity="warning" sx={{ mb: 1 }}>
+                    Could not split this into its six real sections -- showing the raw generated text below.
+                  </Alert>
+                  <Typography sx={{ whiteSpace: 'pre-line' }}>{coachingVerdict}</Typography>
+                </>
+              )
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {selectedGameId && (

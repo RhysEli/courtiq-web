@@ -145,6 +145,13 @@ export const backendApi = {
   // which is a real, best-effort state (see routes/analysis.js's own
   // narrative route), not an error.
   getGameAnalysis: (gameId) => request(`/analysis/games/${gameId}`),
+  // Step 54: the two real, on-demand generations Step 53 added --
+  // chronological game-flow narrative and categorized coaching verdict.
+  // Neither is persisted (see backend/src/services/narrative.js's own
+  // comment on why), so both are POSTed fresh on every call, same
+  // on-demand shape as getOpponentAnalysisNarrative below.
+  getGameFlowNarrative: (gameId) => request(`/analysis/games/${gameId}/game-flow`, { method: 'POST' }),
+  getCoachingVerdict: (gameId) => request(`/analysis/games/${gameId}/coaching-verdict`, { method: 'POST' }),
   // Step 51: the real Lineup Analysis / Rotations Summary / Plus-Minus
   // Summary data (game_lineup_analysis/game_rotation_stints/
   // game_plus_minus), already fully extracted and populated for every
