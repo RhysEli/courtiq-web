@@ -6,6 +6,7 @@ const {
   generateGameNarrative, generateGameFlowNarrative, generateCoachingVerdict,
 } = require('../services/narrative');
 const { logAction } = require('../services/auditLog');
+const { createNotification, resolveTeamRecipients } = require('../services/notifications');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -364,6 +365,26 @@ router.post('/games/:gameId/narrative', requireRole('Statistician', 'Coach'), re
 
     await db.prepare("UPDATE games SET status = 'analyzed' WHERE id = ?").run(gameId);
     await logAction(req.user.id, 'narrative', `Generate narrative: game #${gameId} (model ${model})`, true);
+
+    // Step 58 (investigated Step 56, scoped Step 57): a real notification
+    // for every other real team member on either side of this game -- a
+    // genuinely async, human-effort event (a real Claude call), unlike
+    // /compute's rule-based numbers just above, which is why this was the
+    // strongest real candidate trigger the investigation found. Excludes
+    // the actor themselves -- they already know they just ran this.
+    const notifyRecipients = await resolveTeamRecipients(
+      [game.home_team_id, game.opponent_team_id],
+      { excludeUserId: req.user.id },
+    );
+    for (const recipientUserId of notifyRecipients) {
+      await createNotification({
+        recipientUserId,
+        type: 'game_analyzed',
+        message: `${game.home_team_id} vs ${game.opponent_team_id} (${game.game_date || 'no date'}) has been analyzed.`,
+        gameId,
+      });
+    }
+
     res.json({ narrative: text, model });
   } catch (err) {
     if (err.code === 'MISSING_API_KEY') {

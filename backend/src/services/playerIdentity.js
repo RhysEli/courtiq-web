@@ -1,4 +1,5 @@
 const db = require('../db');
+const { createNotification, resolveTeamRecipients } = require('./notifications');
 
 // Player identity resolution: given a raw name string extracted for a
 // team, decide whether it's an existing player (by exact match, after
@@ -190,6 +191,30 @@ async function resolvePlayerName({
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING id
     `).get(teamId, name, candidate.candidatePlayerId, candidate.reason, gameId, reportType, jerseyNumber, position);
+
+    // Step 58 (investigated Step 56, scoped Step 57): real notification
+    // for every Statistician/Team Manager on this team -- the exact same
+    // real gating playerIdentityReview.js's own confirm/reject routes
+    // already enforce (requireRole('Statistician', 'Team Manager')), not a
+    // new access rule invented here. No excludeUserId: this function is
+    // called from too many real places (bulk import, single-report upload,
+    // manual roster add, invite acceptance, Quarter/Plus-Minus persistence,
+    // and a one-time backfill script) for a single reliable "acting user"
+    // to always exist, and even a real uploader may not notice this one
+    // name, among many, landed in the review queue. Only fires here, at
+    // the moment the row is first created -- the existingPending branch
+    // just above returns early for a repeat sighting of the same real
+    // pending candidate, so this never re-notifies for the same review.
+    const reviewRecipients = await resolveTeamRecipients([teamId], { roles: ['Statistician', 'Team Manager'] });
+    for (const recipientUserId of reviewRecipients) {
+      await createNotification({
+        recipientUserId,
+        type: 'player_identity_review',
+        message: `New player name needs review: "${name}" on team ${teamId}.`,
+        playerIdentityReviewId: inserted.id,
+      });
+    }
+
     return { status: 'pending_review', reviewId: inserted.id };
   }
 

@@ -708,6 +708,40 @@ CREATE TABLE IF NOT EXISTS audit_log (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Step 58 (investigated Step 56/57): real per-user notifications, replacing
+-- the topbar bell's hardcoded badgeContent={3} with something real.
+-- recipient_user_id, not a team-wide row -- each real recipient gets their
+-- own row (see resolveTeamRecipients/createNotification in
+-- backend/src/services/notifications.js), so read state is genuinely
+-- per-user, not shared. read_at is a nullable TIMESTAMPTZ, not a boolean --
+-- "unread" is NULL, "read" is the real moment it was read, giving a real
+-- timestamp for free instead of just a flag.
+--
+-- Exactly-one-of-N-scope-columns, same real pattern and same DROP + re-ADD
+-- CHECK convention as annotations_exactly_one_scope above -- game_id/
+-- report_id/player_identity_review_id are alternatives, not concurrent
+-- facts, matching how annotations already models "attached to exactly one
+-- of these real things". team_identity_review_id deliberately NOT included
+-- yet -- Step 57 investigation found that table has no team_id at all
+-- (unscoped), so "who's the real recipient" is still an open product
+-- question, not a schema question; add the column when that's decided
+-- rather than guessing now.
+CREATE TABLE IF NOT EXISTS notifications (
+  id SERIAL PRIMARY KEY,
+  recipient_user_id INTEGER NOT NULL REFERENCES users(id),
+  type TEXT NOT NULL, -- 'game_analyzed' | 'player_identity_review' (more added as more triggers are wired)
+  message TEXT NOT NULL, -- short human-readable summary, same spirit as audit_log.details
+  game_id INTEGER REFERENCES games(id),
+  report_id INTEGER REFERENCES reports(id),
+  player_identity_review_id INTEGER REFERENCES player_identity_review(id),
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_exactly_one_scope;
+ALTER TABLE notifications ADD CONSTRAINT notifications_exactly_one_scope CHECK (
+  (game_id IS NOT NULL)::int + (report_id IS NOT NULL)::int + (player_identity_review_id IS NOT NULL)::int = 1
+);
+
 -- Season/leg structure (investigated, not built, in the round before this
 -- one). Scoped to team_competition_seasons, not to (competition, season)
 -- directly -- deliberately: no "competition owner" role or shared-
