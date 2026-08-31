@@ -46,6 +46,16 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
   const [shotZonesLoading, setShotZonesLoading] = useState(false);
   const [shotZonesError, setShotZonesError] = useState('');
 
+  // Step 51: real Lineup Analysis / Rotations Summary / Plus-Minus Summary
+  // data (game_lineup_analysis/game_rotation_stints/game_plus_minus) --
+  // fully extracted and populated for every real game since well before
+  // this round (confirmed Step 47), but GET /games/:gameId/report-data
+  // (the real backend route that already serves it) had no frontend
+  // consumer anywhere in this app until now.
+  const [reportData, setReportData] = useState(null);
+  const [reportDataLoading, setReportDataLoading] = useState(false);
+  const [reportDataError, setReportDataError] = useState('');
+
   useEffect(() => {
     let cancelled = false;
     backendApi.getGames()
@@ -118,6 +128,46 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
       .finally(() => { if (!cancelled) setShotZonesLoading(false); });
     return () => { cancelled = true; };
   }, [selectedGameId]);
+
+  useEffect(() => {
+    if (!selectedGameId) { setReportData(null); return undefined; }
+    let cancelled = false;
+    setReportDataLoading(true);
+    setReportDataError('');
+    backendApi.getReportData(selectedGameId)
+      .then((data) => { if (!cancelled) setReportData(data); })
+      .catch((err) => { if (!cancelled) setReportDataError(err.message || 'Could not load lineup/rotation/plus-minus data.'); })
+      .finally(() => { if (!cancelled) setReportDataLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedGameId]);
+
+  // "SURNAME I." per player, joined -- the real shape lineup_analysis/
+  // rotation_stints store (players_json is already parsed to an array by
+  // the backend route), same "surname + initial" convention this app's
+  // own PDF extractors use elsewhere (rosterMap).
+  function formatLineupPlayers(players) {
+    return (players || []).map((p) => `${p.surname}${p.initial ? ` ${p.initial}.` : ''}`).join(', ');
+  }
+
+  // Real countdown-clock parsing ("MM:SS", counting down within a
+  // quarter) into total seconds, so rotation stints can be sorted into
+  // real chronological order (quarter_on ascending, then time_on
+  // descending -- a stint starting at 10:00 happened before one starting
+  // at 04:36 in the same quarter).
+  function clockToSeconds(mmss) {
+    if (!mmss) return 0;
+    const [m, s] = mmss.split(':').map(Number);
+    return (m || 0) * 60 + (s || 0);
+  }
+
+  function groupByTeamSide(rows) {
+    const groups = {};
+    for (const r of rows || []) {
+      if (!groups[r.team_side]) groups[r.team_side] = { teamSide: r.team_side, teamName: r.team_name, rows: [] };
+      groups[r.team_side].rows.push(r);
+    }
+    return Object.values(groups);
+  }
 
   // Plain made/attempted percentages (the same shape every other page in
   // this app already shows -- FG%/3PT%/FT%), derived from the home side's
@@ -410,6 +460,191 @@ function Analysis({ mode, toggleTheme, selectedTeam, onTeamChange, role, selecte
                   </Typography>
                 )}
               </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedGameId && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" fontWeight={700}>Lineup analysis</Typography>
+            <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>
+              Real 5-man units from this game's Lineup Analysis report -- time on court, real score while that
+              unit played, and the resulting differential. Each team's best (highest differential) and worst
+              (lowest differential) real lineup is highlighted.
+            </Typography>
+            {reportDataLoading ? (
+              <CircularProgress size={24} />
+            ) : reportDataError ? (
+              <Alert severity="error">{reportDataError}</Alert>
+            ) : !reportData || !reportData.lineupAnalysis || reportData.lineupAnalysis.length === 0 ? (
+              <Alert severity="info">No Lineup Analysis data recorded for this game yet.</Alert>
+            ) : (
+              groupByTeamSide(reportData.lineupAnalysis).map((group) => {
+                const sorted = [...group.rows].sort((a, b) => b.score_diff - a.score_diff);
+                const bestId = sorted.length > 1 ? sorted[0].id : null;
+                const worstId = sorted.length > 1 ? sorted[sorted.length - 1].id : null;
+                return (
+                  <Box key={group.teamSide} sx={{ mb: 3 }}>
+                    <Typography fontWeight={700} sx={{ mb: 1, textTransform: 'capitalize' }}>
+                      {group.teamName || group.teamSide} ({group.teamSide})
+                    </Typography>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Lineup</TableCell>
+                          <TableCell>Time on court</TableCell>
+                          <TableCell>Score</TableCell>
+                          <TableCell>Diff</TableCell>
+                          <TableCell>Pts/min</TableCell>
+                          <TableCell>Reb</TableCell>
+                          <TableCell>Stl</TableCell>
+                          <TableCell>TO</TableCell>
+                          <TableCell>Ast</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {sorted.map((row) => (
+                          <TableRow
+                            key={row.id}
+                            sx={{
+                              bgcolor: row.id === bestId ? 'success.main' : row.id === worstId ? 'error.main' : undefined,
+                              '& .MuiTableCell-root': row.id === bestId || row.id === worstId ? { color: 'common.white' } : undefined,
+                            }}
+                          >
+                            <TableCell sx={{ maxWidth: 320 }}>{formatLineupPlayers(row.players_json)}</TableCell>
+                            <TableCell>{row.time_on_court}</TableCell>
+                            <TableCell>{row.score}</TableCell>
+                            <TableCell>{row.score_diff > 0 ? `+${row.score_diff}` : row.score_diff}</TableCell>
+                            <TableCell>{row.points_per_min != null ? Number(row.points_per_min).toFixed(2) : '—'}</TableCell>
+                            <TableCell>{row.rebounds}</TableCell>
+                            <TableCell>{row.steals}</TableCell>
+                            <TableCell>{row.turnovers}</TableCell>
+                            <TableCell>{row.assists}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedGameId && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" fontWeight={700}>Rotation timeline</Typography>
+            <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>
+              Real chronological entry/exit for each 5-man unit, from this game's Rotations Summary report --
+              when each real lineup checked in and out, in real game-clock order.
+            </Typography>
+            {reportDataLoading ? (
+              <CircularProgress size={24} />
+            ) : reportDataError ? (
+              <Alert severity="error">{reportDataError}</Alert>
+            ) : !reportData || !reportData.rotationStints || reportData.rotationStints.length === 0 ? (
+              <Alert severity="info">No Rotations Summary data recorded for this game yet.</Alert>
+            ) : (
+              groupByTeamSide(reportData.rotationStints).map((group) => {
+                const sorted = [...group.rows].sort((a, b) => {
+                  if (a.quarter_on !== b.quarter_on) return a.quarter_on - b.quarter_on;
+                  return clockToSeconds(b.time_on) - clockToSeconds(a.time_on);
+                });
+                return (
+                  <Box key={group.teamSide} sx={{ mb: 3 }}>
+                    <Typography fontWeight={700} sx={{ mb: 1, textTransform: 'capitalize' }}>
+                      {group.teamName || group.teamSide} ({group.teamSide})
+                    </Typography>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Lineup</TableCell>
+                          <TableCell>In</TableCell>
+                          <TableCell>Out</TableCell>
+                          <TableCell>Time on court</TableCell>
+                          <TableCell>Score</TableCell>
+                          <TableCell>Diff</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {sorted.map((row) => (
+                          <TableRow key={row.id}>
+                            <TableCell sx={{ maxWidth: 320 }}>{formatLineupPlayers(row.players_json)}</TableCell>
+                            <TableCell>Q{row.quarter_on} {row.time_on}</TableCell>
+                            <TableCell>{row.quarter_off ? `Q${row.quarter_off} ${row.time_off}` : '—'}</TableCell>
+                            <TableCell>{row.time_on_court}</TableCell>
+                            <TableCell>{row.score}</TableCell>
+                            <TableCell>{row.score_diff > 0 ? `+${row.score_diff}` : row.score_diff}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedGameId && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" fontWeight={700}>Plus-minus: on court vs. off court</Typography>
+            <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>
+              Real per-player splits from this game's Plus/Minus Summary report -- how the team's real score,
+              scoring margin, and pace looked while each player was on the court versus on the bench. This goes
+              beyond a simple plus/minus number, and beyond what any of CourtIQ's reference designs show -- real
+              on/off splits, not just a single net figure.
+            </Typography>
+            {reportDataLoading ? (
+              <CircularProgress size={24} />
+            ) : reportDataError ? (
+              <Alert severity="error">{reportDataError}</Alert>
+            ) : !reportData || !reportData.plusMinus || reportData.plusMinus.length === 0 ? (
+              <Alert severity="info">No Plus/Minus Summary data recorded for this game yet.</Alert>
+            ) : (
+              groupByTeamSide(reportData.plusMinus).map((group) => (
+                <Box key={group.teamSide} sx={{ mb: 3 }}>
+                  <Typography fontWeight={700} sx={{ mb: 1, textTransform: 'capitalize' }}>
+                    {group.teamName || group.teamSide} ({group.teamSide})
+                  </Typography>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Player</TableCell>
+                        <TableCell>Min (On)</TableCell>
+                        <TableCell>Min (Off)</TableCell>
+                        <TableCell>Score (On)</TableCell>
+                        <TableCell>Score (Off)</TableCell>
+                        <TableCell>Diff (On)</TableCell>
+                        <TableCell>Diff (Off)</TableCell>
+                        <TableCell>Pts/min (On)</TableCell>
+                        <TableCell>Pts/min (Off)</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {group.rows.map((row) => (
+                        <TableRow key={row.id}>
+                          <TableCell>{row.player_name}</TableCell>
+                          <TableCell>{row.minutes_on}</TableCell>
+                          <TableCell>{row.minutes_off}</TableCell>
+                          <TableCell>{row.score_while_on}</TableCell>
+                          <TableCell>{row.score_while_off}</TableCell>
+                          <TableCell>{row.points_diff_on > 0 ? `+${row.points_diff_on}` : row.points_diff_on}</TableCell>
+                          <TableCell>{row.points_diff_off > 0 ? `+${row.points_diff_off}` : row.points_diff_off}</TableCell>
+                          <TableCell>{row.points_per_min_on != null ? Number(row.points_per_min_on).toFixed(2) : '—'}</TableCell>
+                          <TableCell>{row.points_per_min_off != null ? Number(row.points_per_min_off).toFixed(2) : '—'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              ))
             )}
           </CardContent>
         </Card>

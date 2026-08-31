@@ -145,6 +145,12 @@ export const backendApi = {
   // which is a real, best-effort state (see routes/analysis.js's own
   // narrative route), not an error.
   getGameAnalysis: (gameId) => request(`/analysis/games/${gameId}`),
+  // Step 51: the real Lineup Analysis / Rotations Summary / Plus-Minus
+  // Summary data (game_lineup_analysis/game_rotation_stints/
+  // game_plus_minus), already fully extracted and populated for every
+  // real game (confirmed Step 47) but never actually consumed by any
+  // frontend page until now -- this real backend route already existed.
+  getReportData: (gameId) => request(`/games/${gameId}/report-data`),
   // Step 45 Phase 3: real "shot selection zones" (paint/mid_range/three --
   // attempts, makes, make%) -- a coarse stat breakdown from action_text,
   // NOT a shot chart (no x/y, no court diagram). Single-game (per player +
