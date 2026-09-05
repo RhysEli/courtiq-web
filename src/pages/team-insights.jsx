@@ -7,7 +7,8 @@ import SportsBasketballIcon from '@mui/icons-material/SportsBasketball';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
 import Layout from '../components/layout';
 import { backendApi } from '../api/client';
@@ -40,6 +41,32 @@ const emptySeasonStats = {
 function TeamInsights({ mode, toggleTheme, role, selectedSeason, logout, currentUser }) {
   const { activeTeam } = useAuth();
 
+  // Step 58 Phase 2: a real game-analyzed notification links back here
+  // via ?gameId=, so clicking one actually lands on that game's Analysis
+  // instead of a generic page with nothing pre-selected. team-insights.jsx
+  // has no URL-driven state at all otherwise (teamId/selectedGameId are
+  // both plain local useState) -- this is the one deliberate addition
+  // needed to make that real click-through land somewhere meaningful.
+  // Resolved once: fetches the real game (to learn its real home/opponent
+  // team ids, which teamGames can't tell us yet -- it doesn't exist until
+  // a teamId is already chosen), picks whichever side the current real
+  // user actually belongs to, then sets teamId + (once the reset effect
+  // below has already cleared it for the new team) selectedGameId.
+  //
+  // deepLinkVersion exists for a real, confirmed-by-testing reason: when
+  // the resolved team is already the default-selected one (the common
+  // case for a single-team user), calling setTeamId(sameValue) is a
+  // React no-op -- no re-render, so the [teamId]-scoped effect below that
+  // re-applies selectedGameId after the reset never fires, and the deep
+  // link silently does nothing. Bumping this counter alongside setTeamId
+  // guarantees that effect re-runs every time regardless of whether
+  // teamId's own value actually changed.
+  const [searchParams] = useSearchParams();
+  const deepLinkGameId = searchParams.get('gameId');
+  const deepLinkAttemptedRef = useRef(false);
+  const pendingDeepLinkGameIdRef = useRef(null);
+  const [deepLinkVersion, setDeepLinkVersion] = useState(0);
+
   // ---- Shared, page-level state -------------------------------------
   // One real team picker for the whole page (previously statistics.jsx
   // and player-development.jsx each had their own independent copy of
@@ -66,6 +93,25 @@ function TeamInsights({ mode, toggleTheme, role, selectedSeason, logout, current
       .finally(() => { if (!cancelled) setTeamsLoading(false); });
     return () => { cancelled = true; };
   }, [activeTeam?.id]);
+
+  useEffect(() => {
+    if (!deepLinkGameId || deepLinkAttemptedRef.current || teams.length === 0) return undefined;
+    deepLinkAttemptedRef.current = true;
+    let cancelled = false;
+    backendApi.getGame(deepLinkGameId)
+      .then((game) => {
+        if (cancelled) return;
+        const myTeamIds = new Set((currentUser?.teams || []).map((t) => t.id));
+        const resolvedTeamId = myTeamIds.has(game.home_team_id)
+          ? game.home_team_id
+          : myTeamIds.has(game.opponent_team_id) ? game.opponent_team_id : game.home_team_id;
+        pendingDeepLinkGameIdRef.current = Number(deepLinkGameId);
+        setTeamId(resolvedTeamId);
+        setDeepLinkVersion((v) => v + 1);
+      })
+      .catch(() => {}); // real game lookup failed (deleted/no access) -- fall through to the normal default team, nothing to apply
+    return () => { cancelled = true; };
+  }, [deepLinkGameId, teams, currentUser]);
 
   // =====================================================================
   // SECTION 1: Statistics (season averages, win/loss, team shot zones)
@@ -307,6 +353,19 @@ function TeamInsights({ mode, toggleTheme, role, selectedSeason, logout, current
   useEffect(() => {
     setSelectedGameId('');
   }, [teamId]);
+
+  // Re-applies a pending ?gameId= deep link right after the reset above
+  // clears it. Depends on deepLinkVersion (not just teamId) specifically
+  // so this still fires when the resolved team was ALREADY the default
+  // selection -- see the comment on deepLinkVersion's declaration above
+  // for the real bug this fixes. A no-op on every ordinary team switch,
+  // since pendingDeepLinkGameIdRef is only ever set by the real game
+  // lookup above.
+  useEffect(() => {
+    if (pendingDeepLinkGameIdRef.current == null) return;
+    setSelectedGameId(pendingDeepLinkGameIdRef.current);
+    pendingDeepLinkGameIdRef.current = null;
+  }, [teamId, deepLinkVersion]);
 
   // Adapted from analysis.jsx's own real gameLabel(): the reference team
   // for "which side is ours" is now this page's explicit, shared teamId

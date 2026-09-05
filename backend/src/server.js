@@ -21,6 +21,7 @@ const seasonRoutes = require('./routes/seasons');
 const competitionRoutes = require('./routes/competitions');
 const institutionRoutes = require('./routes/institutions');
 const auditLogRoutes = require('./routes/auditLog');
+const notificationRoutes = require('./routes/notifications');
 const userRoutes = require('./routes/users');
 const passwordResetRoutes = require('./routes/passwordReset');
 const { ensureBucketExists } = require('./services/imageUpload');
@@ -53,6 +54,11 @@ app.use('/api/seasons', seasonRoutes);
 app.use('/api/competitions', competitionRoutes);
 app.use('/api/institutions', institutionRoutes);
 app.use('/api/audit-log', auditLogRoutes);
+// Step 58 Phase 2: real per-user notifications (unread-count/list/read/
+// read-all) -- its own top-level resource, same shape as audit-log just
+// above, not nested under /api/teams since it's scoped by req.user.id,
+// not a :teamId.
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
 // Public -- the account holder follows a staff-triggered reset link here,
 // unauthenticated (see users.js's POST /:userId/reset-password for the

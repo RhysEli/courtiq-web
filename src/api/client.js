@@ -291,6 +291,13 @@ export const backendApi = {
   deleteInstitution: (id) => request(`/institutions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   // FR-14: real audit trail of upload/compute/narrative actions (backend/src/routes/auditLog.js).
   getAuditLog: () => request('/audit-log'),
+  // Step 58 Phase 2: real per-user notifications (backend/src/routes/notifications.js).
+  // All 4 scoped server-side to the caller's own req.user.id -- no userId
+  // is ever passed from here.
+  getUnreadNotificationCount: () => request('/notifications/unread-count'),
+  getNotifications: () => request('/notifications'),
+  markNotificationRead: (id) => request(`/notifications/${id}/read`, { method: 'POST' }),
+  markAllNotificationsRead: () => request('/notifications/read-all', { method: 'POST' }),
   // Visual overhaul step 2: self-service personal preference (backend/src/routes/users.js). No role gate -- scoped to the caller's own row.
   getMyPreferences: () => request('/users/me/preferences'),
   updateMyPreferences: (data) => request('/users/me/preferences', { method: 'PATCH', body: data }),
