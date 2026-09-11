@@ -47,19 +47,29 @@ function toPositional(sql) {
   return sql.replace(/\?/g, () => `$${++i}`);
 }
 
-function prepare(sql) {
+// executor is whatever has a pg-compatible .query(sql, params) method --
+// the module-level `pool` for every existing call site (unchanged
+// behavior, since it's the default), or one specific checked-out client
+// when called from inside transaction() below, so every statement in a
+// transaction actually runs on the SAME real connection BEGIN/COMMIT was
+// issued on. pool.query() itself checks out a (possibly different)
+// connection per call, which is exactly why a real multi-statement
+// transaction can't just be "call pool.query('BEGIN') then more
+// pool.query() calls" -- there'd be no guarantee any of them share a
+// connection at all.
+function prepare(sql, executor = pool) {
   const pgSql = toPositional(sql);
   return {
     async get(...params) {
-      const result = await pool.query(pgSql, params);
+      const result = await executor.query(pgSql, params);
       return result.rows[0];
     },
     async all(...params) {
-      const result = await pool.query(pgSql, params);
+      const result = await executor.query(pgSql, params);
       return result.rows;
     },
     async run(...params) {
-      const result = await pool.query(pgSql, params);
+      const result = await executor.query(pgSql, params);
       // Postgres has no built-in "last insert id" -- callers that need it
       // must add `RETURNING id` to their INSERT statement (a handful of
       // call sites do this; see the 2026-08 Postgres migration notes).
@@ -100,7 +110,7 @@ async function exec(sql) {
 const POSTGRES_MAX_PARAMS = 65535;
 const BATCH_INSERT_SAFETY_CEILING = 2000; // well under the hard limit even for the widest real table (22 columns -> 44,000 params)
 
-async function batchInsert(tableName, columns, rows) {
+async function batchInsert(tableName, columns, rows, executor = pool) {
   if (rows.length === 0) return 0;
 
   const maxRowsPerChunk = Math.max(1, Math.floor(POSTGRES_MAX_PARAMS / columns.length));
@@ -111,10 +121,47 @@ async function batchInsert(tableName, columns, rows) {
     const rowPlaceholders = chunk.map(() => `(${columns.map(() => '?').join(', ')})`).join(', ');
     const sql = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES ${rowPlaceholders}`;
     const flatParams = chunk.flat();
-    await prepare(sql).run(...flatParams);
+    await prepare(sql, executor).run(...flatParams);
   }
 
   return rows.length;
+}
+
+// Real multi-statement transaction, added for Step 61 (a real re-upload
+// through reports.js's single-report Box Score route was found to
+// duplicate player_game_stats rows -- the delete and the insert need to
+// either both happen or neither, not observably land in between). No
+// precedent existed anywhere in this codebase before this -- every
+// existing db.prepare/db.batchInsert call already auto-commits its own
+// single statement against the pool, which is correct for all of them,
+// just not sufficient for a real delete-then-insert pair that must be
+// atomic.
+//
+// callback receives `tx`, a { prepare, batchInsert } pair with the exact
+// same shape/behavior as the module-level db.prepare/db.batchInsert --
+// just bound to this transaction's own dedicated client instead of the
+// shared pool -- so code inside a transaction reads identically to code
+// outside one. A thrown error (from the callback, or from any query
+// inside it) rolls back and rethrows; the caller's own try/catch (e.g.
+// reports.js's existing extraction-failure handling) still sees the real
+// error and still runs its own real failure path, unchanged.
+async function transaction(callback) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const tx = {
+      prepare: (sql) => prepare(sql, client),
+      batchInsert: (tableName, columns, rows) => batchInsert(tableName, columns, rows, client),
+    };
+    const result = await callback(tx);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 async function migrate() {
@@ -130,6 +177,8 @@ async function migrate() {
   await exec(schema);
 }
 
-const db = { prepare, exec, pool, migrate, batchInsert };
+const db = {
+  prepare, exec, pool, migrate, batchInsert, transaction,
+};
 
 module.exports = db;

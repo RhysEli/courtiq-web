@@ -160,13 +160,32 @@ router.post(
             JSON.stringify(p), playerId,
           ]);
         }
-        await db.batchInsert(
-          'player_game_stats',
-          ['game_id', 'player_name', 'team_side', 'minutes', 'points', 'fgm', 'fga', 'three_pm', 'three_pa',
-            'ftm', 'fta', 'oreb', 'dreb', 'reb', 'assists', 'steals', 'blocks', 'turnovers', 'fouls', 'plus_minus',
-            'raw_extraction', 'player_id'],
-          statRows,
-        );
+        // Step 61: real re-upload-safety fix. This branch used to insert
+        // straight into player_game_stats with no delete first, unlike
+        // bulkImport.js's own Box Score path (which does `DELETE FROM
+        // player_game_stats WHERE game_id = ?` before its own insert) --
+        // confirmed live to silently duplicate every real player row on a
+        // second real upload of the same game's Box Score through this
+        // route. Delete scoped by game_id alone, matching bulkImport.js's
+        // own real scoping exactly (a Box Score always covers both real
+        // sides of the game, never just one, so there's no team_id/
+        // team_code to additionally scope by). Both statements now run in
+        // one real transaction (db/index.js's new transaction() -- no
+        // precedent for this existed anywhere in this codebase before) so
+        // a failure between the delete and the insert can't leave this
+        // game's real stats half-deleted; a rollback here still surfaces
+        // to this route's own existing catch block below, which already
+        // marks extraction_status = 'failed' and notifies the uploader.
+        await db.transaction(async (tx) => {
+          await tx.prepare('DELETE FROM player_game_stats WHERE game_id = ?').run(gameId);
+          await tx.batchInsert(
+            'player_game_stats',
+            ['game_id', 'player_name', 'team_side', 'minutes', 'points', 'fgm', 'fga', 'three_pm', 'three_pa',
+              'ftm', 'fta', 'oreb', 'dreb', 'reb', 'assists', 'steals', 'blocks', 'turnovers', 'fouls', 'plus_minus',
+              'raw_extraction', 'player_id'],
+            statRows,
+          );
+        });
         await db.prepare('UPDATE reports SET extraction_status = ? WHERE id = ?').run('extracted', reportId);
         await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (${players.length} players extracted)`, true);
         // Step 60 Phase 3: real notification for the real uploader -- unlike
