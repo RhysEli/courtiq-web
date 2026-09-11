@@ -6,6 +6,7 @@ const db = require('../db');
 const { requireAuth, requireRole, requireGameAccess, requireStatisticianOrFallback } = require('../middleware/auth');
 const { extractBoxScore } = require('../services/pdfExtraction');
 const { logAction } = require('../services/auditLog');
+const { createNotification } = require('../services/notifications');
 const { resolvePlayerName } = require('../services/playerIdentity');
 const {
   extractQuarterReport,
@@ -168,6 +169,17 @@ router.post(
         );
         await db.prepare('UPDATE reports SET extraction_status = ? WHERE id = ?').run('extracted', reportId);
         await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (${players.length} players extracted)`, true);
+        // Step 60 Phase 3: real notification for the real uploader -- unlike
+        // Phase 1's two triggers, this isn't a team broadcast, it's the
+        // specific person waiting on their own upload (Step 57's own
+        // framing). req.user.id here is the same real user reports.
+        // uploaded_by already records for this row.
+        await createNotification({
+          recipientUserId: req.user.id,
+          type: 'report_extracted',
+          message: `${reportType} report "${req.file.originalname}" was extracted successfully (${players.length} players).`,
+          reportId,
+        });
         const noteParts = [];
         if (unparsedLineCount > 0) {
           noteParts.push(`${unparsedLineCount} line(s) looked like stat rows but did not match the parser — check extraction_error-free but review raw text if numbers look off.`);
@@ -184,6 +196,16 @@ router.post(
         await db.prepare('UPDATE reports SET extraction_status = ?, extraction_error = ? WHERE id = ?')
           .run('failed', err.message, reportId);
         await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (${err.message})`, false);
+        // Step 60 Phase 3: distinguishable type from the success case above
+        // (report_extraction_failed, not report_extracted) so the bell
+        // panel's message text alone already tells success and failure
+        // apart -- no panel code change needed for that distinction.
+        await createNotification({
+          recipientUserId: req.user.id,
+          type: 'report_extraction_failed',
+          message: `${reportType} report "${req.file.originalname}" failed to extract: ${err.message}`,
+          reportId,
+        });
         return res.status(422).json({
           reportId,
           error: err.message,
@@ -226,11 +248,23 @@ router.post(
 
         await db.prepare('UPDATE reports SET extraction_status = ? WHERE id = ?').run('extracted', reportId);
         await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (extracted)`, true);
+        await createNotification({
+          recipientUserId: req.user.id,
+          type: 'report_extracted',
+          message: `${reportType} report "${req.file.originalname}" was extracted successfully.`,
+          reportId,
+        });
         return res.status(201).json({ reportId, extraction: { status: 'stored', rows } });
       } catch (err) {
         await db.prepare('UPDATE reports SET extraction_status = ?, extraction_error = ? WHERE id = ?')
           .run('failed', err.message, reportId);
         await logAction(req.user.id, 'upload', `${reportType} report: ${req.file.originalname} -> game #${gameId} (${err.message})`, false);
+        await createNotification({
+          recipientUserId: req.user.id,
+          type: 'report_extraction_failed',
+          message: `${reportType} report "${req.file.originalname}" failed to extract: ${err.message}`,
+          reportId,
+        });
         return res.status(422).json({
           reportId,
           error: err.message,

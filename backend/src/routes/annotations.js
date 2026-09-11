@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { createNotification, resolveTeamRecipients } = require('../services/notifications');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -43,7 +44,13 @@ async function resolveAnnotationScope(req, res, next) {
       if (!game) return res.status(404).json({ error: 'Game not found' });
       const hasAccess = accessibleTeamIds.includes(game.home_team_id) || accessibleTeamIds.includes(game.opponent_team_id);
       if (!hasAccess) return res.status(403).json({ error: 'You do not have access to this game' });
-      req.annotationScope = { column: 'game_id', id: gameId };
+      // teamIds carried forward for Step 60 Phase 3's coach-note
+      // notification -- both real sides of the game, same real team-
+      // scoping the game-analyzed trigger already uses (a note on a game
+      // is relevant to either side's own staff, not just the author's).
+      // Reuses the access check's own query above rather than a second
+      // lookup at the POST handler.
+      req.annotationScope = { column: 'game_id', id: gameId, teamIds: [game.home_team_id, game.opponent_team_id] };
       return next();
     }
 
@@ -51,14 +58,14 @@ async function resolveAnnotationScope(req, res, next) {
       const tcs = await db.prepare('SELECT team_id FROM team_competition_seasons WHERE id = ?').get(teamCompetitionSeasonId);
       if (!tcs) return res.status(404).json({ error: 'Team competition season not found' });
       if (!accessibleTeamIds.includes(tcs.team_id)) return res.status(403).json({ error: 'You do not have access to this team' });
-      req.annotationScope = { column: 'team_competition_season_id', id: teamCompetitionSeasonId };
+      req.annotationScope = { column: 'team_competition_season_id', id: teamCompetitionSeasonId, teamIds: [tcs.team_id] };
       return next();
     }
 
     const player = await db.prepare('SELECT team_id FROM players WHERE id = ?').get(playerId);
     if (!player) return res.status(404).json({ error: 'Player not found' });
     if (!accessibleTeamIds.includes(player.team_id)) return res.status(403).json({ error: 'You do not have access to this team' });
-    req.annotationScope = { column: 'player_id', id: playerId };
+    req.annotationScope = { column: 'player_id', id: playerId, teamIds: [player.team_id] };
     return next();
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -91,12 +98,38 @@ router.post('/', requireRole('Coach'), resolveAnnotationScope, async (req, res) 
     return res.status(400).json({ error: 'body is required' });
   }
   try {
-    const { column, id } = req.annotationScope;
+    const { column, id, teamIds } = req.annotationScope;
     const result = await db.prepare(`
       INSERT INTO annotations (${column}, author_id, body)
       VALUES (?, ?, ?)
       RETURNING id
     `).run(id, req.user.id, body.trim());
+
+    // Step 60 Phase 3: real notification for real team members other than
+    // the author -- reuses resolveTeamRecipients, same helper and same
+    // exclude-the-actor shape the game-analyzed trigger already uses.
+    // Game-scoped notes only: notifications' own real scope columns
+    // (game_id/report_id/player_identity_review_id) have no column for
+    // "a season summary" or "a player profile" -- adding one is a real
+    // schema change, explicitly out of this round's scope, so a
+    // team_competition_season_id- or player_id-scoped note structurally
+    // has nothing real to attach a notification row to yet.
+    if (column === 'game_id') {
+      const [author, game] = await Promise.all([
+        db.prepare('SELECT name FROM users WHERE id = ?').get(req.user.id),
+        db.prepare('SELECT home_team_id, opponent_team_id, game_date FROM games WHERE id = ?').get(id),
+      ]);
+      const recipients = await resolveTeamRecipients(teamIds, { excludeUserId: req.user.id });
+      for (const recipientUserId of recipients) {
+        await createNotification({
+          recipientUserId,
+          type: 'note_added',
+          message: `${author?.name || 'A coach'} added a note to ${game.home_team_id} vs ${game.opponent_team_id} (${game.game_date || 'no date'}).`,
+          gameId: id,
+        });
+      }
+    }
+
     res.status(201).json({ id: result.lastInsertRowid });
   } catch (err) {
     console.error('create annotation failed:', err);

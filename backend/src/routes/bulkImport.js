@@ -16,6 +16,7 @@ const {
 const { extractScoreSheet } = require('../services/parseScoreSheet');
 const { persistAdditionalReports } = require('../services/persistExtractedReports');
 const { logAction } = require('../services/auditLog');
+const { createNotification } = require('../services/notifications');
 const { resolvePlayerName } = require('../services/playerIdentity');
 const { resolveGameStageId } = require('../services/resolveGameStage');
 const { resolveTeamName } = require('../services/teamIdentity');
@@ -82,6 +83,17 @@ router.post(
 
     for (const file of req.files) {
       const entry = { filename: file.originalname };
+      // Step 60 Phase 3: tracks whether a real `reports` row has actually
+      // been created for THIS file yet -- most of this loop's real failure
+      // paths below (unreadable header, no team access, pending team
+      // identity review, stage resolution failure) `continue` well before
+      // any reports row exists, so there's genuinely nothing with a real
+      // id to attach a report_extraction_failed notification to for those.
+      // Only the narrower case -- a reports row was created (extraction
+      // itself already succeeded), and something AFTER that still threw --
+      // has a real row to reference, which is what the catch block below
+      // checks this for.
+      let createdReportId = null;
       try {
         // Parsed once and reused across the box score + all 6 additional
         // extractors below -- each was independently re-reading and
@@ -254,6 +266,7 @@ router.post(
           VALUES (?, 'Box Score', ?, ?, ?, 'extracted')
           RETURNING id
         `).run(game.id, file.originalname, file.path, req.user.id);
+        createdReportId = insertReport.lastInsertRowid;
 
         await db.prepare('DELETE FROM player_game_stats WHERE game_id = ?').run(game.id);
 
@@ -316,11 +329,35 @@ router.post(
         entry.reportId = insertReport.lastInsertRowid;
         results.push(entry);
         await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} -> game #${game.id} (${entry.status})`, true);
+        // Step 60 Phase 3: real notification for the real uploader, same
+        // reasoning as reports.js's own single-report route -- the specific
+        // person waiting on their own upload, not a team broadcast.
+        await createNotification({
+          recipientUserId: req.user.id,
+          type: 'report_extracted',
+          message: `Bulk import: "${file.originalname}" was extracted successfully (${players.length} players).`,
+          reportId: createdReportId,
+        });
       } catch (err) {
         entry.status = 'failed';
         entry.error = err.message;
         entry.code = err.code;
         results.push(entry);
+        // Step 60 Phase 3: only when a real reports row actually exists for
+        // this file -- most of this loop's earlier real failure paths
+        // (unreadable header, no team access, pending team identity
+        // review, stage resolution failure) never reach the INSERT above,
+        // so there's genuinely no real report_id to notify about for
+        // those; correctly produces no notification at all in that case,
+        // not a broken/orphaned one.
+        if (createdReportId != null) {
+          await createNotification({
+            recipientUserId: req.user.id,
+            type: 'report_extraction_failed',
+            message: `Bulk import: "${file.originalname}" failed to extract: ${err.message}`,
+            reportId: createdReportId,
+          });
+        }
         await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} (${err.message})`, false);
       }
     }
