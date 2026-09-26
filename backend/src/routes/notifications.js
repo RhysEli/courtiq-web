@@ -36,7 +36,7 @@ router.get('/unread-count', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const rows = await db.prepare(`
-      SELECT id, type, message, game_id, report_id, player_identity_review_id, read_at, created_at
+      SELECT id, type, message, game_id, report_id, player_identity_review_id, team_identity_review_id, read_at, created_at
       FROM notifications
       WHERE recipient_user_id = ?
       ORDER BY created_at DESC

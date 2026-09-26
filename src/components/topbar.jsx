@@ -27,6 +27,12 @@ import { backendApi } from '../api/client';
 function notificationTargetUrl(n) {
   if (n.game_id) return `/statistics?gameId=${n.game_id}`;
   if (n.player_identity_review_id) return '/players-management';
+  // Step 64: team_identity_review is real and system-wide now (see
+  // teamIdentity.js's queuePendingReview) -- same "review queue lives
+  // here" target as player_identity_review just above, just the team-
+  // side queue (teams-management.jsx's own "Possible duplicate teams"
+  // section) instead of the player-side one.
+  if (n.team_identity_review_id) return '/teams-management';
   // report_id: no trigger writes this yet (Phase 3, not built) -- best
   // effort only, genuinely untested, since no real notification can
   // carry this today.

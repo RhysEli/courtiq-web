@@ -51,19 +51,14 @@ const ACCENT_TOGGLE_SX = {
     filter: 'brightness(0.92)',
   },
 };
-// Notifications' two Switches and the "Save preferences" button below were
-// still bare MUI defaults (theme.palette.primary, itself bound to the
-// unrelated Quick Team Preset -- not literally hardcoded, but never
-// intentionally set to accent either, unlike everything else on this
-// page). Same personal-preference-panel reasoning as ACCENT_TOGGLE_SX.
+// Notifications' two Switches below were still bare MUI defaults
+// (theme.palette.primary, itself bound to the unrelated Quick Team Preset
+// -- not literally hardcoded, but never intentionally set to accent
+// either, unlike everything else on this page). Same personal-preference-
+// panel reasoning as ACCENT_TOGGLE_SX.
 const ACCENT_SWITCH_SX = {
   '& .MuiSwitch-switchBase.Mui-checked': { color: 'var(--user-accent)' },
   '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: 'var(--user-accent)', opacity: 0.5 },
-};
-const ACCENT_OUTLINED_BUTTON_SX = {
-  borderColor: 'var(--user-accent)',
-  color: 'var(--user-accent)',
-  '&:hover': { borderColor: 'var(--user-accent)', bgcolor: 'color-mix(in srgb, var(--user-accent) 12%, transparent)' },
 };
 
 function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, currentUser }) {
@@ -71,6 +66,13 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
   const { themeMode, setThemeMode, teamColors, setTeamPreset, backgroundIntensity, setBackgroundIntensity } = useThemePreferences();
 
   const [accentOverride, setAccentOverride] = useState(null);
+  // Step 64: real per-user notification preferences (users.notify_ai_
+  // updates/notify_coach_notes), loaded/saved through this same real
+  // getMyPreferences/updateMyPreferences pair -- default true matches the
+  // column's own DEFAULT, so a not-yet-loaded render never flashes an
+  // "opted out" state.
+  const [notifyAiUpdates, setNotifyAiUpdates] = useState(true);
+  const [notifyCoachNotes, setNotifyCoachNotes] = useState(true);
   const [prefsLoading, setPrefsLoading] = useState(true);
   const [prefsError, setPrefsError] = useState('');
   const [savingField, setSavingField] = useState(null);
@@ -82,6 +84,8 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
       .then((data) => {
         if (cancelled) return;
         setAccentOverride(data.accent_override);
+        setNotifyAiUpdates(data.notify_ai_updates);
+        setNotifyCoachNotes(data.notify_coach_notes);
         // Keep ThemeContext/localStorage in sync with the real DB value,
         // in case this browser's cached copy (from a previous login) is
         // stale -- e.g. the preference was changed from another device.
@@ -125,6 +129,43 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
       setAccentOverride(previous);
       applyTheme({ brand: getCurrentBrand(), userPref: { accentOverride: previous } });
       setSaveError(err.message || 'Could not save accent color.');
+    } finally {
+      setSavingField(null);
+    }
+  };
+
+  // Same optimistic update + rollback-on-failure shape as changeThemeMode/
+  // changeAccentOverride just above, saving immediately on toggle rather
+  // than a separate "Save preferences" step -- that button never had a
+  // real handler at all (removed below, not replaced), and every other
+  // control on this page already saves this same way.
+  const changeNotifyAiUpdates = async (value) => {
+    const previous = notifyAiUpdates;
+    setNotifyAiUpdates(value);
+    setSavingField('notifyAiUpdates');
+    setSaveError('');
+    try {
+      const updated = await backendApi.updateMyPreferences({ notifyAiUpdates: value });
+      setNotifyAiUpdates(updated.notify_ai_updates);
+    } catch (err) {
+      setNotifyAiUpdates(previous);
+      setSaveError(err.message || 'Could not save notification preference.');
+    } finally {
+      setSavingField(null);
+    }
+  };
+
+  const changeNotifyCoachNotes = async (value) => {
+    const previous = notifyCoachNotes;
+    setNotifyCoachNotes(value);
+    setSavingField('notifyCoachNotes');
+    setSaveError('');
+    try {
+      const updated = await backendApi.updateMyPreferences({ notifyCoachNotes: value });
+      setNotifyCoachNotes(updated.notify_coach_notes);
+    } catch (err) {
+      setNotifyCoachNotes(previous);
+      setSaveError(err.message || 'Could not save notification preference.');
     } finally {
       setSavingField(null);
     }
@@ -277,9 +318,35 @@ function Settings({ selectedTeam, onTeamChange, role, selectedSeason, logout, cu
           <GlassCard>
             <GlassCardContent>
               <Typography variant="h6" fontWeight={700}>Notifications</Typography>
-              <FormControlLabel control={<Switch defaultChecked sx={ACCENT_SWITCH_SX} />} label="Game reminders" sx={{ mt: 2, display: 'block' }} />
-              <FormControlLabel control={<Switch defaultChecked sx={ACCENT_SWITCH_SX} />} label="AI analysis updates" sx={{ display: 'block' }} />
-              <Button variant="outlined" sx={{ mt: 2, ...ACCENT_OUTLINED_BUTTON_SX }}>Save preferences</Button>
+              <Typography color="text.secondary" variant="body2" sx={{ mt: 1 }}>
+                Player and team identity reviews always notify you regardless of these toggles -- they're real
+                review tasks for your role, not FYIs.
+              </Typography>
+              <FormControlLabel
+                control={(
+                  <Switch
+                    checked={notifyCoachNotes}
+                    onChange={(event) => changeNotifyCoachNotes(event.target.checked)}
+                    disabled={prefsLoading || savingField === 'notifyCoachNotes'}
+                    sx={ACCENT_SWITCH_SX}
+                  />
+                )}
+                label="Coach notes"
+                sx={{ mt: 2, display: 'block' }}
+              />
+              <FormControlLabel
+                control={(
+                  <Switch
+                    checked={notifyAiUpdates}
+                    onChange={(event) => changeNotifyAiUpdates(event.target.checked)}
+                    disabled={prefsLoading || savingField === 'notifyAiUpdates'}
+                    sx={ACCENT_SWITCH_SX}
+                  />
+                )}
+                label="AI analysis updates"
+                sx={{ display: 'block' }}
+              />
+              {saveError && <Alert severity="error" sx={{ mt: 2 }}>{saveError}</Alert>}
             </GlassCardContent>
           </GlassCard>
         </Grid>

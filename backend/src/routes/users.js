@@ -337,7 +337,9 @@ router.post('/:userId/reset-password', requireRole(...STAFF_ROLES), requireShare
 
 router.get('/me/preferences', async (req, res) => {
   try {
-    const user = await db.prepare('SELECT theme_mode, accent_override FROM users WHERE id = ?').get(req.user.id);
+    const user = await db.prepare(
+      'SELECT theme_mode, accent_override, notify_ai_updates, notify_coach_notes FROM users WHERE id = ?',
+    ).get(req.user.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -351,9 +353,16 @@ router.get('/me/preferences', async (req, res) => {
 // Partial update: a field omitted from the body keeps its current value.
 // accentOverride: null explicitly clears the override (falls back to the
 // team's brand_accent) -- distinct from omitting the field entirely.
+//
+// Step 64: notifyAiUpdates/notifyCoachNotes gate createNotification()
+// (backend/src/services/notifications.js) for the real "FYI" notification
+// types -- see settings.jsx for which types map to which. Plain booleans,
+// no format validation needed the way accentOverride's hex string needs.
 router.patch('/me/preferences', async (req, res) => {
   try {
-    const existing = await db.prepare('SELECT theme_mode, accent_override FROM users WHERE id = ?').get(req.user.id);
+    const existing = await db.prepare(
+      'SELECT theme_mode, accent_override, notify_ai_updates, notify_coach_notes FROM users WHERE id = ?',
+    ).get(req.user.id);
     if (!existing) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -361,6 +370,8 @@ router.patch('/me/preferences', async (req, res) => {
     const {
       themeMode = existing.theme_mode,
       accentOverride = existing.accent_override,
+      notifyAiUpdates = existing.notify_ai_updates,
+      notifyCoachNotes = existing.notify_coach_notes,
     } = req.body;
 
     if (!THEME_MODES.includes(themeMode)) {
@@ -369,11 +380,14 @@ router.patch('/me/preferences', async (req, res) => {
     if (accentOverride !== null && !HEX_COLOR_RE.test(accentOverride)) {
       return res.status(400).json({ error: 'accentOverride must be a #rrggbb hex color, or null' });
     }
+    if (typeof notifyAiUpdates !== 'boolean' || typeof notifyCoachNotes !== 'boolean') {
+      return res.status(400).json({ error: 'notifyAiUpdates and notifyCoachNotes must be booleans' });
+    }
 
     const updated = await db.prepare(`
-      UPDATE users SET theme_mode = ?, accent_override = ? WHERE id = ?
-      RETURNING theme_mode, accent_override
-    `).get(themeMode, accentOverride, req.user.id);
+      UPDATE users SET theme_mode = ?, accent_override = ?, notify_ai_updates = ?, notify_coach_notes = ? WHERE id = ?
+      RETURNING theme_mode, accent_override, notify_ai_updates, notify_coach_notes
+    `).get(themeMode, accentOverride, notifyAiUpdates, notifyCoachNotes, req.user.id);
 
     res.json(updated);
   } catch (err) {

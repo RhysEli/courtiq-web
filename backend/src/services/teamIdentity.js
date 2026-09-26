@@ -1,4 +1,5 @@
 const db = require('../db');
+const { createNotification, resolveRoleRecipients } = require('./notifications');
 
 // Team identity resolution: given a raw team-name string (a PDF header,
 // or something staff typed), decide whether it's an existing team (exact
@@ -92,6 +93,29 @@ async function queuePendingReview(name, candidate) {
     VALUES (?, ?, ?)
     RETURNING id
   `).get(name, candidate.candidateTeamId, candidate.reason);
+
+  // Step 64: real notification for the real review queue item just
+  // created -- only on this branch (the existingPending check above
+  // already prevents re-notifying for a repeat sighting of the same
+  // pending candidate, same dedupe shape playerIdentity.js's own trigger
+  // relies on). No team_id to scope by (see the schema comment on
+  // team_identity_review), so every real Statistician/Team Manager in
+  // the system is notified -- resolveRoleRecipients, not
+  // resolveTeamRecipients, which is inherently team-scoped and has
+  // nothing real to scope by here. No excludeUserId: like
+  // playerIdentity.js's resolvePlayerName, resolveTeamName is called
+  // from bulk import, single-report upload, and manual team creation --
+  // several of those have no real req.user available at all.
+  const reviewRecipients = await resolveRoleRecipients(['Statistician', 'Team Manager']);
+  for (const recipientUserId of reviewRecipients) {
+    await createNotification({
+      recipientUserId,
+      type: 'team_identity_review',
+      message: `New team name needs review: "${name}" (might be ${candidate.candidateTeamId}).`,
+      teamIdentityReviewId: inserted.id,
+    });
+  }
+
   return inserted.id;
 }
 

@@ -203,6 +203,27 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT;
 -- why that's an accepted tradeoff, not an oversight.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
 
+-- Step 64: real per-user notification preferences, replacing settings.jsx's
+-- two hardcoded, unwired Switches. Following this table's own established
+-- convention for small per-user config (theme_mode/accent_override just
+-- above) -- a dedicated typed column per real setting, not a JSONB blob or
+-- a separate table -- since this codebase has no existing JSONB column
+-- anywhere (report/lineup/annotation "blob" fields are all plain TEXT with
+-- app-level JSON.stringify/parse, a different real use case: a computed
+-- record written once, not a small fixed set of directly user-editable
+-- booleans). DEFAULT true on both so nobody's real notification behavior
+-- changes just because this column now exists -- opting out is a real,
+-- deliberate action, not a side effect of a migration.
+--
+-- Only two real columns, not one per notification `type`: player_identity_
+-- review and team_identity_review are actionable review-queue items for a
+-- specific role, not passive FYIs, so they're deliberately NOT gated by
+-- any preference here (muting one risks a real review task going unseen).
+-- The other four real types collapse into two honest categories instead --
+-- see settings.jsx for the mapping.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_ai_updates BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_coach_notes BOOLEAN NOT NULL DEFAULT true;
+
 -- One-time backfill note (deliberately NOT a statement below, since this
 -- file re-runs in full on every server startup -- an UPDATE here would
 -- keep re-firing forever and silently overwrite a real future user's
@@ -719,17 +740,19 @@ CREATE TABLE IF NOT EXISTS audit_log (
 --
 -- Exactly-one-of-N-scope-columns, same real pattern and same DROP + re-ADD
 -- CHECK convention as annotations_exactly_one_scope above -- game_id/
--- report_id/player_identity_review_id are alternatives, not concurrent
--- facts, matching how annotations already models "attached to exactly one
--- of these real things". team_identity_review_id deliberately NOT included
--- yet -- Step 57 investigation found that table has no team_id at all
--- (unscoped), so "who's the real recipient" is still an open product
--- question, not a schema question; add the column when that's decided
--- rather than guessing now.
+-- report_id/player_identity_review_id/team_identity_review_id are
+-- alternatives, not concurrent facts, matching how annotations already
+-- models "attached to exactly one of these real things".
+--
+-- Step 64: team_identity_review_id added now that "who's the real
+-- recipient" (the open question Step 57 left unanswered) has a real
+-- answer -- see resolveRoleRecipients in notifications.js: every real
+-- Statistician/Team Manager, system-wide, since team_identity_review has
+-- no team_id to narrow by.
 CREATE TABLE IF NOT EXISTS notifications (
   id SERIAL PRIMARY KEY,
   recipient_user_id INTEGER NOT NULL REFERENCES users(id),
-  type TEXT NOT NULL, -- 'game_analyzed' | 'player_identity_review' (more added as more triggers are wired)
+  type TEXT NOT NULL, -- 'game_analyzed' | 'player_identity_review' | 'report_extracted' | 'report_extraction_failed' | 'note_added' | 'team_identity_review'
   message TEXT NOT NULL, -- short human-readable summary, same spirit as audit_log.details
   game_id INTEGER REFERENCES games(id),
   report_id INTEGER REFERENCES reports(id),
@@ -737,10 +760,11 @@ CREATE TABLE IF NOT EXISTS notifications (
   read_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_exactly_one_scope;
-ALTER TABLE notifications ADD CONSTRAINT notifications_exactly_one_scope CHECK (
-  (game_id IS NOT NULL)::int + (report_id IS NOT NULL)::int + (player_identity_review_id IS NOT NULL)::int = 1
-);
+-- team_identity_review_id and the real exactly-one-scope CHECK covering it
+-- are added further down (after team_identity_review itself is created --
+-- this table is defined first in the file, so a forward REFERENCES here
+-- would fail), same "ALTER TABLE ... ADD COLUMN ... REFERENCES" deferred
+-- pattern already used for games.stage_id -> stages.
 
 -- Season/leg structure (investigated, not built, in the round before this
 -- one). Scoped to team_competition_seasons, not to (competition, season)
@@ -828,6 +852,17 @@ CREATE TABLE IF NOT EXISTS team_identity_review (
 CREATE UNIQUE INDEX IF NOT EXISTS team_identity_review_pending_unique
   ON team_identity_review (candidate_text)
   WHERE status = 'pending';
+
+-- Step 64: the real recipient question Step 57 left open -- see the
+-- comment on the notifications table above. Deferred to here (not inline
+-- on that table) only because team_identity_review didn't exist yet at
+-- that point in the file.
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS team_identity_review_id INTEGER REFERENCES team_identity_review(id);
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_exactly_one_scope;
+ALTER TABLE notifications ADD CONSTRAINT notifications_exactly_one_scope CHECK (
+  (game_id IS NOT NULL)::int + (report_id IS NOT NULL)::int
+    + (player_identity_review_id IS NOT NULL)::int + (team_identity_review_id IS NOT NULL)::int = 1
+);
 
 -- Additive grouping: "these team ids are the same real team", consulted
 -- only at analysis/comparison query time -- deliberately does NOT touch
