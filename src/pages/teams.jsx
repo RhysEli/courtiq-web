@@ -1,9 +1,11 @@
-import { Alert, Avatar, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, FormControlLabel, Grid, Stack, Switch, TextField, Typography } from '@mui/material';
+import { Alert, Avatar, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, Grid, Stack, TextField, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/layout';
-import ColorField from '../components/ColorField';
+import TeamThemePicker from '../components/TeamThemePicker';
+import PhotoUpload from '../components/PhotoUpload';
 import { backendApi } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { persistBrandColors } from '../theme/brandColors';
 
 // FR-11: real team data against the backend `teams` table
 // (backend/src/routes/teams.js), replacing the old localStorage-only
@@ -16,7 +18,7 @@ import { useAuth } from '../contexts/AuthContext';
 // (comma-separated free text) never had a real column and are dropped;
 // roster count is now the real count from the team's actual roster.
 
-const emptyForm = { coachName: '', managerName: '', statisticianName: '', colorPrimary: '', colorSecondary: '', logoUrl: '' };
+const emptyForm = { coachName: '', managerName: '', statisticianName: '', colorPrimary: '', colorSecondary: '', brandAccent: '', logoUrl: '' };
 
 function Teams({ mode, toggleTheme, role, selectedSeason, logout }) {
   const { activeTeam: sessionActiveTeam } = useAuth();
@@ -28,7 +30,6 @@ function Teams({ mode, toggleTheme, role, selectedSeason, logout }) {
   const [rosterCountError, setRosterCountError] = useState('');
 
   const [form, setForm] = useState(emptyForm);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [notice, setNotice] = useState('');
@@ -60,6 +61,14 @@ function Teams({ mode, toggleTheme, role, selectedSeason, logout }) {
   );
 
   // Populate the edit form from whichever team is currently active.
+  // Keyed on activeTeam?.id, NOT activeTeam itself: loadTeams() (called
+  // after a logo upload, among other things) gives `teams` a new array
+  // reference on every reload even when nothing the user is editing
+  // changed, which previously re-ran this effect and silently discarded
+  // any in-progress unsaved edits (e.g. a theme preset picked but not
+  // yet saved) every time a logo upload completed. Re-populating only
+  // when the SELECTED team actually changes is the correct behavior for
+  // an edit form either way.
   useEffect(() => {
     setForm(activeTeam ? {
       coachName: activeTeam.coach_name || '',
@@ -67,9 +76,11 @@ function Teams({ mode, toggleTheme, role, selectedSeason, logout }) {
       statisticianName: activeTeam.statistician_name || '',
       colorPrimary: activeTeam.color_primary || '',
       colorSecondary: activeTeam.color_secondary || '',
+      brandAccent: activeTeam.brand_accent || '',
       logoUrl: activeTeam.logo_url || '',
     } : emptyForm);
-  }, [activeTeam]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTeam?.id]);
 
   useEffect(() => {
     if (!activeTeam) { setRosterCount(null); return; }
@@ -79,13 +90,42 @@ function Teams({ mode, toggleTheme, role, selectedSeason, logout }) {
       .catch((err) => setRosterCountError(err.message || 'Could not load roster count.'));
   }, [activeTeam]);
 
+  // Step 63: real upload (Supabase Storage via PhotoUpload/uploadTeamLogo,
+  // the same real pipeline team-brand-settings.jsx already uses) replaces
+  // the old raw "Logo URL" text field, which wrote an unvalidated string
+  // straight to teams.logo_url via the general update route with no
+  // upload at all. loadTeams() refreshes `teams` afterward so the real
+  // Avatar preview at the top of this page (which reads activeTeam.
+  // logo_url, not form.logoUrl) picks up the new image immediately,
+  // matching this page's own existing "reload after a real save" pattern
+  // (see updateActiveTeam below).
+  const uploadLogo = async (blob) => {
+    if (!activeTeam) return;
+    const updated = await backendApi.uploadTeamLogo(activeTeam.id, blob);
+    setForm((prev) => ({ ...prev, logoUrl: updated.logo_url || '' }));
+    await loadTeams();
+    setNotice(`Updated ${activeTeam.name}'s logo.`);
+  };
+
   const updateActiveTeam = async () => {
     if (!activeTeam) return;
     setSaving(true);
     setSaveError('');
     try {
-      await backendApi.updateTeam(activeTeam.id, form);
+      const updated = await backendApi.updateTeam(activeTeam.id, form);
       await loadTeams();
+      // activeTeam is always the logged-in user's OWN team (derived from
+      // sessionActiveTeam above), so keep this browser's cached brand
+      // (main.jsx applies it synchronously on every reload, before
+      // team data is ever re-fetched -- see brandColors.js) in sync too.
+      // Without this, a color/theme change saved here would be correct
+      // in the database but invisible in the sidebar/topbar/dashboard
+      // until the next login.
+      persistBrandColors({
+        colorPrimary: updated.color_primary || '',
+        colorSecondary: updated.color_secondary || '',
+        brandAccent: updated.brand_accent || '',
+      });
       setNotice(`Updated ${activeTeam.name}`);
     } catch (err) {
       setSaveError(err.message || 'Could not save team.');
@@ -133,24 +173,22 @@ function Teams({ mode, toggleTheme, role, selectedSeason, logout }) {
                   <Grid item xs={12} sm={6}><TextField fullWidth label="Coach" value={form.coachName} onChange={(event) => setForm((prev) => ({ ...prev, coachName: event.target.value }))} /></Grid>
                   <Grid item xs={12} sm={6}><TextField fullWidth label="Team manager" value={form.managerName} onChange={(event) => setForm((prev) => ({ ...prev, managerName: event.target.value }))} /></Grid>
                   <Grid item xs={12} sm={6}><TextField fullWidth label="Statistician" value={form.statisticianName} onChange={(event) => setForm((prev) => ({ ...prev, statisticianName: event.target.value }))} /></Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Logo URL" value={form.logoUrl} onChange={(event) => setForm((prev) => ({ ...prev, logoUrl: event.target.value }))} /></Grid>
                   <Grid item xs={12}>
-                    <ColorField label="Primary colour" value={form.colorPrimary} onChange={(hex) => setForm((prev) => ({ ...prev, colorPrimary: hex }))} />
-                    <ColorField label="Secondary colour" value={form.colorSecondary} onChange={(hex) => setForm((prev) => ({ ...prev, colorSecondary: hex }))} />
-                    <FormControlLabel
-                      control={<Switch checked={advancedOpen} onChange={(event) => setAdvancedOpen(event.target.checked)} />}
-                      label="Advanced: enter custom hex codes"
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Team logo</Typography>
+                    <Box sx={{ mb: 2 }}>
+                      <PhotoUpload
+                        value={form.logoUrl}
+                        onUpload={uploadLogo}
+                        shape="square"
+                        fallback={activeTeam?.name?.slice(0, 2).toUpperCase() || 'TM'}
+                      />
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TeamThemePicker
+                      value={{ colorPrimary: form.colorPrimary, colorSecondary: form.colorSecondary, brandAccent: form.brandAccent }}
+                      onChange={(next) => setForm((prev) => ({ ...prev, ...next }))}
                     />
-                    {advancedOpen && (
-                      <Grid container spacing={2} sx={{ mt: 0.5 }}>
-                        <Grid item xs={12} sm={6}>
-                          <TextField fullWidth label="Primary hex" value={form.colorPrimary} onChange={(event) => setForm((prev) => ({ ...prev, colorPrimary: event.target.value }))} helperText="e.g. #ff7a1a" />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <TextField fullWidth label="Secondary hex" value={form.colorSecondary} onChange={(event) => setForm((prev) => ({ ...prev, colorSecondary: event.target.value }))} helperText="e.g. #111827" />
-                        </Grid>
-                      </Grid>
-                    )}
                   </Grid>
                   {saveError && <Grid item xs={12}><Alert severity="error">{saveError}</Alert></Grid>}
                   <Grid item xs={12}>

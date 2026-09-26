@@ -124,7 +124,7 @@ router.patch('/:teamId', requireRole('Statistician', 'Team Manager'), requireTea
     const { teamId } = req.params;
 
     const existing = await db.prepare(
-      'SELECT coach_name, manager_name, statistician_name, color_primary, color_secondary, logo_url, institution_id, gender_category FROM teams WHERE id = ?',
+      'SELECT coach_name, manager_name, statistician_name, color_primary, color_secondary, brand_accent, logo_url, institution_id, gender_category FROM teams WHERE id = ?',
     ).get(teamId);
     if (!existing) {
       return res.status(404).json({ error: 'Team not found' });
@@ -136,6 +136,14 @@ router.patch('/:teamId', requireRole('Statistician', 'Team Manager'), requireTea
       statisticianName = existing.statistician_name,
       colorPrimary = existing.color_primary,
       colorSecondary = existing.color_secondary,
+      // Step 63: brandAccent added so teams.jsx/teams-management.jsx (both
+      // Statistician + Team Manager, unlike the /brand route below, which
+      // is Team-Manager-only) can save a real "Team Theme" preset's third
+      // color through this same general route -- previously only
+      // color_primary/color_secondary were accepted here, so a preset
+      // that sets all 3 colors as a matched set had nowhere to persist
+      // its accent on these two pages.
+      brandAccent = existing.brand_accent,
       logoUrl = existing.logo_url,
       institutionId = existing.institution_id,
       genderCategory = existing.gender_category,
@@ -150,10 +158,10 @@ router.patch('/:teamId', requireRole('Statistician', 'Team Manager'), requireTea
 
     const team = await db.prepare(`
       UPDATE teams
-      SET coach_name = ?, manager_name = ?, statistician_name = ?, color_primary = ?, color_secondary = ?, logo_url = ?, institution_id = ?, gender_category = ?
+      SET coach_name = ?, manager_name = ?, statistician_name = ?, color_primary = ?, color_secondary = ?, brand_accent = ?, logo_url = ?, institution_id = ?, gender_category = ?
       WHERE id = ?
-      RETURNING id, name, institution_id, gender_category, coach_name, manager_name, statistician_name, color_primary, color_secondary, logo_url
-    `).get(coachName, managerName, statisticianName, colorPrimary, colorSecondary, logoUrl, institutionId, genderCategory, teamId);
+      RETURNING id, name, institution_id, gender_category, coach_name, manager_name, statistician_name, color_primary, color_secondary, brand_accent, logo_url
+    `).get(coachName, managerName, statisticianName, colorPrimary, colorSecondary, brandAccent, logoUrl, institutionId, genderCategory, teamId);
 
     res.json(team);
   } catch (err) {
@@ -205,15 +213,23 @@ router.patch('/:teamId/brand', requireRole('Team Manager'), requireTeamAccess('t
 });
 
 // Real logo upload -- replaces the plain "Logo URL" text field's manual
-// paste-a-URL flow. Same gating as the brand PATCH just above (Team
-// Manager only, own team only): a logo is part of brand identity, not
-// general team config. multer's imageUpload.single('photo') parses the
+// paste-a-URL flow. multer's imageUpload.single('photo') parses the
 // multipart body (this route accepts ONLY the file, not the other brand
 // fields -- keeps the "upload a file" and "save these text/color fields"
 // concerns in separate requests, same shape as reports.js/bulkImport.js's
 // existing upload endpoints, rather than one route juggling both a JSON
 // and multipart body depending on what's attached).
-router.patch('/:teamId/logo', requireRole('Team Manager'), requireTeamAccess('teamId'), imageUpload.single('photo'), async (req, res) => {
+//
+// Step 63: gated Statistician + Team Manager, own team only -- NOT the
+// same gating as the brand PATCH above (Team Manager only). This route
+// is called from teams.jsx and teams-management.jsx, both of which are
+// Statistician + Team Manager accessible; leaving this Team-Manager-only
+// would 403 a Statistician clicking the real upload control those pages
+// now show them, which is exactly the gap this step was meant to close
+// (a Statistician managing a team with no Team Manager previously had no
+// real way to set a logo at all -- see teams-management.jsx's own
+// comment on this).
+router.patch('/:teamId/logo', requireRole('Statistician', 'Team Manager'), requireTeamAccess('teamId'), imageUpload.single('photo'), async (req, res) => {
   try {
     const { teamId } = req.params;
     if (!req.file) {

@@ -1,11 +1,14 @@
 import {
-  Alert, Autocomplete, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, FormControlLabel, Grid, MenuItem,
-  Stack, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
+  Alert, Autocomplete, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, Grid, MenuItem,
+  Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import Layout from '../components/layout';
-import ColorField from '../components/ColorField';
+import TeamThemePicker from '../components/TeamThemePicker';
+import PhotoUpload from '../components/PhotoUpload';
 import { backendApi } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
+import { persistBrandColors } from '../theme/brandColors';
 
 // FR-11: real team configuration against the backend `teams` table
 // (backend/src/routes/teams.js), replacing the old localStorage-only
@@ -29,8 +32,16 @@ import { backendApi } from '../api/client';
 // the same column, one validated (staff-curated image upload via
 // Supabase Storage) and one not (paste any string), was worth
 // collapsing to one. Team Brand is Team Manager only, so Statisticians
-// lose logo-editing entirely rather than keeping a lesser, unvalidated
-// path here -- they never had a real one to begin with.
+// lost logo-editing entirely at that point -- they never had a real one
+// to begin with.
+//
+// Step 63: that gap is exactly why it's back, now real. Team Brand is
+// still Team Manager only (unchanged), but this page is reachable by
+// Statisticians too, and a Statistician managing a team with no Team
+// Manager had no way to set a real logo at all. Reuses the SAME real
+// PhotoUpload control (client-side resize, Supabase Storage upload,
+// magic-byte validated) team-brand-settings.jsx already proved out --
+// not a second implementation, and not the old unvalidated text field.
 //
 // Step 12: a real "Competition memberships" section for the selected
 // team -- team_competition_seasons (Step 8) and stages (Step 11) both
@@ -58,10 +69,14 @@ import { backendApi } from '../api/client';
 // schema.sql comment on teams.gender_category ("Men | Women | Mixed").
 const GENDER_PRESETS = ['Men', 'Women', 'Mixed'];
 
-const emptyForm = { coachName: '', managerName: '', statisticianName: '', colorPrimary: '', colorSecondary: '', institutionId: '', genderCategory: '' };
+const emptyForm = {
+  coachName: '', managerName: '', statisticianName: '', colorPrimary: '', colorSecondary: '', brandAccent: '',
+  logoUrl: '', institutionId: '', genderCategory: '',
+};
 const emptyCreateForm = { name: '', institutionId: '', genderCategory: '' };
 
 function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, selectedSeason, logout }) {
+  const { activeTeam: sessionActiveTeam } = useAuth();
   const [teams, setTeams] = useState([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [teamsError, setTeamsError] = useState('');
@@ -70,7 +85,6 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
   const [institutions, setInstitutions] = useState([]);
 
   const [form, setForm] = useState(emptyForm);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
@@ -248,6 +262,14 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
   }, [teamId]);
 
   // Populate the edit form from whichever team is currently selected.
+  // Keyed on teamId alone, NOT teams: loadTeams() (called after a logo
+  // upload, among other things) gives `teams` a new array reference on
+  // every reload even when the selected team's identity hasn't changed,
+  // which previously re-ran this effect and silently discarded any
+  // in-progress unsaved edits (e.g. a theme preset picked but not yet
+  // saved) every time a logo upload completed. Re-populating only when
+  // the user actually switches to a different team in the dropdown is
+  // the correct behavior for an edit form either way.
   useEffect(() => {
     const team = teams.find((t) => t.id === teamId);
     setForm(team ? {
@@ -256,10 +278,27 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
       statisticianName: team.statistician_name || '',
       colorPrimary: team.color_primary || '',
       colorSecondary: team.color_secondary || '',
+      brandAccent: team.brand_accent || '',
+      logoUrl: team.logo_url || '',
       institutionId: team.institution_id || '',
       genderCategory: team.gender_category || '',
     } : emptyForm);
-  }, [teamId, teams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamId]);
+
+  // Step 63: real upload (same real Supabase Storage pipeline as
+  // team-brand-settings.jsx's own PhotoUpload/uploadTeamLogo) -- this
+  // page never had a working logo control before (the old text field was
+  // removed, nothing replaced it; see the comment above emptyForm).
+  // loadTeams() refreshes `teams` afterward so the real Teams table
+  // further down this page and this card's own re-render both reflect
+  // the new logo immediately, matching saveTeam's own reload-after-save.
+  const uploadLogo = async (blob) => {
+    if (!teamId) return;
+    const updated = await backendApi.uploadTeamLogo(teamId, blob);
+    setForm((prev) => ({ ...prev, logoUrl: updated.logo_url || '' }));
+    await loadTeams();
+  };
 
   const saveTeam = async () => {
     if (!teamId) return;
@@ -270,12 +309,26 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
       // field) means "unassign", not "keep whatever it was" -- sent as
       // an explicit null so the backend's partial-update default
       // (omitted key keeps the existing value) doesn't kick in.
-      await backendApi.updateTeam(teamId, {
+      const updated = await backendApi.updateTeam(teamId, {
         ...form,
         institutionId: form.institutionId || null,
         genderCategory: form.genderCategory || null,
       });
       await loadTeams();
+      // Unlike teams.jsx, this page can edit ANY team, not just the
+      // logged-in user's own -- only refresh this browser's cached brand
+      // (main.jsx applies it synchronously on every reload -- see
+      // brandColors.js) when the team just saved IS the user's own
+      // active team. Syncing unconditionally would leak another team's
+      // colors into this user's own session chrome the next time they
+      // reload.
+      if (teamId === sessionActiveTeam?.id) {
+        persistBrandColors({
+          colorPrimary: updated.color_primary || '',
+          colorSecondary: updated.color_secondary || '',
+          brandAccent: updated.brand_accent || '',
+        });
+      }
     } catch (err) {
       setSaveError(err.message || 'Could not save team.');
     } finally {
@@ -394,22 +447,21 @@ function TeamsManagement({ mode, toggleTheme, selectedTeam, onTeamChange, role, 
                     />
                   </Grid>
                   <Grid item xs={12}>
-                    <ColorField label="Primary Colour" value={form.colorPrimary} onChange={(hex) => setForm((prev) => ({ ...prev, colorPrimary: hex }))} />
-                    <ColorField label="Secondary Colour" value={form.colorSecondary} onChange={(hex) => setForm((prev) => ({ ...prev, colorSecondary: hex }))} />
-                    <FormControlLabel
-                      control={<Switch checked={advancedOpen} onChange={(event) => setAdvancedOpen(event.target.checked)} />}
-                      label="Advanced: enter custom hex codes"
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Team logo</Typography>
+                    <Box sx={{ mb: 2 }}>
+                      <PhotoUpload
+                        value={form.logoUrl}
+                        onUpload={uploadLogo}
+                        shape="square"
+                        fallback={selectedTeamName?.slice(0, 2).toUpperCase() || 'TM'}
+                      />
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TeamThemePicker
+                      value={{ colorPrimary: form.colorPrimary, colorSecondary: form.colorSecondary, brandAccent: form.brandAccent }}
+                      onChange={(next) => setForm((prev) => ({ ...prev, ...next }))}
                     />
-                    {advancedOpen && (
-                      <Grid container spacing={2} sx={{ mt: 0.5 }}>
-                        <Grid item xs={12} md={6}>
-                          <TextField fullWidth label="Primary hex" value={form.colorPrimary} onChange={(event) => setForm((prev) => ({ ...prev, colorPrimary: event.target.value }))} helperText="e.g. #ff7a1a" />
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <TextField fullWidth label="Secondary hex" value={form.colorSecondary} onChange={(event) => setForm((prev) => ({ ...prev, colorSecondary: event.target.value }))} helperText="e.g. #111827" />
-                        </Grid>
-                      </Grid>
-                    )}
                   </Grid>
                 </Grid>
                 {saveError && <Alert severity="error" sx={{ mt: 2 }}>{saveError}</Alert>}

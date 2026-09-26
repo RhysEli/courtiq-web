@@ -1,10 +1,10 @@
-import { Alert, Box, Button, Card, CardContent, CircularProgress, FormControlLabel, Grid, Stack, Switch, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, CircularProgress, Stack, Typography } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Layout from '../components/layout';
-import ColorField from '../components/ColorField';
+import TeamThemePicker from '../components/TeamThemePicker';
 import PhotoUpload from '../components/PhotoUpload';
 import { backendApi } from '../api/client';
-import { applyTheme, getCurrentBrand } from '../theme/applyTheme';
+import { applyTheme } from '../theme/applyTheme';
 import { persistBrandColors, loadPersistedBrandColors } from '../theme/brandColors';
 import { loadPersistedUserPreference } from '../theme/userPreference';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,16 +19,18 @@ import { useAuth } from '../contexts/AuthContext';
 // database; navigating away without saving reverts the live preview back
 // to the last-saved colors (see the cleanup effect below).
 //
-// Color entry is name-based by default (NamedColorGrid, a curated ~32-
-// color palette) rather than raw hex -- nobody managing a team wants to
-// type or know a hex code. Advanced hex entry is still available behind
-// a toggle for the rare exact-brand-match case; the backend is unchanged
-// either way (color_primary/color_secondary/brand_accent are plain TEXT,
-// no format constraint), so this is purely a UI change. A saved color
-// that doesn't land on a named swatch (a custom hex, or non-hex legacy
-// data like the real "YELLOW"/"BLUE" strings on one seeded team) just
-// shows as its own current-color preview with no swatch highlighted --
-// still displayed honestly, not hidden or coerced onto the nearest name.
+// Step 63: color entry is a single "Team Theme" picker (TeamThemePicker,
+// reusing the real TEAM_PRESETS already proven on settings.jsx's own
+// Quick Team Preset) rather than the old per-field 32-swatch grid this
+// page used to show three times over (Primary/Secondary/Accent
+// independently) -- replaces that plus its own separate "Advanced" hex
+// toggle. The backend is unchanged either way (color_primary/
+// color_secondary/brand_accent are plain TEXT, no format constraint), so
+// this is purely a UI change. A saved combination that doesn't match any
+// preset (a custom hex pick, or non-hex legacy data like the real
+// "YELLOW"/"BLUE" strings on one seeded team) still displays honestly via
+// TeamThemePicker's own "Current: ..." line, not hidden or coerced onto
+// the nearest preset.
 
 function TeamBrandSettings({ role, selectedSeason, logout, currentUser }) {
   const { activeTeam: sessionActiveTeam } = useAuth();
@@ -37,7 +39,6 @@ function TeamBrandSettings({ role, selectedSeason, logout, currentUser }) {
   const [teamsError, setTeamsError] = useState('');
 
   const [form, setForm] = useState({ colorPrimary: '', colorSecondary: '', brandAccent: '', logoUrl: '' });
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [notice, setNotice] = useState('');
@@ -92,8 +93,13 @@ function TeamBrandSettings({ role, selectedSeason, logout, currentUser }) {
     }
   }, []);
 
-  const setFieldValue = (field, value) => {
-    const next = { ...form, [field]: value };
+  // TeamThemePicker's onChange always hands back the FULL updated
+  // { colorPrimary, colorSecondary, brandAccent } object (a preset click
+  // and a custom hex edit both merge into the same shape), so one handler
+  // covers both -- live-previews the same way setFieldValue used to per
+  // individual color field.
+  const handleThemeChange = (nextColors) => {
+    const next = { ...form, ...nextColors };
     setForm(next);
     applyTheme({ brand: next, userPref: { accentOverride: myAccentOverride.current } });
   };
@@ -155,9 +161,10 @@ function TeamBrandSettings({ role, selectedSeason, logout, currentUser }) {
         {activeTeam ? (
           <Card>
             <CardContent>
-              <ColorField label="Primary color" value={form.colorPrimary} onChange={(hex) => setFieldValue('colorPrimary', hex)} />
-              <ColorField label="Secondary color" value={form.colorSecondary} onChange={(hex) => setFieldValue('colorSecondary', hex)} />
-              <ColorField label="Accent color" value={form.brandAccent} onChange={(hex) => setFieldValue('brandAccent', hex)} />
+              <TeamThemePicker
+                value={{ colorPrimary: form.colorPrimary, colorSecondary: form.colorSecondary, brandAccent: form.brandAccent }}
+                onChange={handleThemeChange}
+              />
 
               <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Team logo</Typography>
               <Box sx={{ mb: 2 }}>
@@ -168,25 +175,6 @@ function TeamBrandSettings({ role, selectedSeason, logout, currentUser }) {
                   fallback={activeTeam?.name?.slice(0, 2).toUpperCase() || 'TM'}
                 />
               </Box>
-
-              <FormControlLabel
-                sx={{ mt: 1, display: 'block' }}
-                control={<Switch checked={advancedOpen} onChange={(event) => setAdvancedOpen(event.target.checked)} />}
-                label="Advanced: enter custom hex codes"
-              />
-              {advancedOpen && (
-                <Grid container spacing={2} sx={{ mt: 0.5, mb: 1 }}>
-                  <Grid item xs={12} sm={4}>
-                    <TextField fullWidth label="Primary hex" value={form.colorPrimary} onChange={(event) => setFieldValue('colorPrimary', event.target.value)} helperText="e.g. #ff7a1a" />
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <TextField fullWidth label="Secondary hex" value={form.colorSecondary} onChange={(event) => setFieldValue('colorSecondary', event.target.value)} helperText="e.g. #111827" />
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <TextField fullWidth label="Accent hex" value={form.brandAccent} onChange={(event) => setFieldValue('brandAccent', event.target.value)} helperText="e.g. #f8fafc" />
-                  </Grid>
-                </Grid>
-              )}
 
               {saveError && <Alert severity="error" sx={{ mt: 2 }}>{saveError}</Alert>}
               {notice && <Alert severity="success" sx={{ mt: 2 }}>{notice}</Alert>}
