@@ -35,7 +35,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const emptySeasonStats = {
   gamesPlayed: 0, ppg: 0, rpg: 0, apg: 0, spg: 0, bpg: 0, topg: 0,
-  fgPct: 0, threePct: 0, ftPct: 0,
+  fgPct: 0, threePct: 0, ftPct: 0, gamesWithStoredTeamTotals: 0,
 };
 
 function TeamInsights({ mode, toggleTheme, role, selectedSeason, logout, currentUser }) {
@@ -995,6 +995,11 @@ function TeamInsights({ mode, toggleTheme, role, selectedSeason, logout, current
                   <Card>
                     <CardContent>
                       <Typography variant="h6" fontWeight={700}>Team per-game averages</Typography>
+                      {team.gamesWithStoredTeamTotals < team.gamesPlayed && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                          {team.gamesWithStoredTeamTotals} of {team.gamesPlayed} games have verified team totals.
+                        </Typography>
+                      )}
                       <Box sx={{ height: 300, mt: 2 }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={perGameData}>

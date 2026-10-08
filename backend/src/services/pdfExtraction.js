@@ -70,6 +70,113 @@ const PLAYER_ROW_REGEX = new RegExp(
   '(\\d+)$',                                                   // PTS
 );
 
+// Step 67/68: the report's own official per-team Totals row -- same
+// column shape as PLAYER_ROW_REGEX above, minus the star/jersey/name
+// prefix (this row always prints the literal "Totals" + a fixed "200:00"
+// in their place). Previously discarded entirely (see the old
+// `/^Totals\b/.test(line) -> continue` in extractBoxScore below); now the
+// authoritative source for team_game_stats, read directly rather than
+// reconstructed by summing player rows (Step 67 investigation: summing
+// alone undercounts OR/DR/TOT/TO whenever this game's own Team/Coach row,
+// below, carries a nonzero value).
+// Groups: fgm, fga, fgpct, twopm, twopa, twopct, threepm, threepa,
+// threepct, ftm, fta, ftpct, oreb, dreb, tot, as, to, st, bs, pf, fd,
+// plusminus, ef, pts.
+const TOTALS_ROW_REGEX = new RegExp(
+  '^Totals\\s+\\d{1,3}:\\d{2}\\s+' + // real team-minutes total, e.g. "200:00" (5 players x 40 min) -- 3 digits, unlike a player's own 1-2-digit minutes field
+  '(\\d+)/(\\d+)\\s+([\\d.]+)\\s+' +
+  '(\\d+)/(\\d+)\\s+([\\d.]+)\\s+' +
+  '(\\d+)/(\\d+)\\s+([\\d.]+)\\s+' +
+  '(\\d+)/(\\d+)\\s+([\\d.]+)\\s+' +
+  '(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+' +
+  '(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+' +
+  '(\\d+)\\s+(\\d+)\\s+' +
+  '([+-]?\\d+)\\s+' +
+  '([+-]?\\d+)\\s+' +
+  '(\\d+)$',
+);
+
+// Team-attributed rebounds/turnovers/fouls not credited to any individual
+// player (e.g. a rebound off a missed free throw with no clear individual
+// recipient). Confirmed (Step 67 investigation, two real games, both
+// closing exactly against their own official Totals row) that these 5
+// values are always OR, DR, TOT, TO, PF, in that fixed order -- the only
+// columns this row ever carries.
+const TEAM_COACH_ROW_REGEX = /^Team\/Coach\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/;
+
+function parseTotalsColumns(match) {
+  const [
+    , fgm, fga, fgPct, twoPm, twoPa, twoPct, threePm, threePa, threePct,
+    ftm, fta, ftPct, oreb, dreb, tot, assists, turnovers, steals, blocks,
+    fouls, foulsDrawn, plusMinus, efficiency, points,
+  ] = match;
+  return {
+    fgm: Number(fgm), fga: Number(fga), fg_pct: Number(fgPct),
+    two_pm: Number(twoPm), two_pa: Number(twoPa), two_pct: Number(twoPct),
+    three_pm: Number(threePm), three_pa: Number(threePa), three_pct: Number(threePct),
+    ftm: Number(ftm), fta: Number(fta), ft_pct: Number(ftPct),
+    oreb: Number(oreb), dreb: Number(dreb), reb: Number(tot),
+    assists: Number(assists), turnovers: Number(turnovers),
+    steals: Number(steals), blocks: Number(blocks),
+    fouls: Number(fouls), fouls_drawn: Number(foulsDrawn),
+    plus_minus: Number(plusMinus), efficiency: Number(efficiency),
+    points: Number(points),
+  };
+}
+
+function parseTeamCoachColumns(match) {
+  const [, oreb, dreb, reb, turnovers, fouls] = match;
+  return {
+    oreb: Number(oreb), dreb: Number(dreb), reb: Number(reb),
+    turnovers: Number(turnovers), fouls: Number(fouls),
+  };
+}
+
+// Every column a Totals row and a summed set of player rows can both
+// produce. plus_minus/efficiency deliberately excluded -- confirmed
+// (Step 67 investigation, real numbers) these are NOT simple sums of the
+// individual players' own same-named columns (one real team's 12 players'
+// own +/- values summed to 44 against that same team's own real printed
+// Totals +/- of 8; EF showed the same kind of mismatch) -- a different,
+// non-additive team-level stat FIBA prints, not a real discrepancy this
+// check should ever flag.
+const RECONCILABLE_FIELDS = [
+  'fgm', 'fga', 'two_pm', 'two_pa', 'three_pm', 'three_pa', 'ftm', 'fta',
+  'oreb', 'dreb', 'reb', 'assists', 'turnovers', 'steals', 'blocks',
+  'fouls', 'fouls_drawn', 'points',
+];
+
+// The only RECONCILABLE_FIELDS the Team/Coach row can carry a nonzero
+// contribution to -- every other field (every shooting stat, assists,
+// steals, blocks, fouls_drawn, points) always reconciles with zero team
+// contribution (confirmed, Step 67: always fully individually attributed
+// in this format).
+const TEAM_ATTRIBUTABLE_FIELDS = ['oreb', 'dreb', 'reb', 'turnovers', 'fouls'];
+
+// Real extraction-time integrity check (Step 67/68, not assumed): summed
+// player rows for this side, plus the Team/Coach row's own team-
+// attributed contribution, should equal the Totals row exactly, for
+// every real reconcilable column. A mismatch is recorded on the returned
+// object (reconciled: false, reconciliationNotes), never silently
+// swallowed or treated as if one side or the other must be right.
+function reconcileTeamTotals(playersForSide, totals, teamCoach) {
+  if (!totals) {
+    return { reconciled: false, notes: 'No official Totals row was found for this team -- nothing to reconcile against.' };
+  }
+  const mismatches = [];
+  for (const field of RECONCILABLE_FIELDS) {
+    const summedPlayers = playersForSide.reduce((acc, p) => acc + (p[field] || 0), 0);
+    const teamContribution = (TEAM_ATTRIBUTABLE_FIELDS.includes(field) && teamCoach) ? (teamCoach[field] || 0) : 0;
+    const reconstructed = summedPlayers + teamContribution;
+    if (reconstructed !== totals[field]) {
+      mismatches.push(`${field}: players(${summedPlayers}) + team(${teamContribution}) = ${reconstructed}, but Totals row says ${totals[field]}`);
+    }
+  }
+  return mismatches.length === 0
+    ? { reconciled: true, notes: null }
+    : { reconciled: false, notes: mismatches.join('; ') };
+}
+
 // Parses the repeating per-page header block that every FIBA LiveStats
 // report (Box Score, Play-by-Play, Shot Chart, etc.) carries, anchored on
 // the literal "FIBA Box Score" title line. Returns null if the PDF doesn't
@@ -162,12 +269,35 @@ async function extractBoxScore(filePath, preParsedLines = null) {
 
   const players = [];
   const unparsedLines = [];
+  const totalsBySide = {};
+  const teamCoachBySide = {};
 
   sidedSections.forEach(({ sectionLines, team_side: teamSide }) => {
     for (const line of sectionLines) {
-      if (/^Totals\b/.test(line) || /^Team\/Coach\b/.test(line) || /^No Name Min/.test(line) || /^M\/A/.test(line)) {
-        continue; // summary/header rows, not individual players
+      if (/^No Name Min/.test(line) || /^M\/A/.test(line)) {
+        continue; // column header rows, never real data
       }
+
+      const totalsMatch = line.match(TOTALS_ROW_REGEX);
+      if (totalsMatch) {
+        totalsBySide[teamSide] = parseTotalsColumns(totalsMatch);
+        continue;
+      }
+      const teamCoachMatch = line.match(TEAM_COACH_ROW_REGEX);
+      if (teamCoachMatch) {
+        teamCoachBySide[teamSide] = parseTeamCoachColumns(teamCoachMatch);
+        continue;
+      }
+      if (/^Totals\b/.test(line) || /^Team\/Coach\b/.test(line)) {
+        // Matched the literal row prefix but not the rest of the expected
+        // layout -- a real parse failure for a row this extractor DOES
+        // recognize, surfaced via unparsedLines rather than silently
+        // discarded (Step 67/68: these two rows used to be unconditionally
+        // dropped right here, which is exactly the bug this round fixes).
+        unparsedLines.push(line);
+        continue;
+      }
+
       const match = line.match(PLAYER_ROW_REGEX);
       if (match) {
         const [
@@ -217,9 +347,28 @@ async function extractBoxScore(filePath, preParsedLines = null) {
     throw err;
   }
 
+  // Step 67/68: real team-level totals, read directly from each side's own
+  // official Totals row -- null (not a guess) when that row didn't parse,
+  // so bulkImport.js's persistence step correctly writes no game_team_stats
+  // row for that side rather than a fabricated one, leaving consumers to
+  // fall back to summing player_game_stats as they already did before this
+  // round. Reconciled against that same side's summed player rows + Team/
+  // Coach row as a real, not assumed, integrity check either way.
+  const teamTotals = {};
+  for (const side of ['home', 'opponent']) {
+    const totals = totalsBySide[side] || null;
+    const teamCoach = teamCoachBySide[side] || null;
+    const playersForSide = players.filter((p) => p.team_side === side);
+    const { reconciled, notes } = reconcileTeamTotals(playersForSide, totals, teamCoach);
+    teamTotals[side] = totals ? {
+      ...totals, teamCoach, reconciled, reconciliationNotes: notes,
+    } : null;
+  }
+
   return {
     players,
     gameInfo,
+    teamTotals,
     unparsedLineCount: unparsedLines.length,
     unparsedLines: unparsedLines.slice(0, 10),
   };

@@ -888,3 +888,79 @@ CREATE TABLE IF NOT EXISTS team_identity_groups (
   created_by INTEGER REFERENCES users(id),
   CHECK (team_id != canonical_team_id)
 );
+
+-- Step 67/68: real team-level totals, captured directly from each report's
+-- own official Totals row at extraction time, instead of reconstructed by
+-- summing player_game_stats rows -- which Step 67's investigation
+-- confirmed (column-by-column, two real games, both closing exactly)
+-- systematically undercounts OR/DR/TOT/TO on every game whose source PDF
+-- carries a non-empty "Team/Coach" row (team-attributed rebounds/
+-- turnovers not credited to any individual player), because that row was
+-- previously discarded entirely at extraction time -- never written
+-- anywhere, not even to unparsedLines.
+--
+-- One row per (game, team) -- additive only. Deliberately NOT a row in
+-- player_game_stats: Step 67's report flagged that approach's real risk
+-- (a fake "player" row with no jersey/no real per-40 stats leaking into
+-- rosters, leaderboards, or per-player averages unless every one of that
+-- table's many consumers is individually audited to exclude it). A
+-- dedicated table has zero exposure to that risk by construction -- no
+-- consumer of player_game_stats is touched by this table existing.
+--
+-- Main columns (fgm..points) are the report's own official Totals row,
+-- verbatim -- this is what aggregateTeamTotals (analysis.js),
+-- summarizeStatRows (teams.js), and the season-stats route (teams.js)
+-- now prefer over summing player_game_stats, when a row exists here for
+-- that (game, team). team_oreb/team_dreb/team_reb/team_turnovers/
+-- team_fouls are kept SEPARATELY (not folded into the main columns above)
+-- so the numbers stay independently explainable: summed player_game_stats
+-- rows for that side + these team_* values should equal the main columns
+-- above, exactly -- that equality is itself checked at extraction time
+-- (see `reconciled` below), not assumed.
+--
+-- source_format: a plain text label ('fiba-box-score' for the Genius
+-- Sports/FIBA LiveStats format this table is first populated from), not
+-- an enum -- Step 66 (separately scoped) can populate this same table
+-- under its own format's label for the FIBA Europe Stats Suite format
+-- later, with no schema change, whether or not that format turns out to
+-- carry an equivalent team-attributed row.
+--
+-- reconciled: true when summed player_game_stats rows for this (game,
+-- team) plus team_oreb/team_dreb/team_reb/team_turnovers/team_fouls equal
+-- every one of the main columns above exactly; false otherwise. A
+-- mismatch never blocks the import (same "surface it, don't block on it"
+-- precedent as every other real-but-imperfect extraction already in this
+-- codebase, e.g. unparsedLineCount) -- it's recorded here, visibly, via
+-- this flag plus reconciliation_notes, so a bad parse is never silently
+-- treated as authoritative.
+CREATE TABLE IF NOT EXISTS game_team_stats (
+  id SERIAL PRIMARY KEY,
+  game_id INTEGER NOT NULL REFERENCES games(id),
+  team_id TEXT NOT NULL REFERENCES teams(id),
+  team_side TEXT NOT NULL CHECK (team_side IN ('home', 'opponent')),
+  source_format TEXT NOT NULL,
+
+  -- The report's own official Totals row, verbatim -- the authoritative
+  -- team-level record real consumers should read.
+  fgm INTEGER, fga INTEGER,
+  two_pm INTEGER, two_pa INTEGER,
+  three_pm INTEGER, three_pa INTEGER,
+  ftm INTEGER, fta INTEGER,
+  oreb INTEGER, dreb INTEGER, reb INTEGER,
+  assists INTEGER, turnovers INTEGER, steals INTEGER, blocks INTEGER,
+  fouls INTEGER, fouls_drawn INTEGER,
+  plus_minus INTEGER, efficiency INTEGER, points INTEGER,
+
+  -- The report's own "Team/Coach" row -- team-attributed stats not
+  -- credited to any individual player. Kept separate from the Totals
+  -- columns above specifically so the numbers stay explainable (see this
+  -- table's own comment above).
+  team_oreb INTEGER, team_dreb INTEGER, team_reb INTEGER,
+  team_turnovers INTEGER, team_fouls INTEGER,
+
+  reconciled BOOLEAN NOT NULL,
+  reconciliation_notes TEXT,
+
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS game_team_stats_game_team_unique ON game_team_stats (game_id, team_id);

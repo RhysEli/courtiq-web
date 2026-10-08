@@ -290,17 +290,35 @@ router.get('/:teamId/season-stats', async (req, res) => {
     // For each game this team played, figure out whether it was 'home'
     // or 'opponent' in THAT specific game (team_side is per-game, not a
     // fixed identity), then pull only that side's player rows.
+    //
+    // Step 67/68: team-level totals (oreb/dreb/reb/turnovers specifically)
+    // now prefer each game's own stored game_team_stats row over summing
+    // allRows directly -- see getGameTeamTotals. allRows itself is still
+    // built and still used below, unchanged, for the per-player grouping
+    // (ppg/rpg/etc. per real player) -- only the TEAM-level totals
+    // computation changed.
     let allRows = [];
+    const perGameTotals = [];
+    let gamesWithStoredTeamTotals = 0;
     for (const game of games) {
       const side = game.home_team_id === teamId ? 'home' : 'opponent';
       const rows = await db.prepare(
         'SELECT * FROM player_game_stats WHERE game_id = ? AND team_side = ?',
       ).all(game.id, side);
       allRows = allRows.concat(rows);
+
+      // reconciled, not just existence -- matches getGameTeamTotals' own
+      // fallback condition exactly, so this count always reflects which
+      // games actually used their stored row versus fell back.
+      const storedRow = await db.prepare(
+        'SELECT reconciled FROM game_team_stats WHERE game_id = ? AND team_id = ?',
+      ).get(game.id, teamId);
+      if (storedRow && storedRow.reconciled) gamesWithStoredTeamTotals += 1;
+      perGameTotals.push(await getGameTeamTotals(game.id, teamId, rows));
     }
 
     const gamesPlayed = games.length;
-    const sum = (key) => allRows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+    const sum = (key) => perGameTotals.reduce((acc, t) => acc + (Number(t[key]) || 0), 0);
 
     const totals = {
       points: sum('points'), fgm: sum('fgm'), fga: sum('fga'),
@@ -325,6 +343,14 @@ router.get('/:teamId/season-stats', async (req, res) => {
       fgPct: pct(totals.fgm, totals.fga),
       threePct: pct(totals.three_pm, totals.three_pa),
       ftPct: pct(totals.ftm, totals.fta),
+      // Step 67/68: real, honest disclosure for the mixed-state window --
+      // some of this team's games have real stored team totals (the
+      // report's own official Totals row), others still fall back to
+      // summing player_game_stats (an import from before this round, or
+      // a game whose Totals row genuinely didn't parse). Not hidden --
+      // surfaced here so a consumer of this endpoint can show it if it
+      // chooses to; no frontend change made for it this round.
+      gamesWithStoredTeamTotals,
     };
 
     // Group by player_id, not the raw player_name string -- player_id is
@@ -467,8 +493,55 @@ const h2hPct = (made, att) => (att > 0 ? Number(((made / att) * 100).toFixed(1))
 // single encounter (gamesPlayed = 1) and the full aggregate
 // (gamesPlayed = every shared game) -- one shape, one frontend
 // rendering path for either.
-function summarizeStatRows(rows, gamesPlayed) {
-  const sum = (key) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+// Step 67/68: real per-game team totals, preferring the stored official
+// Totals row (game_team_stats) over summing playerRowsForSide -- see
+// schema.sql's own comment on game_team_stats. Shared by every real
+// consumer of team-level totals in this file (season-stats and
+// getHeadToHeadData/Opponent Analysis below) so a game with a stored row
+// is treated identically by both instead of each re-deriving its own
+// sum independently.
+//
+// row.reconciled is checked, not just row's existence: a stored row
+// whose integrity check didn't close (the real player-sum + Team/Coach
+// arithmetic didn't equal the official Totals row) must never become
+// the authoritative number just because a row happens to exist --
+// treated identically to "no row at all", falling back to summing
+// playerRowsForSide below, same as before this round.
+async function getGameTeamTotals(gameId, teamId, playerRowsForSide) {
+  const row = await db.prepare(
+    'SELECT * FROM game_team_stats WHERE game_id = ? AND team_id = ?',
+  ).get(gameId, teamId);
+  if (row && row.reconciled) {
+    return {
+      points: row.points, fgm: row.fgm, fga: row.fga,
+      three_pm: row.three_pm, three_pa: row.three_pa, ftm: row.ftm, fta: row.fta,
+      oreb: row.oreb, dreb: row.dreb, reb: row.reb,
+      assists: row.assists, steals: row.steals, blocks: row.blocks,
+      turnovers: row.turnovers, fouls: row.fouls,
+    };
+  }
+  const sum = (key) => playerRowsForSide.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+  return {
+    points: sum('points'), fgm: sum('fgm'), fga: sum('fga'),
+    three_pm: sum('three_pm'), three_pa: sum('three_pa'),
+    ftm: sum('ftm'), fta: sum('fta'),
+    oreb: sum('oreb'), dreb: sum('dreb'), reb: sum('reb'),
+    assists: sum('assists'), steals: sum('steals'), blocks: sum('blocks'),
+    turnovers: sum('turnovers'), fouls: sum('fouls'),
+  };
+}
+
+// Step 67/68: `totalsRows` is now an array of PER-GAME team-totals
+// objects (each from getGameTeamTotals -- a real stored game_team_stats
+// row where one exists, else that game's own summed player_game_stats
+// rows), not a flat list of individual player rows across every game.
+// Summing per-game totals here, rather than summing every player row
+// across every game directly, is what lets a mix of stored-total games
+// and fallback-summed games combine correctly in one season/head-to-head
+// aggregate -- the arithmetic is otherwise unchanged from before this
+// round.
+function summarizeStatRows(totalsRows, gamesPlayed) {
+  const sum = (key) => totalsRows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
   const totals = {
     points: sum('points'), fgm: sum('fgm'), fga: sum('fga'),
     three_pm: sum('three_pm'), three_pa: sum('three_pa'),
@@ -516,17 +589,31 @@ async function getHeadToHeadData(teamId, opponentTeamId) {
   const encounters = [];
   let allMyRows = [];
   let allOppRows = [];
+  const myGameTotals = [];
+  const oppGameTotals = [];
   const tagCounts = {};
 
   for (const game of games) {
     const iAmHome = myTeamIds.includes(game.home_team_id);
     const mySide = iAmHome ? 'home' : 'opponent';
     const theirSide = iAmHome ? 'opponent' : 'home';
+    const myTeamIdForThisGame = game[`${mySide}_team_id`];
+    const theirTeamIdForThisGame = game[`${theirSide}_team_id`];
 
     const myRows = await db.prepare('SELECT * FROM player_game_stats WHERE game_id = ? AND team_side = ?').all(game.id, mySide);
     const oppRows = await db.prepare('SELECT * FROM player_game_stats WHERE game_id = ? AND team_side = ?').all(game.id, theirSide);
     allMyRows = allMyRows.concat(myRows);
     allOppRows = allOppRows.concat(oppRows);
+
+    // Step 67/68: real per-game team totals (preferring the stored
+    // official Totals row -- see getGameTeamTotals) feed both this
+    // encounter's own myStats/opponentStats below AND the season-wide
+    // aggregate further down, so a mix of stored-total and fallback-
+    // summed games combines correctly either way.
+    const myTotalsForThisGame = await getGameTeamTotals(game.id, myTeamIdForThisGame, myRows);
+    const oppTotalsForThisGame = await getGameTeamTotals(game.id, theirTeamIdForThisGame, oppRows);
+    myGameTotals.push(myTotalsForThisGame);
+    oppGameTotals.push(oppTotalsForThisGame);
 
     const stage = game.stage_id
       ? await db.prepare('SELECT id, name FROM stages WHERE id = ?').get(game.stage_id)
@@ -549,18 +636,18 @@ async function getHeadToHeadData(teamId, opponentTeamId) {
       competitionId: game.competition_id,
       stageId: game.stage_id,
       stageName: stage ? stage.name : null,
-      myTeamId: game[`${mySide}_team_id`],
-      opponentTeamId: game[`${theirSide}_team_id`],
-      myStats: summarizeStatRows(myRows, 1),
-      opponentStats: summarizeStatRows(oppRows, 1),
+      myTeamId: myTeamIdForThisGame,
+      opponentTeamId: theirTeamIdForThisGame,
+      myStats: summarizeStatRows([myTotalsForThisGame], 1),
+      opponentStats: summarizeStatRows([oppTotalsForThisGame], 1),
       tags,
     });
   }
 
   const aggregate = {
     encounters: games.length,
-    mine: summarizeStatRows(allMyRows, games.length),
-    opponent: summarizeStatRows(allOppRows, games.length),
+    mine: summarizeStatRows(myGameTotals, games.length),
+    opponent: summarizeStatRows(oppGameTotals, games.length),
   };
 
   const tagFrequency = Object.entries(tagCounts)

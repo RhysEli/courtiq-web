@@ -26,6 +26,34 @@ function aggregateTeamTotals(playerRows) {
   return totals;
 }
 
+// Step 67/68: prefer the real team-level totals captured directly from
+// the report's own official Totals row (game_team_stats) over
+// reconstructing them by summing playerRows -- see schema.sql's own
+// comment on game_team_stats for why summing alone systematically
+// undercounts OR/DR/TOT/TO whenever the source PDF carried a non-empty
+// Team/Coach row. Falls back to aggregateTeamTotals(playerRows) -- the
+// exact same computation this route always used -- when no
+// game_team_stats row exists yet for this (game, team), OR when one
+// exists but reconciled is false: a bad parse (the integrity check in
+// pdfExtraction.js didn't close) must never become the authoritative
+// number just because a row happens to exist -- same "don't silently
+// treat a mismatch as right" principle reconciled itself exists to
+// enforce. Same return shape either way, so computeTeamMetrics below
+// needs no change.
+async function getTeamTotals(gameId, teamId, playerRows) {
+  const row = await db.prepare(
+    'SELECT * FROM game_team_stats WHERE game_id = ? AND team_id = ?',
+  ).get(gameId, teamId);
+  if (!row || !row.reconciled) return aggregateTeamTotals(playerRows);
+  return {
+    points: row.points, fgm: row.fgm, fga: row.fga,
+    three_pm: row.three_pm, three_pa: row.three_pa, ftm: row.ftm, fta: row.fta,
+    oreb: row.oreb, dreb: row.dreb, reb: row.reb,
+    assists: row.assists, steals: row.steals, blocks: row.blocks,
+    turnovers: row.turnovers, fouls: row.fouls,
+  };
+}
+
 // Starting five's jersey numbers for `realTeamId` in this game, read off
 // the first game_rotation_stints row (the opening tip: quarter_on 1, the
 // highest/earliest time_on since the clock counts down) -- confirmed
@@ -267,8 +295,10 @@ router.post('/games/:gameId/compute', requireRole('Statistician', 'Team Manager'
 
     const homeRows = playerRows.filter((p) => p.team_side === 'home');
     const oppRows = playerRows.filter((p) => p.team_side === 'opponent');
-    const homeTotals = aggregateTeamTotals(homeRows);
-    const oppTotals = aggregateTeamTotals(oppRows);
+
+    const game = await db.prepare('SELECT home_team_id, opponent_team_id FROM games WHERE id = ?').get(gameId);
+    const homeTotals = await getTeamTotals(gameId, game.home_team_id, homeRows);
+    const oppTotals = await getTeamTotals(gameId, game.opponent_team_id, oppRows);
 
     const homeMetrics = computeTeamMetrics(homeTotals, oppTotals);
     const oppMetrics = computeTeamMetrics(oppTotals, homeTotals);
@@ -280,7 +310,6 @@ router.post('/games/:gameId/compute', requireRole('Statistician', 'Team Manager'
     // pure box-score-totals function its own docblock describes, and so
     // tagInsights below can read it off the same metrics objects without
     // a signature change.
-    const game = await db.prepare('SELECT home_team_id, opponent_team_id FROM games WHERE id = ?').get(gameId);
     const homeStarters = await getStarterJerseys(gameId, game.home_team_id);
     const oppStarters = await getStarterJerseys(gameId, game.opponent_team_id);
     homeMetrics.benchPoints = homeStarters ? benchPointsFromRows(homeRows, homeStarters) : null;

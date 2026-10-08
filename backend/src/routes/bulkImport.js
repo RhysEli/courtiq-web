@@ -48,6 +48,19 @@ const PLAYER_GAME_STATS_COLUMNS = [
   'raw_extraction', 'player_id',
 ];
 
+// Step 67/68: real team-level totals, read from the report's own Totals/
+// Team-Coach rows (pdfExtraction.js) rather than reconstructed by summing
+// player_game_stats. See schema.sql's own comment on game_team_stats for
+// why this is a separate table rather than a row in player_game_stats.
+const GAME_TEAM_STATS_COLUMNS = [
+  'game_id', 'team_id', 'team_side', 'source_format',
+  'fgm', 'fga', 'two_pm', 'two_pa', 'three_pm', 'three_pa', 'ftm', 'fta',
+  'oreb', 'dreb', 'reb', 'assists', 'turnovers', 'steals', 'blocks',
+  'fouls', 'fouls_drawn', 'plus_minus', 'efficiency', 'points',
+  'team_oreb', 'team_dreb', 'team_reb', 'team_turnovers', 'team_fouls',
+  'reconciled', 'reconciliation_notes',
+];
+
 const extraExtractors = {
   quarter: extractQuarterReport,
   plusMinus: extractPlusMinusSummary,
@@ -100,7 +113,7 @@ router.post(
         // re-parsing this same PDF from disk (7 full parses per file),
         // which was the dominant cost in a slow bulk import.
         const lines = await parseFileToLines(file.path);
-        const { players, gameInfo, unparsedLineCount } = await extractBoxScore(file.path, lines);
+        const { players, gameInfo, teamTotals, unparsedLineCount } = await extractBoxScore(file.path, lines);
 
         if (!gameInfo || !gameInfo.homeTeam || !gameInfo.awayTeam || !gameInfo.matchDate) {
           entry.status = 'failed';
@@ -268,8 +281,6 @@ router.post(
         `).run(game.id, file.originalname, file.path, req.user.id);
         createdReportId = insertReport.lastInsertRowid;
 
-        await db.prepare('DELETE FROM player_game_stats WHERE game_id = ?').run(game.id);
-
         // Player identity resolution (playerIdentity.js) now runs BEFORE
         // each row's insert, not after, so its already-computed decision
         // can be written straight onto player_id -- previously this ran in
@@ -308,8 +319,57 @@ router.post(
             JSON.stringify(p), playerId,
           ]);
         }
-        await db.batchInsert('player_game_stats', PLAYER_GAME_STATS_COLUMNS, statRows);
+        // Step 67/68: real team-level totals, one row per side with a
+        // parsed official Totals row (teamTotals[side] is null, not a
+        // fabricated zero-row, when that row didn't parse for a side --
+        // consumers fall back to summing player_game_stats for that game/
+        // team exactly as they did before this round).
+        const teamStatRows = [];
+        for (const side of ['home', 'opponent']) {
+          const t = teamTotals[side];
+          if (!t) continue;
+          const teamId = side === 'home' ? homeTeamId : awayTeamId;
+          teamStatRows.push([
+            game.id, teamId, side, 'fiba-box-score',
+            t.fgm, t.fga, t.two_pm, t.two_pa, t.three_pm, t.three_pa, t.ftm, t.fta,
+            t.oreb, t.dreb, t.reb, t.assists, t.turnovers, t.steals, t.blocks,
+            t.fouls, t.fouls_drawn, t.plus_minus, t.efficiency, t.points,
+            t.teamCoach ? t.teamCoach.oreb : null,
+            t.teamCoach ? t.teamCoach.dreb : null,
+            t.teamCoach ? t.teamCoach.reb : null,
+            t.teamCoach ? t.teamCoach.turnovers : null,
+            t.teamCoach ? t.teamCoach.fouls : null,
+            t.reconciled, t.reconciliationNotes,
+          ]);
+        }
+
+        // Step 61 established this real transaction primitive for
+        // reports.js's own single-report re-upload path (see db/index.js's
+        // transaction()); bulkImport.js's own delete-then-insert never
+        // used it, so a failure between the delete and the insert could
+        // leave this game's real player/team stats half-deleted. Extended
+        // here (Step 67/68) to also cover the new game_team_stats write,
+        // atomically with player_game_stats -- a re-upload replaces both
+        // together or neither.
+        //
+        // game_metrics is deleted here too, unconditionally: a re-upload
+        // changes the real stats game_metrics was computed from (true of
+        // any re-upload, not just this round's own fix), so any
+        // previously-computed row is now stale and must not keep serving
+        // numbers that no longer match what was just written. The next
+        // real /compute call regenerates it fresh from the corrected
+        // totals.
+        await db.transaction(async (tx) => {
+          await tx.prepare('DELETE FROM player_game_stats WHERE game_id = ?').run(game.id);
+          await tx.batchInsert('player_game_stats', PLAYER_GAME_STATS_COLUMNS, statRows);
+          await tx.prepare('DELETE FROM game_team_stats WHERE game_id = ?').run(game.id);
+          await tx.batchInsert('game_team_stats', GAME_TEAM_STATS_COLUMNS, teamStatRows);
+          await tx.prepare('DELETE FROM game_metrics WHERE game_id = ?').run(game.id);
+        });
         entry.playerIdentity = identitySummary;
+        entry.teamStatsReconciled = Object.fromEntries(
+          ['home', 'opponent'].map((side) => [side, teamTotals[side] ? teamTotals[side].reconciled : null]),
+        );
 
         // Replaces entry.additionalReports (previously the raw per-extractor
         // output) with the persistence summary -- {status, rows} per report
