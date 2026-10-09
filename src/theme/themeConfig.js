@@ -96,6 +96,13 @@ export function getRoleTheme(role) {
 export function buildMuiTheme(mode, teamColors) {
   const primary = teamColors?.primary || TEAM_PRESETS.usiu.primary;
   const secondary = teamColors?.secondary || TEAM_PRESETS.usiu.secondary;
+  // Step 70/71: the same opaque surface colour as MuiCard's own base hue
+  // below, just alpha 1 instead of translucent -- never tied to team
+  // colour presets (those only ever tint primary/secondary, never this
+  // surface). Shared by every dropdown override further down so a
+  // Menu/Select, a Popover and an Autocomplete popup all land on the
+  // exact same solid colour instead of three copies that could drift.
+  const opaqueSurface = mode === 'dark' ? 'rgb(17, 24, 39)' : 'rgb(255, 255, 255)';
 
   return {
     palette: {
@@ -132,6 +139,24 @@ export function buildMuiTheme(mode, teamColors) {
           },
         },
       },
+      // Step 70/71: every Menu/Select popup, Popover and Autocomplete
+      // dropdown previously had no background override at all, so each
+      // one silently inherited palette.background.paper above --
+      // deliberately translucent for MuiCard's own glass look (paired
+      // there with a backdrop-filter blur none of these ever had), which
+      // let page content behind a dropdown read straight through its
+      // text. Fixed once here, for every current and future dropdown,
+      // instead of per-instance -- a topbar.jsx-only fix is exactly how
+      // the same bug ended up in six more Selects in
+      // opponent-analysis.jsx. Deliberately scoped to MuiMenu/MuiPopover/
+      // MuiAutocomplete's own `paper` slots specifically, not a MuiPaper-
+      // level override -- MuiCard itself renders through Paper under the
+      // hood, so a MuiPaper override would have silently flattened its
+      // own deliberate translucency too. MuiDialog has its own separate
+      // Paper slot, also untouched.
+      MuiMenu: { styleOverrides: { paper: { backgroundColor: opaqueSurface } } },
+      MuiPopover: { styleOverrides: { paper: { backgroundColor: opaqueSurface } } },
+      MuiAutocomplete: { styleOverrides: { paper: { backgroundColor: opaqueSurface } } },
     },
   };
 }

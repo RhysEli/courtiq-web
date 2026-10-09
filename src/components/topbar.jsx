@@ -117,12 +117,25 @@ function NotificationsMenu({ teamColors }) {
         onClose={closeMenu}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        // Opaque panel background now comes from the theme (MuiMenu's
+        // own styleOverrides, themeConfig.js), not a local override --
+        // Step 71 moved it there so every Menu/Select/Popover/Autocomplete
+        // in the app gets it, not just this one.
         slotProps={{ paper: { sx: { width: 360, maxHeight: 480 } } }}
       >
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, py: 1 }}>
           <Typography fontWeight={700}>Notifications</Typography>
           {items.some((i) => !i.read_at) && (
-            <Button size="small" onClick={handleMarkAllRead} sx={{ color: 'var(--user-accent)' }}>
+            // Step 71: was var(--user-accent) -- every TEAM_PRESETS accent
+            // (themeConfig.js) is a pale/near-white swatch meant as a
+            // foreground drawn ON a solid team-coloured fill elsewhere
+            // (sidebar active-nav, the avatar), not as text on this now-
+            // opaque white/navy panel. Measured: all 5 presets' accent
+            // AND primary both fail WCAG AA (<4.5:1, several near 1:1)
+            // against the light-mode panel -- there's no team colour here
+            // that reads reliably in both modes, so this uses the theme's
+            // own text colour instead (16-18:1 in both modes, every preset).
+            <Button size="small" onClick={handleMarkAllRead} sx={{ color: 'text.primary' }}>
               Mark all read
             </Button>
           )}
