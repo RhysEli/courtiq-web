@@ -4,8 +4,8 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../db');
 const { requireAuth, requireRole, teamHasActiveStatistician } = require('../middleware/auth');
-const { extractBoxScore } = require('../services/pdfExtraction');
 const { parseFileToLines } = require('../services/pdfText');
+const { detectAndParse } = require('../services/statsFormatRegistry');
 const {
   extractQuarterReport,
   extractPlusMinusSummary,
@@ -113,7 +113,11 @@ router.post(
         // re-parsing this same PDF from disk (7 full parses per file),
         // which was the dominant cost in a slow bulk import.
         const lines = await parseFileToLines(file.path);
-        const { players, gameInfo, teamTotals, unparsedLineCount } = await extractBoxScore(file.path, lines);
+        // Step 72: dispatches to whichever registered reader's detect()
+        // recognises this file (see services/statsFormatRegistry.js) --
+        // bulkImport.js no longer calls one format's own extractor
+        // directly, so a future format needs no change here.
+        const { format, gameInfo, teams, unparsed } = await detectAndParse(lines);
 
         if (!gameInfo || !gameInfo.homeTeam || !gameInfo.awayTeam || !gameInfo.matchDate) {
           entry.status = 'failed';
@@ -295,42 +299,55 @@ router.post(
         // re-deciding independently).
         const identitySummary = { linked: 0, created: 0, pendingReview: 0 };
         const statRows = [];
-        for (const p of players) {
-          const playerTeamId = p.team_side === 'home' ? homeTeamId : awayTeamId;
-          const resolution = await resolvePlayerName({
-            teamId: playerTeamId, name: p.player_name, gameId: game.id, reportType: 'Box Score', cache: identityCache,
-          });
-          let playerId = null;
-          if (resolution.status === 'linked') { identitySummary.linked += 1; playerId = resolution.playerId; } else if (resolution.status === 'created') { identitySummary.created += 1; playerId = resolution.playerId; } else if (resolution.status === 'pending_review') {
-            // NULL until a human confirms/rejects the fuzzy match --
-            // confirmReview/rejectReview backfill it onto this exact row
-            // once resolved (matched on game_id + player_name + team_side,
-            // the same shape used everywhere else in this file).
-            identitySummary.pendingReview += 1;
+        let playersExtracted = 0;
+        for (const side of ['home', 'opponent']) {
+          const teamId = side === 'home' ? homeTeamId : awayTeamId;
+          for (const p of teams[side].players) {
+            playersExtracted += 1;
+            // Step 72: every reader's player carries an `identity` field
+            // now, but resolvePlayerName itself is unchanged -- it's still
+            // the only resolution path, and it still only ever sees a name
+            // string. identity.type is always 'full_name' here (the only
+            // type any registered reader produces); a future jersey_code
+            // identity needs its own resolution function, out of this
+            // round's scope.
+            const resolution = await resolvePlayerName({
+              teamId, name: p.identity.name, gameId: game.id, reportType: 'Box Score', cache: identityCache,
+            });
+            let playerId = null;
+            if (resolution.status === 'linked') { identitySummary.linked += 1; playerId = resolution.playerId; } else if (resolution.status === 'created') { identitySummary.created += 1; playerId = resolution.playerId; } else if (resolution.status === 'pending_review') {
+              // NULL until a human confirms/rejects the fuzzy match --
+              // confirmReview/rejectReview backfill it onto this exact row
+              // once resolved (matched on game_id + player_name + team_side,
+              // the same shape used everywhere else in this file).
+              identitySummary.pendingReview += 1;
+            }
+            // raw_extraction keeps the exact same shape as before Step 72
+            // (minus the newly-added `identity` field, which carries no
+            // information `player_name` doesn't already) -- a future reader
+            // whose identity truly can't be reduced to player_name (e.g.
+            // jersey_code) will need to revisit what belongs here.
+            const { identity, ...rawFields } = p;
+            statRows.push([
+              game.id, p.player_name, side, p.minutes, p.points, p.fgm, p.fga,
+              p.three_pm, p.three_pa, p.ftm, p.fta, p.oreb, p.dreb, p.reb,
+              p.assists, p.steals, p.blocks, p.turnovers, p.fouls, p.plus_minus,
+              JSON.stringify(rawFields), playerId,
+            ]);
           }
-          // Identity resolution stays a sequential per-player await (a
-          // later name's exact/fuzzy decision can depend on an alias this
-          // same loop just created) -- only the actual row insert is
-          // collected and batched, once every player's playerId is known.
-          statRows.push([
-            game.id, p.player_name, p.team_side, p.minutes, p.points, p.fgm, p.fga,
-            p.three_pm, p.three_pa, p.ftm, p.fta, p.oreb, p.dreb, p.reb,
-            p.assists, p.steals, p.blocks, p.turnovers, p.fouls, p.plus_minus,
-            JSON.stringify(p), playerId,
-          ]);
         }
         // Step 67/68: real team-level totals, one row per side with a
-        // parsed official Totals row (teamTotals[side] is null, not a
+        // parsed official Totals row (teams[side].totals is null, not a
         // fabricated zero-row, when that row didn't parse for a side --
         // consumers fall back to summing player_game_stats for that game/
         // team exactly as they did before this round).
         const teamStatRows = [];
         for (const side of ['home', 'opponent']) {
-          const t = teamTotals[side];
+          const t = teams[side].totals;
           if (!t) continue;
           const teamId = side === 'home' ? homeTeamId : awayTeamId;
           teamStatRows.push([
-            game.id, teamId, side, 'fiba-box-score',
+            game.id, teamId, side, format,
             t.fgm, t.fga, t.two_pm, t.two_pa, t.three_pm, t.three_pa, t.ftm, t.fta,
             t.oreb, t.dreb, t.reb, t.assists, t.turnovers, t.steals, t.blocks,
             t.fouls, t.fouls_drawn, t.plus_minus, t.efficiency, t.points,
@@ -368,7 +385,7 @@ router.post(
         });
         entry.playerIdentity = identitySummary;
         entry.teamStatsReconciled = Object.fromEntries(
-          ['home', 'opponent'].map((side) => [side, teamTotals[side] ? teamTotals[side].reconciled : null]),
+          ['home', 'opponent'].map((side) => [side, teams[side].totals ? teams[side].totals.reconciled : null]),
         );
 
         // Replaces entry.additionalReports (previously the raw per-extractor
@@ -384,8 +401,8 @@ router.post(
         entry.awayScore = gameInfo.awayScore;
         entry.matchDate = gameInfo.matchDate;
         entry.gameNumber = gameInfo.gameNumber;
-        entry.playersExtracted = players.length;
-        entry.unparsedLineCount = unparsedLineCount;
+        entry.playersExtracted = playersExtracted;
+        entry.unparsedLineCount = unparsed.count;
         entry.reportId = insertReport.lastInsertRowid;
         results.push(entry);
         await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} -> game #${game.id} (${entry.status})`, true);
@@ -395,7 +412,7 @@ router.post(
         await createNotification({
           recipientUserId: req.user.id,
           type: 'report_extracted',
-          message: `Bulk import: "${file.originalname}" was extracted successfully (${players.length} players).`,
+          message: `Bulk import: "${file.originalname}" was extracted successfully (${playersExtracted} players).`,
           reportId: createdReportId,
         });
       } catch (err) {
