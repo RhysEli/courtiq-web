@@ -1,4 +1,5 @@
 const geniusSportsReader = require('./statsFormats/geniusSportsReader');
+const fibaEuropeStatsSuiteReader = require('./statsFormats/fibaEuropeStatsSuiteReader');
 
 // Step 72: the one place that knows which stats-vendor formats this app can
 // read. Every reader exports { id, detect(lines), parse(lines) } and
@@ -9,9 +10,12 @@ const geniusSportsReader = require('./statsFormats/geniusSportsReader');
 // bulkImport.js, no schema change, no change to this file's own dispatch
 // logic.
 //
-// Phase 1 (this round) has exactly one reader. A FIBA Europe Stats Suite
-// reader (or any other format) is explicitly out of scope here.
-const READERS = [geniusSportsReader];
+// Step 74 adds the second reader, FIBA Europe Stats Suite -- registered so
+// the dispatcher can recognise its files, but bulkImport.js stops before
+// writing anything for that format (see its own comment) since identity
+// resolution for that format's three player-identity styles doesn't exist
+// yet.
+const READERS = [geniusSportsReader, fibaEuropeStatsSuiteReader];
 
 // Exactly one registered reader must recognise a file -- never a silent
 // first-match-wins. Zero matches and more than one match are both real,
@@ -20,16 +24,16 @@ function detectAndParse(lines) {
   const matches = READERS.filter((reader) => reader.detect(lines));
 
   if (matches.length === 0) {
-    // Phase 1 has exactly one reader, so this message is verbatim what
-    // extractBoxScore has always thrown when it can't find the two
-    // "Assistant Coach(es):" team-roster sections -- bulk import's real
-    // failure response needs to stay byte-identical to today's. Once a
-    // second reader exists, a zero-match error can no longer name one
-    // specific format's own missing marker as the reason; this needs to
-    // become a genuinely reader-agnostic message then, not before.
+    // Step 74: now that a second reader exists, this can no longer name
+    // one specific format's own missing marker as the reason (that was
+    // true in Phase 1, when a zero-match result could only mean "not
+    // Genius Sports"). Reader-agnostic, naming what every registered
+    // reader actually looked for, so a file that matches neither still
+    // gets a message that reflects reality.
+    const markers = READERS.map((r) => `${r.id} (its own detect())`).join(', ');
     const err = new Error(
-      'Could not find two team roster sections ("Assistant Coach(es):" headers) in this PDF. '
-      + 'This extractor expects the standard FIBA LiveStats Box Score layout.',
+      `Could not recognise this PDF as any supported stats format. Checked: ${markers}. `
+      + 'This extractor expects a standard FIBA LiveStats Box Score layout (Genius Sports or FIBA Europe Stats Suite).',
     );
     err.code = 'EXTRACTION_NO_SECTIONS';
     err.rawTextSample = lines.join('\n').slice(0, 2000);

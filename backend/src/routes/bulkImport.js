@@ -119,6 +119,24 @@ router.post(
         // directly, so a future format needs no change here.
         const { format, gameInfo, teams, unparsed } = await detectAndParse(lines);
 
+        // Step 74: the dispatcher can now recognise a FIBA Europe Stats
+        // Suite file (see statsFormatRegistry.js), but nothing past this
+        // point knows how to resolve its three player-identity styles to a
+        // real player record (see fibaEuropeStatsSuiteReader.js's own
+        // comment) -- resolvePlayerName below has only ever seen a full
+        // name. Rather than feed it a jersey code or an initial+surname and
+        // get a wrong or nonsense match, this format stops here, before
+        // any team/player resolution or write, with an honest message
+        // instead of the generic "format not recognised" one a FIBA Europe
+        // file got before this round (it simply failed detection entirely).
+        if (format === 'fiba-europe-stats-suite') {
+          entry.status = 'failed';
+          entry.error = "This looks like a FIBA Europe Stats Suite file. Import for this format isn't enabled yet.";
+          results.push(entry);
+          await logAction(req.user.id, 'upload', `Bulk import: ${file.originalname} (FIBA Europe Stats Suite not enabled)`, false);
+          continue;
+        }
+
         if (!gameInfo || !gameInfo.homeTeam || !gameInfo.awayTeam || !gameInfo.matchDate) {
           entry.status = 'failed';
           entry.error = 'Could not read team names and date from this PDF\'s header. '
